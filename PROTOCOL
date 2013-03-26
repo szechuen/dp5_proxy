@@ -1,0 +1,402 @@
+This is a description of the DP5 protocol.  Lines not starting with :
+give the generalized (parameterized) protocol.  Lines starting with :
+give specific values for the parameters used in our implementation.
+
+The protocol is configured for a maximum number of clients MAX_CLIENTS,
+each with a maximum number of buddies MAX_BUDDIES.  Changing MAX_BUDDIES
+requires telling the new value to all clients.  Changing MAX_CLIENTS
+only requires telling the new value to the registration server.
+
+: MAX_CLIENTS = 1000
+: MAX_BUDDIES = 100
+
+The players in this protocol are clients (up to MAX_CLIENTS of them),
+one registration server, and NUM_PIRSERVERS PIR servers.
+
+: NUM_PIRSERVERS = 5
+
+1. Keys
+
+Private keys are strings of PRIVKEY_BYTES bytes; public keys are strings
+of PUBKEY_BYTES bytes.  The public keys represent elements of a group G
+in which the Decision Diffie Hellman problem is hard; the private keys
+represent integers mod ord(G).
+
+: PRIVKEY_BYTES = PUBKEY_BYTES = 32
+: Private keys and public keys are constructed according to
+:   curve25519_donna
+: The security level is about \sqrt{ord(G)}. If the private keys are
+: represented without too much redundancy (as with curve25519_donna),
+: then the security level is about 2^{4*PRIVKEY_BYTES}.
+
+We assume all clients know all of their buddies' public keys, and their
+own private keys.  How they learn this is out of scope for this
+protocol.
+
+2. Registration protocol
+
+Time is divided into epochs of length EPOCH_LEN seconds.
+
+: EPOCH_LEN = 1800 (30 minutes)
+
+Clients who register as online during one epoch will appear online to
+their buddies during the *next* epoch.
+
+The "current epoch number" is floor(current_time / EPOCH_LEN), where
+"current_time" is the Unix time.
+
+The type Epoch is a 4-byte big-endian unsigned integer representing an
+epoch number.
+
+CLIENT:
+
+Upon user input that the client is online:
+
+a. Each client creates a list of the public keys of his buddies (whom he
+wants to tell he is online).  Let the number of buddies be num_buddies.
+
+b. For each public key P_i in the list, he combines it with his own
+private key to form a Diffie-Hellman shared secret s_i. (1 <= i <=
+num_buddies)
+
+c. Express the next epoch number = (current epoch number + 1) as a
+4-byte big-endian unsigned integer E.
+
+d. Each s_i is hashed along with E to produce the key K_i = H_1(E, s_i)
+of size SHAREDKEY_BYTES bytes.
+
+: SHAREDKEY_BYTES = 10
+: H_1(E, s) = SHA-256(E || s) truncated to SHAREDKEY_BYTES bytes
+: Note that we must have that 16^{SHAREDKEY_BYTES} >>
+: MAX_BUDDIES*MAX_CLIENTS
+
+e. The client must attach DATAPLAIN_BYTES bytes of associated data to
+each buddy notification (for example, how to reach him; the exact
+contents and format of the associated data is left to the application,
+and is out of scope of this protocol).  Let D_i be the plaintext for
+buddy i.  Compute the data key DK_i = H_2(E, s_i), which is of length
+DATAKEY_BYTES bytes.
+
+: DATAPLAIN_BYTES = 16
+: DATAKEY_BYTES = 16
+: H_2(E, s) = the last 16 bytes of SHA-256(E || s)
+
+f. Encrypt the data for each buddy i as ED_i = Enc_{DK_i}(D_i) producing
+a ciphertext of length DATAENC_BYTES bytes.
+
+: DATAENC_BYTES = 16
+: Enc_k(x) = AES-128_k(x)
+
+g. For num_buddies < i <= MAX_BUDDIES, set K_i to a random
+SHAREDKEY_BYTES byte string and ED_i to a random DATAENC_BYTES byte
+string.
+
+h. Sort the array [K_1||ED_1, ..., K_{MAX_BUDDIES}||ED_{MAX_BUDDIES}]
+and concatenate the elements of the result to yield sharedkeys.  Send
+sharedkeys to the registration server.
+
+C->R: Byte[(SHAREDKEY_BYTES+DATAENC_BYTES)*MAX_BUDDIES] sharedkeys
+
+The following is out of scope for this protocol, but is a recommendation
+to the implementor of the higher-level communication protocol: The
+communication in the above step MAY be authenticated, either with an
+explicit login, or with an anonymous credential that can be shown only
+once in each epoch.  Clients SHOULD NOT execute the registration
+protocol more than once in a given epoch.  Servers SHOULD reject clients
+who attempt to execute the registration protocol more than once in a
+given epoch.
+
+REGISTRATION SERVER:
+
+The server maintains a registration file corresponding to each epoch.
+
+Upon receiving data from the client:
+
+a. The registration server receives the data from the client, and
+   divides it into chunks of (SHAREDKEY_BYTES+DATAENC_BYTES) bytes.
+
+b. The server stores the chunks in the registration file for the *next*
+   epoch (the current epoch number, plus one = next_epoch).  Set the
+   byte err to 0 if no error occurred during the write to the file, or
+   non-0 if an error occurred.  The non-0 value MAY indicate what the
+   error was.
+
+R->C: Byte err
+      Epoch next_epoch
+
+CLIENT:
+
+Upon receiving a reply from the server:
+
+a. If err == 0, report success to the user, and inform the user that he
+   will be visible on line at the beginning of epoch next_epoch
+   (converted to a human-readable date and time).  If err != 0, report
+   failure to the user.
+
+REGISTRATION SERVER:
+
+Upon an epoch boundary time signal:
+
+current_epoch is the new current epoch.  Registration file current_epoch
+contains the shared keys that will be served during this epoch.
+
+a. Create an empty epoch file current_epoch+1.
+
+b. Read the epoch file current_epoch to retrieve the list of shared keys
+   and associated data that were uploaded by clients during the previous
+   epoch.  Remove duplicate keys from the list, resulting in num_keys
+   unique shared keys and associated encrypted data
+   (K_1,ED_1),...,(K_{num_keys|,ED_{num_keys})
+
+c. Compute the number of PRF buckets
+   num_buckets = ceil(sqrt(max(num_keys, MAX_CLIENTS * MAX_BUDDIES) *
+                           (SHAREDKEY_BYTES + DATAENC_BYTES) *
+			   PIR_WORDS_PER_BYTE))
+
+: PIR_WORDS_PER_BYTE is 8 if we're using Chor et al.'s simple PIR, or 1
+: if we're using Goldberg's PIR.
+: For our parameters, num_buckets = 4561 for Chor et al.'s PIR, or 1613
+: for Goldberg's PIR, unless num_keys > 100,000.
+
+d. Let M be a pseudorandom function family with keys being PRFKEY_BYTES
+   byte strings and codomain {0,1,2,..,num_buckets-1}.
+
+: We set PRFKEY_BYTES = 8 and M_k(x) to be computed as follows:
+:    - Compute T = HMAC-SHA-256_k(x)
+:    - Treat the first 8 bytes of T as a little-endian 64-bit unsigned
+:      integer T_int
+:    - Output T_int mod num_buckets
+
+e. Now we are going to use M to partition the (key,data) pairs into
+   buckets.  By Chernoff bounds, we expect that with reasonable
+   probability, putting m*k items randomly into k buckets will have the
+   largest bucket no larger than m+sqrt(m).  So we make NUM_MAC_ITERS
+   random partitions and keep the one with the smallest largest bucket:
+
+: NUM_MAC_ITERS = 10
+
+   Set best_prfkey = NULL and best_size = num_keys+1
+
+   For iter from 1 to NUM_PRF_ITERS:
+
+      Initialize unsigned long count[num_buckets] to all 0s.
+      Initialize largest_bucket_size = 0.
+
+      Pick a random PRFKEY_BYTES byte key prfkey.
+
+      For k from 1 to num_keys:
+        bucket = M_prfkey(K_k)
+	count[bucket] += 1
+	if (count[bucket] > largest_bucket_size) {
+	    largest_bucket_size = count[bucket]
+	    if (largest_bucket_size >= best_size) {
+		continue to next iteration of "iter" loop
+	    }
+	}
+
+      best_prfkey = prfkey
+      best_size = largest_bucket_size
+
+f. Allocate num_buckets buckets, each of size
+   best_size * (SHAREDKEY_BYTES + DATAENC_BYTES) bytes.
+   For k from 1 to num_keys:
+     bucket_num = M_{best_prfkey}(K_k)
+     Append (K_k,ED_k) to bucket bucket_num
+
+   Sort the (K_k,ED_k) elements within each bucket according to K_k.
+
+   Fill any unused space in any bucket with bytes of 0xff.
+
+g. We will create a data file and a metadata file for the current epoch.
+   The datatype UInt denotes a UINT_BYTES byte big-endian unsigned
+   integer.
+
+: UINT_BYTES = 2
+
+   Write the following to the metadata file:
+
+   Byte[PRFKEY_BYTES] best_prfkey
+   UInt num_buckets
+   UInt best_size
+
+   Write to the data file the (num_buckets * best_size *
+   (SHAREDKEY_BYTES + DATAENC_BYTES)) bytes resulting from concatenating
+   the num_buckets buckets.
+
+h. Distribute the data file and the metadata file to the PIR servers,
+   labelled with the current epoch number.  The distribution mechanism
+   is outside the scope of this protocol, but it does not need to be
+   confidential, as the contents of the data and metadata files can be
+   considered public.
+
+i. Delete the registration file for the current epoch.
+
+3. Lookup protocol
+
+CLIENT:
+
+Upon user input that a client wishes to determine whether some number
+(num_queries) of his buddies are online (technically, are online and
+choosing to inform the client of that fact):
+   
+a. Compute the current epoch number current_epoch as above.  The client
+   sends current_epoch to any PIR server to retrieve the current epoch
+   metadata file.
+   
+C->P: Byte 0xff
+      Epoch current_epoch
+
+PIR SERVER:
+
+Upon receiving a request for a metadata file:
+
+a. Parse the 5-byte message to yield the requested epoch number.  If
+   the first byte is not 0xff or this is not the current epoch number
+   current_epoch, return the following message to the client:
+
+P->C: Byte 0x00
+      Epoch current_epoch
+
+b. If the requested epoch is the current epoch, return the current
+   epoch's metadata file to the client:
+
+P->C: Byte METADATA_VERSION
+      Epoch current_epoch
+      Byte[PRFKEY_BYTES] prfkey
+      UInt num_buckets
+      UInt bucket_size
+
+: METADATA_VERSION = 0x01
+: Note that if PRFKEY_BYTES, SHAREDKEY_BYTES, DATAENC_BYTES, or
+: UINT_BYTES change, or the definitions of H_1, H_2, M, or Enc change,
+: METADATA_VERSION will need to change.
+
+CLIENT:
+
+Upon receiving a response to a metadata file request:
+ 
+a. If the first byte of the response is 0x00, report an error to the
+   user, and abort the protocol.  If the first byte is not the expected
+   METADATA_VERSION, report an error to the user, and abort the
+   protocol.
+
+b. Otherwise, parse the above message to obtain values of prfkey,
+   num_buckets, and bucket_size.
+
+c. Express the current epoch number as a 4-byte big-endian unsigned
+   integer E.  The client computes the Diffie-Hellman shared secrets s_i
+   by combining his own private key with each of his buddy's public
+   keys (1 <= i <= num_queries).
+
+d. Produce the shared keys K_i = H_1(E, s_i) of size SHAREDKEY_BYTES
+   bytes and apply the PRF to each to produce the bucket numbers
+   B_i = M_prfkey(K_i).  Also produce the associated data keys
+   DK_i = H_2(E, s_i).
+
+e. Construct the set B = {B_1, ..., B_{num_queries}} (removing duplicates).
+   Let |B| be the number of unique elements of B.  Find the smallest element
+   of QUERY_SIZES (the set of allowed query sizes) that is greater than
+   or equal to |B|.  Let this value be buckets_to_query.
+
+: QUERY_SIZES = {1, MAX_BUDDIES}
+
+f. Figure out if it is better to do PIR, or to download the whole data
+   file: if NUM_PIRSERVERS * ( (num_buckets / PIR_WORDS_PER_BYTE) +
+   (bucket_size * (SHAREDKEY_BYTES + DATAENC_BYTES)) ) * buckets_to_query
+   < num_buckets * bucket_size * (SHAREDKEY_BYTES + DATAENC_BYTES) then
+   perform step g below; otherwise, perform step h.
+
+g. (Using PIR to retrieve the desired buckets.)  Construct a vector Q of
+   length buckets_to_query, consisting of the (unique) elements of B,
+   followed by (buckets_to_query - |B|) arbitrary elements of {0, 1, 2,
+   ..., num_buckets-1}.  Pass NUM_PIRSERVERS, Q, num_buckets,
+   bucket_size * (SHAREDKEY_BYTES + DATAENC_BYTES), and PRIVACY_LEVEL to
+   Percy++ to produce the NUM_PIRSERVERS queries Q_1, ...,
+   Q_{NUM_PIRSERVERS}.  For each 1 <= j <= NUM_PIRSERVERS, send query
+   Q_j to PIR server j:
+
+C->P_j: Byte 0xfe
+        Epoch current_epoch
+	Byte[] Q_j
+
+    Do not perform step h.
+
+: PRIVACY_LEVEL = 2
+: PRIVACY_LEVEL is the number of PIR servers that can collude without
+: revealing the client's queries.  You must have 0 < PRIVACY_LEVEL <
+: NUM_PIRSERVERS.  For added robustness and Byzantine robustness, have 
+: PRIVACY_LEVEL a little smaller than that.
+
+h. (Downloading the entire data file.)  Send the following message to an
+   arbitrary PIR server:
+
+C->P: Byte 0xfd
+      Epoch current_epoch
+
+PIR SERVER:
+
+Upon receiving a PIR query from a client:
+
+a. Check that the first byte is 0xfe, and the next four bytes encode the
+   current epoch.  If not, return the following message to the client:
+
+P->C: Byte 0x80
+      Epoch current_epoch
+
+b. If the first five bytes are as expected, pass the remainder of the
+   message as a client query to Percy++, operating on the current
+   epoch's data file.  Let the response be resp.  Send the following
+   message to the client:
+
+P->C: Byte 0x81
+      Epoch current_epoch
+      Byte[] resp
+
+Upon receiving a data file download request from a client:
+
+a. Check that the first byte is 0xfd, and the next four bytes encode the
+   current epoch.  If not, return the following message to the client:
+
+P->C: Byte 0x80
+      Epoch current_epoch
+
+b. If the first five bytes are as expected, let the contents of the
+   current epoch's data file be data_file.  Send the following message
+   to the client:
+
+P->C: Byte 0x82
+      Epoch current_epoch
+      Byte[] data_file
+
+CLIENT:
+
+Upon receiving a response from a PIR server:
+
+a. Check the first five bytes of the response.  If the first byte is not
+   0x81 or 0x82, or if the next four bytes do not encode the epoch
+   number in the request, report an error to the user, and abort the
+   protocol.
+
+b. If the first byte was 0x81, store the resp portion of the result
+   until you have PRIVACY_LEVEL+1 PIR server responses.  Once that
+   happens, hand those responses to Percy++, which will return the
+   contents of buckets_to_query buckets in response, corresponding to
+   the elements of Q.
+
+c. If the first byte of the received message was 0x82, extract the
+   contents of the desired buckets: the contents of bucket i are bytes
+   (i-1)*(bucket_size*(SHAREDKEY_BYTES + DATAENC_BYTES) through
+   i*(bucket_size*(SHAREDKEY_BYTES + DATAENC_BYTES) - 1 of data_file
+   (counting from 0).
+
+d. Now for each of the shared keys K_i (1 <= i <= num_queries), look for
+   K_i in bucket B_i = M_prfkey(K_i) using binary search on the
+   (K_k,ED_k) pairs.  If it is not present, the buddy corresponding to
+   K_i is not reporting to this client that he is online.  If it is
+   present, then use the DK_i computed earlier to decrypt
+   D_i = Dec_{DK_i}(ED_i).  If D_i = \bottom (the decryption fails), the
+   buddy is not reporting to this client that he is online (the K_k
+   match was a false positive).  Otherwise, the buddy is online, and D_i
+   is the associated data.
+
+: Dec_k(x) = AES-128^{-1}_k(x)
