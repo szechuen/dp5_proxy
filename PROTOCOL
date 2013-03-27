@@ -66,7 +66,7 @@ d. Each s_i is hashed along with E to produce the key K_i = H_1(E, s_i)
 of size SHAREDKEY_BYTES bytes.
 
 : SHAREDKEY_BYTES = 10
-: H_1(E, s) = SHA-256(E || s) truncated to SHAREDKEY_BYTES bytes
+: H_1(E, s) = SHA-256(0x00 || E || s) truncated to SHAREDKEY_BYTES bytes
 : Note that we must have that 16^{SHAREDKEY_BYTES} >>
 : MAX_BUDDIES*MAX_CLIENTS
 
@@ -79,7 +79,7 @@ DATAKEY_BYTES bytes.
 
 : DATAPLAIN_BYTES = 16
 : DATAKEY_BYTES = 16
-: H_2(E, s) = the last 16 bytes of SHA-256(E || s)
+: H_2(E, s) = the last 16 bytes of SHA-256(0x00 || E || s)
 
 f. Encrypt the data for each buddy i as ED_i = Enc_{DK_i}(D_i) producing
 a ciphertext of length DATAENC_BYTES bytes.
@@ -121,7 +121,7 @@ b. Express the current epoch number as a 4-byte big-endian unsigned
    HASHKEY_BYTES bytes.
 
 : HASHKEY_BYTES = 10
-: H_3(E, x) = the first HASHKEY_BYTES of SHA-256(E || x)
+: H_3(E, x) = the first HASHKEY_BYTES of SHA-256(0x01 || E || x)
 
 c. The server stores chunks (HK_i,ED_i) of size
    (HASHKEY_BYTES+DATAENC_BYTES) in the registration file for the *next*
