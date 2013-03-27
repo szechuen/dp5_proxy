@@ -162,7 +162,7 @@ d. Let M be a pseudorandom function family with keys being PRFKEY_BYTES
    byte strings and codomain {0,1,2,..,num_buckets-1}.
 
 : We set PRFKEY_BYTES = 8 and M_k(x) to be computed as follows:
-:    - Compute T = HMAC-SHA-256_k(x)
+:    - Compute T = SHA-256(k || x)
 :    - Treat the first 8 bytes of T as a little-endian 64-bit unsigned
 :      integer T_int
 :    - Output T_int mod num_buckets
