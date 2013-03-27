@@ -115,7 +115,16 @@ Upon receiving data from the client:
 a. The registration server receives the data from the client, and
    divides it into chunks of (SHAREDKEY_BYTES+DATAENC_BYTES) bytes.
 
-b. The server stores the chunks in the registration file for the *next*
+b. Express the current epoch number as a 4-byte big-endian unsigned
+   integer E.  For each (K_i,ED_i) chunk received from the client, hash
+   E with each key to produce the hashed key HK_i = H_3(E, K_i), of size
+   HASHKEY_BYTES bytes.
+
+: HASHKEY_BYTES = 10
+: H_3(E, x) = the first HASHKEY_BYTES of SHA-256(E || x)
+
+c. The server stores chunks (HK_i,ED_i) of size
+   (HASHKEY_BYTES+DATAENC_BYTES) in the registration file for the *next*
    epoch (the current epoch number, plus one = next_epoch).  Set the
    byte err to 0 if no error occurred during the write to the file, or
    non-0 if an error occurred.  The non-0 value MAY indicate what the
@@ -142,15 +151,15 @@ contains the shared keys that will be served during this epoch.
 
 a. Create an empty epoch file current_epoch+1.
 
-b. Read the epoch file current_epoch to retrieve the list of shared keys
+b. Read the epoch file current_epoch to retrieve the list of hashed keys
    and associated data that were uploaded by clients during the previous
-   epoch.  Remove duplicate keys from the list, resulting in num_keys
-   unique shared keys and associated encrypted data
-   (K_1,ED_1),...,(K_{num_keys|,ED_{num_keys})
+   epoch.  Remove duplicate hashed keys from the list, resulting in
+   num_keys unique hashed keys and associated encrypted data
+   (HK_1,ED_1),...,(HK_{num_keys|,ED_{num_keys})
 
 c. Compute the number of PRF buckets
    num_buckets = ceil(sqrt(max(num_keys, MAX_CLIENTS * MAX_BUDDIES) *
-                           (SHAREDKEY_BYTES + DATAENC_BYTES) *
+                           (HASHKEY_BYTES + DATAENC_BYTES) *
 			   PIR_WORDS_PER_BYTE))
 
 : PIR_WORDS_PER_BYTE is 8 if we're using Chor et al.'s simple PIR, or 1
@@ -167,8 +176,8 @@ d. Let M be a pseudorandom function family with keys being PRFKEY_BYTES
 :      integer T_int
 :    - Output T_int mod num_buckets
 
-e. Now we are going to use M to partition the (key,data) pairs into
-   buckets.  By Chernoff bounds, we expect that with reasonable
+e. Now we are going to use M to partition the (hashedkey,data) pairs
+   into buckets.  By Chernoff bounds, we expect that with reasonable
    probability, putting m*k items randomly into k buckets will have the
    largest bucket no larger than m+sqrt(m).  So we make NUM_MAC_ITERS
    random partitions and keep the one with the smallest largest bucket:
@@ -185,7 +194,7 @@ e. Now we are going to use M to partition the (key,data) pairs into
       Pick a random PRFKEY_BYTES byte key prfkey.
 
       For k from 1 to num_keys:
-        bucket = M_prfkey(K_k)
+        bucket = M_prfkey(HK_k)
 	count[bucket] += 1
 	if (count[bucket] > largest_bucket_size) {
 	    largest_bucket_size = count[bucket]
@@ -198,7 +207,7 @@ e. Now we are going to use M to partition the (key,data) pairs into
       best_size = largest_bucket_size
 
 f. Allocate num_buckets buckets, each of size
-   best_size * (SHAREDKEY_BYTES + DATAENC_BYTES) bytes.
+   best_size * (HASHKEY_BYTES + DATAENC_BYTES) bytes.
    For k from 1 to num_keys:
      bucket_num = M_{best_prfkey}(K_k)
      Append (K_k,ED_k) to bucket bucket_num
@@ -220,7 +229,7 @@ g. We will create a data file and a metadata file for the current epoch.
    UInt best_size
 
    Write to the data file the (num_buckets * best_size *
-   (SHAREDKEY_BYTES + DATAENC_BYTES)) bytes resulting from concatenating
+   (HASHKEY_BYTES + DATAENC_BYTES)) bytes resulting from concatenating
    the num_buckets buckets.
 
 h. Distribute the data file and the metadata file to the PIR servers,
@@ -267,9 +276,9 @@ P->C: Byte METADATA_VERSION
       UInt bucket_size
 
 : METADATA_VERSION = 0x01
-: Note that if PRFKEY_BYTES, SHAREDKEY_BYTES, DATAENC_BYTES, or
-: UINT_BYTES change, or the definitions of H_1, H_2, M, or Enc change,
-: METADATA_VERSION will need to change.
+: Note that if PRFKEY_BYTES, SHAREDKEY_BYTES, HASHKEY_BYTES,
+: DATAENC_BYTES, or UINT_BYTES change, or the definitions of H_1, H_2,
+: M, or Enc change, METADATA_VERSION will need to change.
 
 CLIENT:
 
@@ -289,8 +298,9 @@ c. Express the current epoch number as a 4-byte big-endian unsigned
    keys (1 <= i <= num_queries).
 
 d. Produce the shared keys K_i = H_1(E, s_i) of size SHAREDKEY_BYTES
-   bytes and apply the PRF to each to produce the bucket numbers
-   B_i = M_prfkey(K_i).  Also produce the associated data keys
+   bytes, hash them to produce HK_i = H_3(E, s_i) of size HASHKEY_BYTES
+   and apply the PRF to each to produce the bucket numbers B_i =
+   M_prfkey(HK_i).  Also produce the associated data keys
    DK_i = H_2(E, s_i).
 
 e. Construct the set B = {B_1, ..., B_{num_queries}} (removing duplicates).
@@ -302,15 +312,15 @@ e. Construct the set B = {B_1, ..., B_{num_queries}} (removing duplicates).
 
 f. Figure out if it is better to do PIR, or to download the whole data
    file: if NUM_PIRSERVERS * ( (num_buckets / PIR_WORDS_PER_BYTE) +
-   (bucket_size * (SHAREDKEY_BYTES + DATAENC_BYTES)) ) * buckets_to_query
-   < num_buckets * bucket_size * (SHAREDKEY_BYTES + DATAENC_BYTES) then
+   (bucket_size * (HASHKEY_BYTES + DATAENC_BYTES)) ) * buckets_to_query
+   < num_buckets * bucket_size * (HASHKEY_BYTES + DATAENC_BYTES) then
    perform step g below; otherwise, perform step h.
 
 g. (Using PIR to retrieve the desired buckets.)  Construct a vector Q of
    length buckets_to_query, consisting of the (unique) elements of B,
    followed by (buckets_to_query - |B|) arbitrary elements of {0, 1, 2,
    ..., num_buckets-1}.  Pass NUM_PIRSERVERS, Q, num_buckets,
-   bucket_size * (SHAREDKEY_BYTES + DATAENC_BYTES), and PRIVACY_LEVEL to
+   bucket_size * (HASHKEY_BYTES + DATAENC_BYTES), and PRIVACY_LEVEL to
    Percy++ to produce the NUM_PIRSERVERS queries Q_1, ...,
    Q_{NUM_PIRSERVERS}.  For each 1 <= j <= NUM_PIRSERVERS, send query
    Q_j to PIR server j:
@@ -385,17 +395,17 @@ b. If the first byte was 0x81, store the resp portion of the result
 
 c. If the first byte of the received message was 0x82, extract the
    contents of the desired buckets: the contents of bucket i are bytes
-   (i-1)*(bucket_size*(SHAREDKEY_BYTES + DATAENC_BYTES) through
-   i*(bucket_size*(SHAREDKEY_BYTES + DATAENC_BYTES) - 1 of data_file
+   (i-1)*(bucket_size*(HASHKEY_BYTES + DATAENC_BYTES) through
+   i*(bucket_size*(HASHKEY_BYTES + DATAENC_BYTES) - 1 of data_file
    (counting from 0).
 
-d. Now for each of the shared keys K_i (1 <= i <= num_queries), look for
-   K_i in bucket B_i = M_prfkey(K_i) using binary search on the
-   (K_k,ED_k) pairs.  If it is not present, the buddy corresponding to
+d. Now for each of the hashed keys HK_i (1 <= i <= num_queries), look
+   for HK_i in bucket B_i = M_prfkey(HK_i) using binary search on the
+   (HK_k,ED_k) pairs.  If it is not present, the buddy corresponding to
    K_i is not reporting to this client that he is online.  If it is
    present, then use the DK_i computed earlier to decrypt
    D_i = Dec_{DK_i}(ED_i).  If D_i = \bottom (the decryption fails), the
-   buddy is not reporting to this client that he is online (the K_k
+   buddy is not reporting to this client that he is online (the HK_k
    match was a false positive).  Otherwise, the buddy is online, and D_i
    is the associated data.
 
