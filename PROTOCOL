@@ -179,10 +179,10 @@ d. Let M be a pseudorandom function family with keys being PRFKEY_BYTES
 e. Now we are going to use M to partition the (hashedkey,data) pairs
    into buckets.  By Chernoff bounds, we expect that with reasonable
    probability, putting m*k items randomly into k buckets will have the
-   largest bucket no larger than m+sqrt(m).  So we make NUM_MAC_ITERS
+   largest bucket no larger than m+sqrt(m).  So we make NUM_PRF_ITERS
    random partitions and keep the one with the smallest largest bucket:
 
-: NUM_MAC_ITERS = 10
+: NUM_PRF_ITERS = 10
 
    Set best_prfkey = NULL and best_size = num_keys+1
 
