@@ -55,6 +55,13 @@ public:
     // The length of a byte-array version of an epoch number
     static const unsigned int EPOCH_BYTES = 4;
 
+    // Constructor, which may do things like seed the PRNG
+    DP5Params();
+
+    // Place num_bytes random bytes into buf.  This is not static, so that
+    // the PRNG can keep state if necessary
+    void random_bytes(unsigned char *buf, unsigned int num_bytes);
+
     // Hash function H_1 consumes an epoch (of size EPOCH_BYTES bytes)
     // and a Diffie-Hellman output (of size PUBKEY_BYTES) and produces
     // a hash value of size SHAREDKEY_BYTES bytes.  H_2 consumes the
@@ -112,6 +119,9 @@ public:
     static int Dec(unsigned char plaintext[DATAPLAIN_BYTES],
 	const unsigned char enckey[DATAKEY_BYTES],
 	const unsigned char ciphertext[DATAENC_BYTES]);
+
+    // Destructor, if necessary
+    ~DP5Params();
 };
 
 #endif
