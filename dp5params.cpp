@@ -9,6 +9,7 @@
 
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include <openssl/aes.h>
 
 #include "dp5params.h"
 
@@ -139,6 +140,36 @@ unsigned int DP5Params::PRF::M(const unsigned char x[HASHKEY_BYTES])
 
     uint64_t outint = *(uint64_t *)shaout;
     return outint % _num_buckets;
+}
+
+// Encryption and decryption of associated data
+// Each (small) piece of associated data is encrypted with a
+// different key, so keeping key state is unnecessary.
+
+// Encrypt using a key of size DATAKEY_BYTES bytes a plaintext of size
+// DATAPLAIN_BYTES bytes to yield a ciphertext of size DATAENC_BYTES
+// bytes.
+void DP5Params::Enc(unsigned char ciphertext[DATAENC_BYTES],
+    const unsigned char enckey[DATAKEY_BYTES],
+    const unsigned char plaintext[DATAPLAIN_BYTES])
+{
+    AES_KEY aeskey;
+    AES_set_encrypt_key(enckey, 8*DATAKEY_BYTES, &aeskey);
+    AES_encrypt(plaintext, ciphertext, &aeskey);
+}
+
+// Decrypt using a key of size DATAKEY_BYTES bytes a ciphertext of
+// size DATAENC_BYTES bytes to yield a plaintext of size
+// DATAPLAIN_BYTES.  Return 0 if the decryption was successful, -1
+// otherwise.
+int DP5Params::Dec(unsigned char plaintext[DATAPLAIN_BYTES],
+    const unsigned char enckey[DATAKEY_BYTES],
+    const unsigned char ciphertext[DATAENC_BYTES])
+{
+    AES_KEY aeskey;
+    AES_set_decrypt_key(enckey, 8*DATAKEY_BYTES, &aeskey);
+    AES_decrypt(ciphertext, plaintext, &aeskey);
+    return 0;
 }
 
 #ifdef TEST_DH
@@ -273,3 +304,69 @@ int main(int argc, char **argv)
     return 0;
 }
 #endif // TEST_PRF
+
+#ifdef TEST_ENC
+#include <stdio.h>
+
+static void dump(const char *prefix, const unsigned char *data,
+    size_t len) 
+{
+    if (prefix) {
+	printf("%s: ", prefix);
+    }
+    for (size_t i=0; i<len; ++i) {
+	printf("%02x", data[i]);
+    }
+    printf("\n");
+}
+
+int main(int argc, char **argv)
+{
+    DP5Params dp5;
+
+    unsigned char key1[dp5.DATAKEY_BYTES];
+    unsigned char key2[dp5.DATAKEY_BYTES];
+
+    dp5.random_bytes(key1, dp5.DATAKEY_BYTES);
+    dp5.random_bytes(key2, dp5.DATAKEY_BYTES);
+    dump("Key 1  ", key1, dp5.DATAKEY_BYTES);
+    dump("Key 2  ", key2, dp5.DATAKEY_BYTES);
+
+    unsigned char plain1[dp5.DATAPLAIN_BYTES];
+    unsigned char plain2[dp5.DATAPLAIN_BYTES];
+    for (unsigned int i=0; i<dp5.DATAPLAIN_BYTES; ++i) {
+	plain1[i] = 'A' + i;
+	plain2[i] = '0' + i;
+    }
+    dump("\nPlain 1", plain1, dp5.DATAPLAIN_BYTES);
+    dump("Plain 2", plain2, dp5.DATAPLAIN_BYTES);
+
+    unsigned char cipher11[dp5.DATAENC_BYTES];
+    unsigned char cipher12[dp5.DATAENC_BYTES];
+    unsigned char cipher21[dp5.DATAENC_BYTES];
+    unsigned char cipher22[dp5.DATAENC_BYTES];
+    dp5.Enc(cipher11, key1, plain1);
+    dp5.Enc(cipher12, key1, plain2);
+    dp5.Enc(cipher21, key2, plain1);
+    dp5.Enc(cipher22, key2, plain2);
+    dump("\nCip 1/1", cipher11, dp5.DATAENC_BYTES);
+    dump("Cip 1/2", cipher12, dp5.DATAENC_BYTES);
+    dump("Cip 2/1", cipher21, dp5.DATAENC_BYTES);
+    dump("Cip 2/2", cipher22, dp5.DATAENC_BYTES);
+
+    unsigned char dec11[dp5.DATAPLAIN_BYTES];
+    unsigned char dec12[dp5.DATAPLAIN_BYTES];
+    unsigned char dec21[dp5.DATAPLAIN_BYTES];
+    unsigned char dec22[dp5.DATAPLAIN_BYTES];
+    int res11 = dp5.Dec(dec11, key1, cipher11);
+    int res12 = dp5.Dec(dec12, key1, cipher12);
+    int res21 = dp5.Dec(dec21, key2, cipher21);
+    int res22 = dp5.Dec(dec22, key2, cipher22);
+    printf("\n(%d) ", res11); dump("Dec 1/1", dec11, dp5.DATAPLAIN_BYTES);
+    printf("(%d) ", res12); dump("Dec 1/2", dec12, dp5.DATAPLAIN_BYTES);
+    printf("(%d) ", res21); dump("Dec 2/1", dec21, dp5.DATAPLAIN_BYTES);
+    printf("(%d) ", res22); dump("Dec 2/2", dec22, dp5.DATAPLAIN_BYTES);
+
+    return 0;
+}
+#endif // TEST_ENC
