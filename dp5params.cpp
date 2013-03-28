@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdint.h>
 
 #include <stdexcept>
 
@@ -111,6 +112,35 @@ void DP5Params::H3(unsigned char H3_out[HASHKEY_BYTES],
     memmove(H3_out, shaout, HASHKEY_BYTES);
 }
 
+// Pseudorandom functions
+// The constuctor consumes a key of size PRFKEY_BYTES bytes and
+// a number of buckets (the size of the codomain of the function)
+DP5Params::PRF::PRF(const unsigned char prfkey[PRFKEY_BYTES],
+    unsigned int num_buckets)
+{
+    memmove(_prfkey, prfkey, PRFKEY_BYTES);
+    _num_buckets = num_buckets;
+    if (_num_buckets < 1) {
+	_num_buckets = 1;
+    }
+}
+
+// The pseudorandom function M consumes values of size
+// HASHKEY_BYTES bytes, and produces values in
+// {0,1,...,num_buckets-1}
+unsigned int DP5Params::PRF::M(const unsigned char x[HASHKEY_BYTES])
+{
+    unsigned char shaout[SHA256_DIGEST_LENGTH];
+    SHA256_CTX hash;
+    SHA256_Init(&hash);
+    SHA256_Update(&hash, _prfkey, PRFKEY_BYTES);
+    SHA256_Update(&hash, x, HASHKEY_BYTES);
+    SHA256_Final(shaout, &hash);
+
+    uint64_t outint = *(uint64_t *)shaout;
+    return outint % _num_buckets;
+}
+
 #ifdef TEST_DH
 #include <stdio.h>
 
@@ -207,3 +237,39 @@ int main(int argc, char **argv)
     return 0;
 }
 #endif // TEST_HASHES
+
+#ifdef TEST_PRF
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char **argv)
+{
+    DP5Params dp5;
+    unsigned int num_buckets = (argc > 1 ? atoi(argv[1]) : 10);
+
+    const unsigned int num_prfs = 5;
+    DP5Params::PRF *prfs[num_prfs];
+
+    for (unsigned int i=0; i<num_prfs; ++i) {
+	unsigned char key[DP5Params::PRFKEY_BYTES];
+	dp5.random_bytes(key, DP5Params::PRFKEY_BYTES);
+	prfs[i] = new DP5Params::PRF(key, num_buckets);
+    }
+
+    const unsigned int num_inputs = 20;
+    for (unsigned int inp=0; inp<num_inputs; ++inp) {
+	unsigned char x[DP5Params::HASHKEY_BYTES];
+	dp5.random_bytes(x, DP5Params::HASHKEY_BYTES);
+	for (unsigned int p=0; p<num_prfs; ++p) {
+	    printf("%u\t", prfs[p]->M(x));
+	}
+	printf("\n");
+    }
+
+    for (unsigned int i=0; i<num_prfs; ++i) {
+	delete prfs[i];
+    }
+
+    return 0;
+}
+#endif // TEST_PRF

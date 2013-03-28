@@ -98,7 +98,7 @@ public:
 	// The pseudorandom function M consumes values of size
 	// HASHKEY_BYTES bytes, and produces values in
 	// {0,1,...,num_buckets-1}
-	unsigned int M(const unsigned char[HASHKEY_BYTES]);
+	unsigned int M(const unsigned char x[HASHKEY_BYTES]);
 
 	// A destructor is unnecessary for our implementation
 	//~PRF();
