@@ -191,25 +191,25 @@ int main(int argc, char **argv)
 {
     DP5Params dp5;
 
-    unsigned char alice_privkey[DP5Params::PRIVKEY_BYTES];
-    unsigned char alice_pubkey[DP5Params::PUBKEY_BYTES];
-    unsigned char alice_dh[DP5Params::PUBKEY_BYTES];
-    unsigned char bob_privkey[DP5Params::PRIVKEY_BYTES];
-    unsigned char bob_pubkey[DP5Params::PUBKEY_BYTES];
-    unsigned char bob_dh[DP5Params::PUBKEY_BYTES];
+    unsigned char alice_privkey[dp5.PRIVKEY_BYTES];
+    unsigned char alice_pubkey[dp5.PUBKEY_BYTES];
+    unsigned char alice_dh[dp5.PUBKEY_BYTES];
+    unsigned char bob_privkey[dp5.PRIVKEY_BYTES];
+    unsigned char bob_pubkey[dp5.PUBKEY_BYTES];
+    unsigned char bob_dh[dp5.PUBKEY_BYTES];
 
     dp5.genkeypair(alice_pubkey, alice_privkey);
-    dump("Alice privkey ", alice_privkey, DP5Params::PRIVKEY_BYTES);
-    dump("Alice pubkey  ", alice_pubkey, DP5Params::PUBKEY_BYTES);
+    dump("Alice privkey ", alice_privkey, dp5.PRIVKEY_BYTES);
+    dump("Alice pubkey  ", alice_pubkey, dp5.PUBKEY_BYTES);
     dp5.genkeypair(bob_pubkey, bob_privkey);
-    dump("Bob   privkey ", bob_privkey, DP5Params::PRIVKEY_BYTES);
-    dump("Bob   pubkey  ", bob_pubkey, DP5Params::PUBKEY_BYTES);
+    dump("Bob   privkey ", bob_privkey, dp5.PRIVKEY_BYTES);
+    dump("Bob   pubkey  ", bob_pubkey, dp5.PUBKEY_BYTES);
     dp5.diffie_hellman(alice_dh, alice_privkey, bob_pubkey);
     dp5.diffie_hellman(bob_dh, bob_privkey, alice_pubkey);
-    dump("Alice DH      ", alice_dh, DP5Params::PUBKEY_BYTES);
-    dump("Bob   DH      ", bob_dh, DP5Params::PUBKEY_BYTES);
+    dump("Alice DH      ", alice_dh, dp5.PUBKEY_BYTES);
+    dump("Bob   DH      ", bob_dh, dp5.PUBKEY_BYTES);
 
-    if (memcmp(alice_dh, bob_dh, DP5Params::PUBKEY_BYTES)) {
+    if (memcmp(alice_dh, bob_dh, dp5.PUBKEY_BYTES)) {
 	printf("\nNO MATCH\n");
 	return 1;
     }
@@ -240,30 +240,30 @@ int main(int argc, char **argv)
 {
     DP5Params dp5;
 
-    unsigned char alice_privkey[DP5Params::PRIVKEY_BYTES];
-    unsigned char alice_pubkey[DP5Params::PUBKEY_BYTES];
-    unsigned char alice_dh[DP5Params::PUBKEY_BYTES];
-    unsigned char bob_privkey[DP5Params::PRIVKEY_BYTES];
-    unsigned char bob_pubkey[DP5Params::PUBKEY_BYTES];
-    unsigned char bob_dh[DP5Params::PUBKEY_BYTES];
-    unsigned char H1[DP5Params::SHAREDKEY_BYTES];
-    unsigned char H2[DP5Params::DATAKEY_BYTES];
-    unsigned char H3[DP5Params::HASHKEY_BYTES];
+    unsigned char alice_privkey[dp5.PRIVKEY_BYTES];
+    unsigned char alice_pubkey[dp5.PUBKEY_BYTES];
+    unsigned char alice_dh[dp5.PUBKEY_BYTES];
+    unsigned char bob_privkey[dp5.PRIVKEY_BYTES];
+    unsigned char bob_pubkey[dp5.PUBKEY_BYTES];
+    unsigned char bob_dh[dp5.PUBKEY_BYTES];
+    unsigned char H1[dp5.SHAREDKEY_BYTES];
+    unsigned char H2[dp5.DATAKEY_BYTES];
+    unsigned char H3[dp5.HASHKEY_BYTES];
 
     dp5.genkeypair(alice_pubkey, alice_privkey);
     dp5.genkeypair(bob_pubkey, bob_privkey);
     dp5.diffie_hellman(alice_dh, alice_privkey, bob_pubkey);
     dp5.diffie_hellman(bob_dh, bob_privkey, alice_pubkey);
-    unsigned int epoch = htonl(time(NULL) / DP5Params::EPOCH_LEN);
+    unsigned int epoch = htonl(time(NULL) / dp5.EPOCH_LEN);
     const unsigned char *epoch_bytes = (const unsigned char *)&epoch;
-    dump("E ", epoch_bytes, DP5Params::EPOCH_BYTES);
-    dump("s ", alice_dh, DP5Params::PUBKEY_BYTES);
+    dump("E ", epoch_bytes, dp5.EPOCH_BYTES);
+    dump("s ", alice_dh, dp5.PUBKEY_BYTES);
     printf("\n");
     dp5.H1H2(H1, H2, epoch_bytes, alice_dh);
-    dump("H1", H1, DP5Params::SHAREDKEY_BYTES);
-    dump("H2", H2, DP5Params::DATAKEY_BYTES);
+    dump("H1", H1, dp5.SHAREDKEY_BYTES);
+    dump("H2", H2, dp5.DATAKEY_BYTES);
     dp5.H3(H3, epoch_bytes, alice_dh);
-    dump("H3", H3, DP5Params::HASHKEY_BYTES);
+    dump("H3", H3, dp5.HASHKEY_BYTES);
 
     return 0;
 }
@@ -282,15 +282,15 @@ int main(int argc, char **argv)
     DP5Params::PRF *prfs[num_prfs];
 
     for (unsigned int i=0; i<num_prfs; ++i) {
-	unsigned char key[DP5Params::PRFKEY_BYTES];
-	dp5.random_bytes(key, DP5Params::PRFKEY_BYTES);
+	unsigned char key[dp5.PRFKEY_BYTES];
+	dp5.random_bytes(key, dp5.PRFKEY_BYTES);
 	prfs[i] = new DP5Params::PRF(key, num_buckets);
     }
 
     const unsigned int num_inputs = 20;
     for (unsigned int inp=0; inp<num_inputs; ++inp) {
-	unsigned char x[DP5Params::HASHKEY_BYTES];
-	dp5.random_bytes(x, DP5Params::HASHKEY_BYTES);
+	unsigned char x[dp5.HASHKEY_BYTES];
+	dp5.random_bytes(x, dp5.HASHKEY_BYTES);
 	for (unsigned int p=0; p<num_prfs; ++p) {
 	    printf("%u\t", prfs[p]->M(x));
 	}
