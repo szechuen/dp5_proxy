@@ -66,6 +66,12 @@ public:
     void genkeypair(unsigned char pubkey[PUBKEY_BYTES],
 	unsigned char privkey[PRIVKEY_BYTES]);
 
+    // Compute the Diffie-Hellman output for a given (buddy's) public
+    // key and (your own) private key
+    void diffie_hellman(unsigned char dh_output[PUBKEY_BYTES],
+	const unsigned char my_privkey[PRIVKEY_BYTES],
+	const unsigned char their_pubkey[PUBKEY_BYTES]);
+
     // Hash function H_1 consumes an epoch (of size EPOCH_BYTES bytes)
     // and a Diffie-Hellman output (of size PUBKEY_BYTES) and produces
     // a hash value of size SHAREDKEY_BYTES bytes.  H_2 consumes the
