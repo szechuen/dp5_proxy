@@ -62,6 +62,10 @@ public:
     // the PRNG can keep state if necessary
     void random_bytes(unsigned char *buf, unsigned int num_bytes);
 
+    // Generate a public/private keypair
+    void genkeypair(unsigned char pubkey[PUBKEY_BYTES],
+	unsigned char privkey[PRIVKEY_BYTES]);
+
     // Hash function H_1 consumes an epoch (of size EPOCH_BYTES bytes)
     // and a Diffie-Hellman output (of size PUBKEY_BYTES) and produces
     // a hash value of size SHAREDKEY_BYTES bytes.  H_2 consumes the
