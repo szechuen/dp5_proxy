@@ -2,10 +2,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 
 #include <stdexcept>
 
 #include <openssl/rand.h>
+#include <openssl/sha.h>
 
 #include "dp5params.h"
 
@@ -72,9 +74,45 @@ void DP5Params::diffie_hellman(unsigned char dh_output[PUBKEY_BYTES],
     curve25519_donna(dh_output, my_privkey, their_pubkey);
 }
 
+// Hash function H_1 consumes an epoch (of size EPOCH_BYTES bytes)
+// and a Diffie-Hellman output (of size PUBKEY_BYTES) and produces
+// a hash value of size SHAREDKEY_BYTES bytes.  H_2 consumes the
+// same input and produces a hash value of size DATAKEY_BYTES bytes.
+void DP5Params::H1H2(unsigned char H1_out[SHAREDKEY_BYTES],
+    unsigned char H2_out[DATAKEY_BYTES],
+    const unsigned char E[EPOCH_BYTES],
+    const unsigned char dhout[PUBKEY_BYTES])
+{
+    unsigned char shaout[SHA256_DIGEST_LENGTH];
+    SHA256_CTX hash;
+    SHA256_Init(&hash);
+    SHA256_Update(&hash, "\x00", 1);
+    SHA256_Update(&hash, E, EPOCH_BYTES);
+    SHA256_Update(&hash, dhout, PUBKEY_BYTES);
+    SHA256_Final(shaout, &hash);
+    memmove(H1_out, shaout, SHAREDKEY_BYTES);
+    memmove(H2_out, shaout+SHA256_DIGEST_LENGTH-DATAKEY_BYTES,
+	    DATAKEY_BYTES);
+}
+
+// Hash function H_3 consumes the same as above, and produces a hash
+// value of size HASHKEY_BYTES bytes.
+void DP5Params::H3(unsigned char H3_out[HASHKEY_BYTES],
+    const unsigned char E[EPOCH_BYTES],
+    const unsigned char dhout[PUBKEY_BYTES])
+{
+    unsigned char shaout[SHA256_DIGEST_LENGTH];
+    SHA256_CTX hash;
+    SHA256_Init(&hash);
+    SHA256_Update(&hash, "\x01", 1);
+    SHA256_Update(&hash, E, EPOCH_BYTES);
+    SHA256_Update(&hash, dhout, PUBKEY_BYTES);
+    SHA256_Final(shaout, &hash);
+    memmove(H3_out, shaout, HASHKEY_BYTES);
+}
+
 #ifdef TEST_DH
 #include <stdio.h>
-#include <string.h>
 
 static void dump(const char *prefix, const unsigned char *data,
     size_t len) 
@@ -119,3 +157,53 @@ int main(int argc, char **argv)
     return 0;
 }
 #endif // TEST_DH
+
+#ifdef TEST_HASHES
+#include <stdio.h>
+#include <time.h>
+#include <arpa/inet.h>
+
+static void dump(const char *prefix, const unsigned char *data,
+    size_t len) 
+{
+    if (prefix) {
+	printf("%s: ", prefix);
+    }
+    for (size_t i=0; i<len; ++i) {
+	printf("%02x", data[i]);
+    }
+    printf("\n");
+}
+
+int main(int argc, char **argv)
+{
+    DP5Params dp5;
+
+    unsigned char alice_privkey[DP5Params::PRIVKEY_BYTES];
+    unsigned char alice_pubkey[DP5Params::PUBKEY_BYTES];
+    unsigned char alice_dh[DP5Params::PUBKEY_BYTES];
+    unsigned char bob_privkey[DP5Params::PRIVKEY_BYTES];
+    unsigned char bob_pubkey[DP5Params::PUBKEY_BYTES];
+    unsigned char bob_dh[DP5Params::PUBKEY_BYTES];
+    unsigned char H1[DP5Params::SHAREDKEY_BYTES];
+    unsigned char H2[DP5Params::DATAKEY_BYTES];
+    unsigned char H3[DP5Params::HASHKEY_BYTES];
+
+    dp5.genkeypair(alice_pubkey, alice_privkey);
+    dp5.genkeypair(bob_pubkey, bob_privkey);
+    dp5.diffie_hellman(alice_dh, alice_privkey, bob_pubkey);
+    dp5.diffie_hellman(bob_dh, bob_privkey, alice_pubkey);
+    unsigned int epoch = htonl(time(NULL) / DP5Params::EPOCH_LEN);
+    const unsigned char *epoch_bytes = (const unsigned char *)&epoch;
+    dump("E ", epoch_bytes, DP5Params::EPOCH_BYTES);
+    dump("s ", alice_dh, DP5Params::PUBKEY_BYTES);
+    printf("\n");
+    dp5.H1H2(H1, H2, epoch_bytes, alice_dh);
+    dump("H1", H1, DP5Params::SHAREDKEY_BYTES);
+    dump("H2", H2, DP5Params::DATAKEY_BYTES);
+    dp5.H3(H3, epoch_bytes, alice_dh);
+    dump("H3", H3, DP5Params::HASHKEY_BYTES);
+
+    return 0;
+}
+#endif // TEST_HASHES
