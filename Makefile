@@ -21,14 +21,17 @@ test_prf: test_prf.o curve25519-donna.o
 test_enc: test_enc.o curve25519-donna.o
 	g++ $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-test_dh.o: dp5params.cpp
-	g++ $(CXXFLAGS) -DTEST_DH -c $^ -o $@
+test_dh.o: dp5params.cpp dp5params.h
+	g++ $(CXXFLAGS) -DTEST_DH -c $< -o $@
 
-test_hashes.o: dp5params.cpp
-	g++ $(CXXFLAGS) -DTEST_HASHES -c $^ -o $@
+test_hashes.o: dp5params.cpp dp5params.h
+	g++ $(CXXFLAGS) -DTEST_HASHES -c $< -o $@
 
-test_prf.o: dp5params.cpp
-	g++ $(CXXFLAGS) -DTEST_PRF -c $^ -o $@
+test_prf.o: dp5params.cpp dp5params.h
+	g++ $(CXXFLAGS) -DTEST_PRF -c $< -o $@
 
-test_enc.o: dp5params.cpp
-	g++ $(CXXFLAGS) -DTEST_ENC -c $^ -o $@
+test_enc.o: dp5params.cpp dp5params.h
+	g++ $(CXXFLAGS) -DTEST_ENC -c $< -o $@
+
+clean:
+	-rm -f *.o
