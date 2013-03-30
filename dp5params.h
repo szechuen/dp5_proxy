@@ -130,6 +130,17 @@ public:
 	const unsigned char enckey[DATAKEY_BYTES],
 	const unsigned char ciphertext[DATAENC_BYTES]);
 
+    // Retrieve the current epoch number
+    static unsigned int current_epoch();
+
+    // Convert an epoch number to an epoch byte array
+    static void epoch_num_to_bytes(unsigned char epoch_bytes[EPOCH_BYTES],
+	unsigned int epoch_num);
+
+    // Convert an epoch byte array to an epoch number
+    static unsigned int epoch_bytes_to_num(
+	const unsigned char epoch_bytes[EPOCH_BYTES]);
+
     // Destructor, if necessary
     ~DP5Params();
 };

@@ -5,7 +5,7 @@ CFLAGS = -O0 -g -Wall -Werror
 LDLIBS = -lcrypto
 
 BINS =
-TESTS = test_dh test_hashes test_prf test_enc
+TESTS = test_dh test_hashes test_prf test_enc test_epoch
 
 all: $(BINS) $(TESTS)
 
@@ -21,6 +21,9 @@ test_prf: test_prf.o curve25519-donna.o
 test_enc: test_enc.o curve25519-donna.o
 	g++ $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
+test_epoch: test_epoch.o curve25519-donna.o
+	g++ $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
 test_dh.o: dp5params.cpp dp5params.h
 	g++ $(CXXFLAGS) -DTEST_DH -c $< -o $@
 
@@ -32,6 +35,9 @@ test_prf.o: dp5params.cpp dp5params.h
 
 test_enc.o: dp5params.cpp dp5params.h
 	g++ $(CXXFLAGS) -DTEST_ENC -c $< -o $@
+
+test_epoch.o: dp5params.cpp dp5params.h
+	g++ $(CXXFLAGS) -DTEST_EPOCH -c $< -o $@
 
 clean:
 	-rm -f *.o

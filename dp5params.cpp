@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
+#include <time.h>
+#include <arpa/inet.h>
 
 #include <stdexcept>
 
@@ -172,6 +174,27 @@ int DP5Params::Dec(unsigned char plaintext[DATAPLAIN_BYTES],
     return 0;
 }
 
+// Retrieve the current epoch number
+unsigned int DP5Params::current_epoch()
+{
+    return time(NULL)/EPOCH_LEN;
+}
+
+// Convert an epoch number to an epoch byte array
+void DP5Params::epoch_num_to_bytes(unsigned char epoch_bytes[EPOCH_BYTES],
+    unsigned int epoch_num)
+{
+    unsigned int big_endian_epoch_num = htonl(epoch_num);
+    memmove(epoch_bytes, &big_endian_epoch_num, EPOCH_BYTES);
+}
+
+// Convert an epoch byte array to an epoch number
+unsigned int DP5Params::epoch_bytes_to_num(
+    const unsigned char epoch_bytes[EPOCH_BYTES])
+{
+    return ntohl(*(unsigned int*)epoch_bytes);
+}
+
 #ifdef TEST_DH
 #include <stdio.h>
 
@@ -221,8 +244,6 @@ int main(int argc, char **argv)
 
 #ifdef TEST_HASHES
 #include <stdio.h>
-#include <time.h>
-#include <arpa/inet.h>
 
 static void dump(const char *prefix, const unsigned char *data,
     size_t len) 
@@ -254,8 +275,9 @@ int main(int argc, char **argv)
     dp5.genkeypair(bob_pubkey, bob_privkey);
     dp5.diffie_hellman(alice_dh, alice_privkey, bob_pubkey);
     dp5.diffie_hellman(bob_dh, bob_privkey, alice_pubkey);
-    unsigned int epoch = htonl(time(NULL) / dp5.EPOCH_LEN);
-    const unsigned char *epoch_bytes = (const unsigned char *)&epoch;
+    unsigned int epoch = dp5.current_epoch();
+    unsigned char epoch_bytes[dp5.EPOCH_BYTES];
+    dp5.epoch_num_to_bytes(epoch_bytes, epoch);
     dump("E ", epoch_bytes, dp5.EPOCH_BYTES);
     dump("s ", alice_dh, dp5.PUBKEY_BYTES);
     printf("\n");
@@ -370,3 +392,53 @@ int main(int argc, char **argv)
     return 0;
 }
 #endif // TEST_ENC
+
+#ifdef TEST_EPOCH
+#include <stdio.h>
+
+static void dump(const char *prefix, const unsigned char *data,
+    size_t len) 
+{
+    if (prefix) {
+	printf("%s: ", prefix);
+    }
+    for (size_t i=0; i<len; ++i) {
+	printf("%02x", data[i]);
+    }
+    printf("\n");
+}
+
+int main(int argc, char **argv)
+{
+    DP5Params dp5;
+
+    unsigned int epoch = dp5.current_epoch();
+    printf("Epoch = %u\n", epoch);
+    unsigned char epoch_bytes[dp5.EPOCH_BYTES];
+    dp5.epoch_num_to_bytes(epoch_bytes, epoch);
+    dump("E", epoch_bytes, dp5.EPOCH_BYTES);
+    unsigned int back;
+    back = dp5.epoch_bytes_to_num(epoch_bytes);
+    printf("Back  = %u\n", back);
+    if (back != epoch) {
+	printf("NO MATCH\n");
+	return 1;
+    } else {
+	printf("MATCH\n");
+    }
+
+    dp5.epoch_num_to_bytes(epoch_bytes, 0x12345678);
+    if (memcmp(epoch_bytes, "\x12\x34\x56\x78", 4)) {
+	printf("Epoch conversion failed\n");
+	return 1;
+    }
+    if (dp5.epoch_bytes_to_num(epoch_bytes) != 0x12345678) {
+	printf("Epoch reverse conversion failed\n");
+	return 1;
+    }
+
+    printf("\nConversions successful\n");
+
+    return 0;
+}
+#endif // TEST_EPOCH
