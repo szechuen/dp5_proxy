@@ -99,18 +99,19 @@ void DP5Params::H1H2(unsigned char H1_out[SHAREDKEY_BYTES],
 	    DATAKEY_BYTES);
 }
 
-// Hash function H_3 consumes the same as above, and produces a hash
-// value of size HASHKEY_BYTES bytes.
+// Hash function H_3 consumes an epoch (of size EPOCH_BYTES bytes)
+// and an output of H1 (of size SHAREDKEY_BYTES bytes), and produces
+// a hash value of size HASHKEY_BYTES bytes.
 void DP5Params::H3(unsigned char H3_out[HASHKEY_BYTES],
     const unsigned char E[EPOCH_BYTES],
-    const unsigned char dhout[PUBKEY_BYTES])
+    const unsigned char H1_out[SHAREDKEY_BYTES])
 {
     unsigned char shaout[SHA256_DIGEST_LENGTH];
     SHA256_CTX hash;
     SHA256_Init(&hash);
     SHA256_Update(&hash, "\x01", 1);
     SHA256_Update(&hash, E, EPOCH_BYTES);
-    SHA256_Update(&hash, dhout, PUBKEY_BYTES);
+    SHA256_Update(&hash, H1_out, SHAREDKEY_BYTES);
     SHA256_Final(shaout, &hash);
     memmove(H3_out, shaout, HASHKEY_BYTES);
 }
@@ -284,7 +285,7 @@ int main(int argc, char **argv)
     dp5.H1H2(H1, H2, epoch_bytes, alice_dh);
     dump("H1", H1, dp5.SHAREDKEY_BYTES);
     dump("H2", H2, dp5.DATAKEY_BYTES);
-    dp5.H3(H3, epoch_bytes, alice_dh);
+    dp5.H3(H3, epoch_bytes, H1);
     dump("H3", H3, dp5.HASHKEY_BYTES);
 
     return 0;

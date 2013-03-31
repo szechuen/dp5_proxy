@@ -298,7 +298,7 @@ c. Express the current epoch number as a 4-byte big-endian unsigned
    keys (1 <= i <= num_queries).
 
 d. Produce the shared keys K_i = H_1(E, s_i) of size SHAREDKEY_BYTES
-   bytes, hash them to produce HK_i = H_3(E, s_i) of size HASHKEY_BYTES
+   bytes, hash them to produce HK_i = H_3(E, K_i) of size HASHKEY_BYTES
    and apply the PRF to each to produce the bucket numbers B_i =
    M_prfkey(HK_i).  Also produce the associated data keys
    DK_i = H_2(E, s_i).

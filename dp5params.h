@@ -81,11 +81,12 @@ public:
 	const unsigned char E[EPOCH_BYTES],
 	const unsigned char dhout[PUBKEY_BYTES]);
 
-    // Hash function H_3 consumes the same as above, and produces a hash
-    // value of size HASHKEY_BYTES bytes.
+    // Hash function H_3 consumes an epoch (of size EPOCH_BYTES bytes)
+    // and an output of H1 (of size SHAREDKEY_BYTES bytes), and produces
+    // a hash value of size HASHKEY_BYTES bytes.
     static void H3(unsigned char H3_out[HASHKEY_BYTES],
 	const unsigned char E[EPOCH_BYTES],
-	const unsigned char dhout[PUBKEY_BYTES]);
+	const unsigned char H1_out[SHAREDKEY_BYTES]);
 
     // Pseudorandom functions
     class PRF {
