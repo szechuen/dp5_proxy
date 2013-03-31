@@ -115,10 +115,10 @@ Upon receiving data from the client:
 a. The registration server receives the data from the client, and
    divides it into chunks of (SHAREDKEY_BYTES+DATAENC_BYTES) bytes.
 
-b. Express the current epoch number as a 4-byte big-endian unsigned
-   integer E.  For each (K_i,ED_i) chunk received from the client, hash
-   E with each key to produce the hashed key HK_i = H_3(E, K_i), of size
-   HASHKEY_BYTES bytes.
+b. Express the next epoch number (current epoch number + 1) as a 4-byte
+   big-endian unsigned integer E.  For each (K_i,ED_i) chunk received
+   from the client, hash E with each key to produce the hashed key
+   HK_i = H_3(E, K_i), of size HASHKEY_BYTES bytes.
 
 : HASHKEY_BYTES = 10
 : H_3(E, x) = the first HASHKEY_BYTES of SHA-256(0x01 || E || x)
