@@ -6,11 +6,25 @@
 #include "dp5params.h"
 
 class DP5RegServer : public DP5Params {
+public:
     // The number of iterations over the PRF bucketization
     static const unsigned int NUM_PRF_ITERS = 10;
 
-    // The constructor consumes the current epoch number
-    DP5RegServer(unsigned int current_epoch);
+    // The constructor consumes the current epoch number, the directory
+    // in which to store the incoming registrations for the current
+    // epoch, and the directory in which to store the metadata and data
+    // files.
+    DP5RegServer(unsigned int current_epoch, const char *regdir,
+	const char *datadir);
+
+    // Copy constructor
+    DP5RegServer(const DP5RegServer &other);
+
+    // Assignment operator
+    DP5RegServer& operator=(DP5RegServer other);
+
+    // Destructor
+    ~DP5RegServer();
 
     // When a registration message regmsg is received from a client,
     // pass it to this function.  msgtoreply will be filled in with the
@@ -24,6 +38,23 @@ class DP5RegServer : public DP5Params {
     // After this function returns, send the metadata and data files to
     // the PIR servers, labelled with the new epoch number.
     unsigned int epoch_change(ostream &metadataos, ostream &dataos);
+
+protected:
+    // The current epoch number
+    unsigned int _epoch;
+
+    // The file descriptor for the registration file for the *next*
+    // epoch
+    int _nextregfd;
+
+    // The directory in which to store incoming registration information
+    char *_regdir;
+
+    // The directory in which to store metadata and data files
+    char *_datadir;
+
+    // Create the registration file for the next epoch.
+    void create_nextreg_file();
 };
 
 #endif
