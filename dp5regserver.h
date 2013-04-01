@@ -43,10 +43,6 @@ protected:
     // The current epoch number
     unsigned int _epoch;
 
-    // The file descriptor for the registration file for the *next*
-    // epoch
-    int _nextregfd;
-
     // The directory in which to store incoming registration information
     char *_regdir;
 

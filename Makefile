@@ -6,7 +6,7 @@ LDLIBS = -lcrypto
 
 BINS =
 TESTS = test_dh test_hashes test_prf test_enc test_epoch \
-	test_rsconst
+	test_rsconst test_rsreg
 
 all: $(BINS) $(TESTS)
 
@@ -28,6 +28,9 @@ test_epoch: test_epoch.o curve25519-donna.o
 test_rsconst: test_rsconst.o dp5params.o curve25519-donna.o
 	g++ $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
+test_rsreg: test_rsreg.o dp5params.o curve25519-donna.o
+	g++ $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread
+
 test_dh.o: dp5params.cpp dp5params.h
 	g++ $(CXXFLAGS) -DTEST_DH -c $< -o $@
 
@@ -45,6 +48,9 @@ test_epoch.o: dp5params.cpp dp5params.h
 
 test_rsconst.o: dp5regserver.cpp dp5params.h
 	g++ $(CXXFLAGS) -DTEST_RSCONST -c $< -o $@
+
+test_rsreg.o: dp5regserver.cpp dp5params.h
+	g++ $(CXXFLAGS) -DTEST_RSREG -c $< -o $@
 
 clean:
 	-rm -f *.o

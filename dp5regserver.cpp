@@ -28,12 +28,14 @@ static char *construct_fname(const char *dir, unsigned int epoch,
 void DP5RegServer::create_nextreg_file()
 {
     char *fname = construct_fname(_regdir, _epoch+1, "reg");
-    _nextregfd = open(fname, O_CREAT | O_RDWR | O_APPEND, 0600);
+    int fd = open(fname, O_CREAT | O_RDWR | O_APPEND, 0600);
     free(fname);
 
-    if (_nextregfd < 0) {
+    if (fd < 0) {
 	throw runtime_error("Cannot create registration file");
     }
+
+    close(fd);
 }
 
 // The constructor consumes the current epoch number, the directory
@@ -54,7 +56,6 @@ DP5RegServer::DP5RegServer(unsigned int current_epoch, const char *regdir,
 DP5RegServer::DP5RegServer(const DP5RegServer &other)
 {
     _epoch = other._epoch;
-    _nextregfd = dup(other._nextregfd);
     _regdir = strdup(other._regdir);
     _datadir = strdup(other._datadir);
 }
@@ -71,10 +72,6 @@ DP5RegServer& DP5RegServer::operator=(DP5RegServer other)
     other._datadir = _datadir;
     _datadir = tmp;
     
-    int fdtmp = other._nextregfd;
-    other._nextregfd = _nextregfd;
-    _nextregfd = fdtmp;
-
     _epoch = other._epoch;
 
     return *this;
@@ -83,7 +80,6 @@ DP5RegServer& DP5RegServer::operator=(DP5RegServer other)
 // Destructor
 DP5RegServer::~DP5RegServer()
 {
-    close(_nextregfd);
     free(_regdir);
     free(_datadir);
 }
@@ -108,19 +104,27 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     // an epoch change won't happen in the middle.  Once we have the
     // lock, record the epoch number, and it's guaranteed to be correct
     // at that point.
+    int lockedfd = -1;
     do {
-	int res = flock(_nextregfd, LOCK_SH | LOCK_NB);
+	unsigned int my_next_epoch = _epoch + 1;
+	char *fname = construct_fname(_regdir, my_next_epoch, "reg");
+	lockedfd = open(fname, O_WRONLY | O_APPEND);
+	free(fname);
+	if (lockedfd < 0) {
+	    continue;
+	}
+	int res = flock(lockedfd, LOCK_SH | LOCK_NB);
 	if (res == 0) {
 	    // We have the lock
-	    next_epoch = _epoch + 1;
+	    next_epoch = my_next_epoch;
 	}
 	// If we didn't get the lock, try again.  Note that the value of
-	// _nextregfd (or which file it points to) may have changed in
-	// the meantime.
+	// _epoch may have changed in the meantime.
     } while (next_epoch == 0);
+    printf("Locked %d SH\n", lockedfd);
 
-    // From here on, we have a shared lock.  _nextregfd is guaranteed
-    // not to change until we release it.
+    // From here on, we have a shared lock.  _epoch is guaranteed not to
+    // change until we release it.
 
     if (regmsglen % inrecord_size != 0) {
 	// The input was not an integer number of records.  Reject it.
@@ -139,15 +143,20 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
 		DATAENC_BYTES);
 
 	// Append the record to the registration file
-	write(_nextregfd, outrecord, outrecord_size);
+	write(lockedfd, outrecord, outrecord_size);
 
 	indata += inrecord_size;
     }
 
+    // We're done.  Indicate success.
+    err = 0x00;
+
 client_reg_return:
 
     // Release the lock
-    flock(_nextregfd, LOCK_UN);
+    printf("Unlocking %d\n", lockedfd);
+    flock(lockedfd, LOCK_UN);
+    close(lockedfd);
 
     // Return the response to the client
     unsigned char resp[1+EPOCH_BYTES];
@@ -164,13 +173,26 @@ client_reg_return:
 unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
 {
     // Grab an exclusive lock on the registration file
+    int lockedfd = -1;
+    char *oldfname = NULL;
     while (1) {
-	int res = flock(_nextregfd, LOCK_EX);
+	free(oldfname);
+	oldfname = construct_fname(_regdir, _epoch + 1, "reg");
+	lockedfd = open(oldfname, O_RDONLY);
+	if (lockedfd < 0) {
+	    continue;
+	}
+	int res = flock(lockedfd, LOCK_EX);
 	if (res == 0) break;
     } 
+    printf("Locked %d EX\n", lockedfd);
 
     // Now we have the lock
-    int workingregfd = _nextregfd;
+
+    // Rename the old file
+    char *newfname = construct_fname(_regdir, _epoch + 1, "sreg");
+    rename(oldfname, newfname);
+    free(oldfname);
 
     // Increment the epoch and create the new reg file
     ++_epoch;
@@ -178,16 +200,16 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     create_nextreg_file();
 
     // We can release the lock now
-    flock(workingregfd, LOCK_UN);
+    printf("Unlocking %d\n", lockedfd);
+    flock(lockedfd, LOCK_UN);
 
-    // Process the registration file
+    // Process the registration file from lockedfd
 
     // When we're done with the registration file, close it and unlink
     // it
-    close(workingregfd);
-    char *fname = construct_fname(_regdir, workingepoch, "reg");
-    unlink(fname);
-    free(fname);
+    close(lockedfd);
+    //unlink(newfname);
+    free(newfname);
 
     return workingepoch;
 }
@@ -212,3 +234,103 @@ int main(int argc, char **argv)
     return 0;
 }
 #endif // TEST_RSCONST
+
+#ifdef TEST_RSREG
+#include <vector>
+
+// Test client registration, especially the thread safety
+
+static DP5RegServer *rs = NULL;
+
+static void *client_reg_thread(void *strp)
+{
+    string res;
+    string *data = (string *)strp;
+    rs->client_reg(res, *data);
+    printf("%02x %08x\n", res.data()[0], *(unsigned int*)(res.data()+1));
+    return NULL;
+}
+
+static void *epoch_change_thread(void *none)
+{
+    rs->epoch_change(cout, cout);
+    return NULL;
+}
+
+// Use hexdump -e '10/1 "%02x" " " 1/16 "%s" "\n"' to view the output
+int main(int argc, char **argv)
+{
+    int num_clients = (argc > 1 ? atoi(argv[1]) : 10);
+    int num_buddies = (argc > 2 ? atoi(argv[2]) : DP5Params::MAX_BUDDIES);
+    int multithread = 1;
+
+    // Ensure the directories exist
+    mkdir("regdir", 0700);
+    mkdir("datadir", 0700);
+
+    rs = new DP5RegServer(DP5RegServer::current_epoch(), "regdir", "datadir");
+
+    // Create the blocks of data to submit
+    vector<string> submits[2];
+
+    for (int subflag=0; subflag<2; ++subflag) {
+	for (int i=0; i<num_clients; ++i) {
+	    size_t datasize = num_buddies *
+		(rs->SHAREDKEY_BYTES + rs->DATAENC_BYTES);
+	    unsigned char data[datasize];
+	    unsigned char *thisdata = data;
+	    for (int j=0; j<num_buddies; ++j) {
+		// Random key
+		rs->random_bytes(thisdata, rs->SHAREDKEY_BYTES);
+		// Identifiable data
+		thisdata[rs->SHAREDKEY_BYTES] = '[';
+		thisdata[rs->SHAREDKEY_BYTES+1] = 'P'+subflag;
+		thisdata[rs->SHAREDKEY_BYTES+2] = '0'+i;
+		int bytesout;
+		sprintf((char *)thisdata+rs->SHAREDKEY_BYTES+3, "%u%n",
+		    j, &bytesout);
+		memset(thisdata+rs->SHAREDKEY_BYTES+3+bytesout,
+			' ', rs->DATAENC_BYTES-4-bytesout);
+		thisdata[rs->SHAREDKEY_BYTES+rs->DATAENC_BYTES-1]
+		    = ']';
+
+		thisdata += rs->SHAREDKEY_BYTES + rs->DATAENC_BYTES;
+	    }
+	    submits[subflag].push_back(string((char *)data, datasize));
+	}
+    }
+
+    vector<pthread_t> children;
+
+    for (int subflag=0; subflag<2; ++subflag) {
+	for (int i=0; i<num_clients; ++i) {
+	    if (multithread) {
+		pthread_t thr;
+		pthread_create(&thr, NULL, client_reg_thread,
+				&submits[subflag][i]);
+		children.push_back(thr);
+	    } else {
+		client_reg_thread(&submits[subflag][i]);
+	    }
+	}
+	if (subflag == 0) {
+	    if (multithread) {
+		pthread_t thr;
+		pthread_create(&thr, NULL, epoch_change_thread, NULL);
+		children.push_back(thr);
+	    } else {
+		epoch_change_thread(NULL);
+	    }
+	}
+    }
+
+    int numchildren = children.size();
+    for (int i=0; i<numchildren; ++i) {
+	pthread_join(children[i], NULL);
+    }
+
+    delete rs;
+
+    return 0;
+}
+#endif // TEST_RSREG
