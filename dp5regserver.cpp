@@ -125,7 +125,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
 	// If we didn't get the lock, try again.  Note that the value of
 	// _epoch may have changed in the meantime.
     } while (next_epoch == 0);
-    printf("Locked %d SH\n", lockedfd);
+    //printf("Locked %d SH\n", lockedfd);
 
     // From here on, we have a shared lock.  _epoch is guaranteed not to
     // change until we release it.
@@ -158,7 +158,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
 client_reg_return:
 
     // Release the lock
-    printf("Unlocking %d\n", lockedfd);
+    //printf("Unlocking %d\n", lockedfd);
     flock(lockedfd, LOCK_UN);
     close(lockedfd);
 
