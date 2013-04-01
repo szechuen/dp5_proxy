@@ -24,10 +24,10 @@ static char *construct_fname(const char *dir, unsigned int epoch,
     return fname;
 }
 
-// Create the registration file for the next epoch.
-void DP5RegServer::create_nextreg_file()
+// Create the registration file for the given epoch.
+void DP5RegServer::create_nextreg_file(unsigned int useepoch)
 {
-    char *fname = construct_fname(_regdir, _epoch+1, "reg");
+    char *fname = construct_fname(_regdir, useepoch, "reg");
     int fd = open(fname, O_CREAT | O_RDWR | O_APPEND, 0600);
     free(fname);
 
@@ -49,7 +49,7 @@ DP5RegServer::DP5RegServer(unsigned int current_epoch, const char *regdir,
     _datadir = strdup(datadir);
 
     // Ensure the registration file for the next epoch exists
-    create_nextreg_file();
+    create_nextreg_file(_epoch+1);
 }
 
 // Copy constructor
@@ -195,9 +195,9 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     free(oldfname);
 
     // Increment the epoch and create the new reg file
-    ++_epoch;
-    unsigned int workingepoch = _epoch;
-    create_nextreg_file();
+    unsigned int workingepoch = _epoch+1;
+    create_nextreg_file(workingepoch+1);
+    _epoch = workingepoch;
 
     // We can release the lock now
     printf("Unlocking %d\n", lockedfd);

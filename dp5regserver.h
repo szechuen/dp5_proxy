@@ -49,8 +49,8 @@ protected:
     // The directory in which to store metadata and data files
     char *_datadir;
 
-    // Create the registration file for the next epoch.
-    void create_nextreg_file();
+    // Create the registration file for the given epoch.
+    void create_nextreg_file(unsigned int useepoch);
 };
 
 #endif
