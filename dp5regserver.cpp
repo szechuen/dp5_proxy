@@ -108,6 +108,9 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     do {
 	unsigned int my_next_epoch = _epoch + 1;
 	char *fname = construct_fname(_regdir, my_next_epoch, "reg");
+	if (lockedfd >= 0) {
+	    close(lockedfd);
+	}
 	lockedfd = open(fname, O_WRONLY | O_APPEND);
 	free(fname);
 	if (lockedfd < 0) {
@@ -178,6 +181,9 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     while (1) {
 	free(oldfname);
 	oldfname = construct_fname(_regdir, _epoch + 1, "reg");
+	if (lockedfd >= 0) {
+	    close(lockedfd);
+	}
 	lockedfd = open(oldfname, O_RDONLY);
 	if (lockedfd < 0) {
 	    continue;
