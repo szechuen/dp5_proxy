@@ -32,6 +32,7 @@ void DP5RegServer::create_nextreg_file(unsigned int useepoch)
     free(fname);
 
     if (fd < 0) {
+	perror("open");
 	throw runtime_error("Cannot create registration file");
     }
 
