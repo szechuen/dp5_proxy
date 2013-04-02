@@ -46,10 +46,10 @@ test_enc.o: dp5params.cpp dp5params.h
 test_epoch.o: dp5params.cpp dp5params.h
 	g++ $(CXXFLAGS) -DTEST_EPOCH -c $< -o $@
 
-test_rsconst.o: dp5regserver.cpp dp5params.h
+test_rsconst.o: dp5regserver.cpp dp5regserver.h dp5params.h
 	g++ $(CXXFLAGS) -DTEST_RSCONST -c $< -o $@
 
-test_rsreg.o: dp5regserver.cpp dp5params.h
+test_rsreg.o: dp5regserver.cpp dp5regserver.h dp5params.h
 	g++ $(CXXFLAGS) -DTEST_RSREG -c $< -o $@
 
 clean:
