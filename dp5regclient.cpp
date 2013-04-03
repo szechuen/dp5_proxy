@@ -66,7 +66,7 @@ int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies)
     }    
 
     // Sort the records and construct the message
-    msgtosend.assign("", 0);
+    msgtosend.assign((char *)epoch_bytes, EPOCH_BYTES);
     sort(to_sort.begin(), to_sort.end());
     for (unsigned int i = 0 ; i < MAX_BUDDIES; i++){
        msgtosend += to_sort[i]; 
@@ -75,15 +75,15 @@ int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies)
     return 0x00;
 }
 
-int complete_reg(const string &replymsg){
+int DP5RegClient::complete_reg(const string &replymsg){
     // check the input length
-    if (replymsg.length() != 1+DP5Params::EPOCH_BYTES)
+    if (replymsg.length() != 1+EPOCH_BYTES)
         return 0xFE; // Meaning "wrong input length"
     
     // Parse the message
     unsigned char * buffer = (unsigned char *) replymsg.c_str();
     unsigned char server_err = buffer[0];
-    static unsigned int server_epoch = DP5Params::epoch_bytes_to_num(buffer + 1);
+    static unsigned int server_epoch = epoch_bytes_to_num(buffer + 1);
     
     if (server_err != 0x00)
         return server_err; // Give the client the error number
@@ -161,7 +161,7 @@ int main(int argc, char **argv)
     string rstr;
     rstr.assign((char*)rmsg, 1+dp5.EPOCH_BYTES);
 
-    int err2 = complete_reg(rstr);
+    int err2 = client.complete_reg(rstr);
     printf("Result 2 ok: %s\n", (err2==0x00)?("True"):("False"));
 }
 #endif // TEST_CLIENT

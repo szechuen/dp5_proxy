@@ -45,7 +45,7 @@ their buddies during the *next* epoch.
 The "current epoch number" is floor(current_time / EPOCH_LEN), where
 "current_time" is the Unix time.
 
-The type Epoch is a 4-byte big-endian unsigned integer representing an
+The type Epoch is a 4-byte (EPOCH_BYTES) big-endian unsigned integer representing an
 epoch number.
 
 CLIENT:
@@ -92,10 +92,11 @@ SHAREDKEY_BYTES byte string and ED_i to a random DATAENC_BYTES byte
 string.
 
 h. Sort the array [K_1||ED_1, ..., K_{MAX_BUDDIES}||ED_{MAX_BUDDIES}]
-and concatenate the elements of the result to yield sharedkeys.  Send
-sharedkeys to the registration server.
+and concatenate the elements of the result to yield sharedkeys.  Send 
+the byte representation of the next epoch E and sharedkeys to the 
+registration server.
 
-C->R: Byte[(SHAREDKEY_BYTES+DATAENC_BYTES)*MAX_BUDDIES] sharedkeys
+C->R: E || Byte[(SHAREDKEY_BYTES+DATAENC_BYTES)*MAX_BUDDIES] sharedkeys
 
 The following is out of scope for this protocol, but is a recommendation
 to the implementor of the higher-level communication protocol: The
@@ -112,11 +113,13 @@ The server maintains a registration file corresponding to each epoch.
 
 Upon receiving data from the client:
 
-a. The registration server receives the data from the client, and
-   divides it into chunks of (SHAREDKEY_BYTES+DATAENC_BYTES) bytes.
+a. The registration server receives the next epoch and data from the 
+   client, and parses it into an epoch and a series of (SHAREDKEY_BYTES
+   +DATAENC_BYTES) bytes.
 
 b. Express the next epoch number (current epoch number + 1) as a 4-byte
-   big-endian unsigned integer E.  For each (K_i,ED_i) chunk received
+   big-endian unsigned integer E. Return to the client an error if it does 
+   not match the received next epoch. For each (K_i,ED_i) chunk received
    from the client, hash E with each key to produce the hashed key
    HK_i = H_3(E, K_i), of size HASHKEY_BYTES bytes.
 

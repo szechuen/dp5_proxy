@@ -94,11 +94,14 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     unsigned char err = 0xff;
     unsigned int next_epoch = 0;
 
-    const unsigned char *indata = (const unsigned char *)regmsg.data();
-    size_t regmsglen = regmsg.length();
+    const unsigned char *allindata = (const unsigned char *)regmsg.data();
     const unsigned int inrecord_size = SHAREDKEY_BYTES + DATAENC_BYTES;
     const unsigned int outrecord_size = HASHKEY_BYTES + DATAENC_BYTES;
+
     unsigned int numrecords;
+    const unsigned char *indata;
+    size_t regmsglen;
+    unsigned int client_next_epoch;
 
     // Grab a shared lock on the registration file.  This ensures that
     // other threads can add client regisgtrations at the same time, but
@@ -130,9 +133,28 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     // From here on, we have a shared lock.  _epoch is guaranteed not to
     // change until we release it.
 
+
+
+    // Check the input lengths
+    if (regmsg.length() < EPOCH_BYTES) {
+        err = 0x01; // Message too small
+        goto client_reg_return;
+    }
+
+    // Now we are sure the data is long enough to parse a client epoch.
+    indata = allindata + EPOCH_BYTES;
+    regmsglen = regmsg.length() - EPOCH_BYTES;
+    client_next_epoch = epoch_bytes_to_num(allindata);
+
+    if (client_next_epoch != next_epoch) {
+        err = 0x02; // Epochs of client and server not in sync.
+        goto client_reg_return; 
+    }
+
     if (regmsglen % inrecord_size != 0) {
-	// The input was not an integer number of records.  Reject it.
-	goto client_reg_return;
+	    // The input was not an integer number of records.  Reject it.
+        err = 0x03;
+	    goto client_reg_return;
     }
     numrecords = regmsglen / inrecord_size;
 
@@ -286,6 +308,10 @@ int main(int argc, char **argv)
 		(rs->SHAREDKEY_BYTES + rs->DATAENC_BYTES);
 	    unsigned char data[datasize];
 	    unsigned char *thisdata = data;
+        
+        rs->epoch_num_to_bytes(thisdata,rs->current_epoch()+1);
+        thisdata += rs->EPOCH_BYTES;
+
 	    for (int j=0; j<num_buddies; ++j) {
 		// Random key
 		rs->random_bytes(thisdata, rs->SHAREDKEY_BYTES);
