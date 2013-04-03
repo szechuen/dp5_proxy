@@ -74,8 +74,30 @@ int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies)
        msgtosend += to_sort[i]; 
     }
 
-    // msgtosend.assign((char *)out_data, DP5Params::MAX_BUDDIES*(record_length));
     return 0x00;
+}
+
+int complete_reg(const string &replymsg){
+    // check the input length
+    if (replymsg.length() != 1+DP5Params::EPOCH_BYTES)
+        return 0xFE; // Meaning "wrong input length"
+    
+    DP5Params params;
+
+    // Parse the message
+    unsigned char * buffer = (unsigned char *) replymsg.c_str();
+    unsigned char server_err = buffer[0];
+    static unsigned int server_epoch = params.epoch_bytes_to_num(buffer + 1);
+    
+    if (server_err != 0x00)
+        return server_err; // Give the client the error number
+
+    unsigned int next_epoch = params.current_epoch() + 1;
+    if (server_epoch != next_epoch)
+        return 0xFD; // The server epoch does not match our next epoch. 
+
+    return 0x00; // All is well.
+ 
 }
 
 
@@ -130,12 +152,21 @@ int main(int argc, char **argv)
     string s;
     dump("In string ", (unsigned char *) s.c_str(), s.length());
 
-    client.start_reg(s, buds);
+    int err1 = client.start_reg(s, buds);
+    printf("Result 1 ok: %s\n", (err1==0x00)?("True"):("False"));    
 
     dump("Out string ", (unsigned char *) s.c_str(), s.length());
 
 
+    unsigned char rmsg[1+DP5Params::EPOCH_BYTES];
+    rmsg[0] = 0x00;
+    unsigned int next_epoch = dp5.current_epoch() + 1;
+    dp5.epoch_num_to_bytes(1+rmsg, next_epoch);
+    string rstr;
+    rstr.assign((char*)rmsg, 1+DP5Params::EPOCH_BYTES);
 
+    int err2 = complete_reg(rstr);
+    printf("Result 2 ok: %s\n", (err2==0x00)?("True"):("False"));
 }
 #endif // TEST_CLIENT
 
