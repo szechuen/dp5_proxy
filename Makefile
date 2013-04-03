@@ -1,7 +1,7 @@
 CC = gcc
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -Werror
-CFLAGS = -O0 -g -Wall -Werror
+CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations
+CFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations
 LDLIBS = -lcrypto
 
 BINS =
