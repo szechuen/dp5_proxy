@@ -17,20 +17,18 @@ DP5RegClient::DP5RegClient(const unsigned char privkey[PRIVKEY_BYTES]){
 int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies){
     
     // Check inputs
-    if (buddies.size() > DP5Params::MAX_BUDDIES)
+    if (buddies.size() > MAX_BUDDIES)
         return 0x01; // Number of buddies exceeds maximum.
-
-    DP5Params params;
 
     // Determine the target epoch for the registration
     // as the next epoch, and convert to bytes.
-    unsigned int next_epoch = params.current_epoch() + 1;
-    unsigned char epoch_bytes[DP5Params::EPOCH_BYTES];
-    params.epoch_num_to_bytes(epoch_bytes, next_epoch);
+    unsigned int next_epoch = current_epoch() + 1;
+    unsigned char epoch_bytes[EPOCH_BYTES];
+    epoch_num_to_bytes(epoch_bytes, next_epoch);
 
     // Placeholder for the output message
-    size_t record_length = DP5Params::SHAREDKEY_BYTES+DP5Params::DATAENC_BYTES;
-    unsigned char out_data[DP5Params::MAX_BUDDIES][record_length];
+    size_t record_length = SHAREDKEY_BYTES+DATAENC_BYTES;
+    unsigned char out_data[MAX_BUDDIES][record_length];
     vector<string> to_sort;
 
     // For each real buddy
@@ -39,30 +37,30 @@ int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies)
         string s;
         const BuddyInfo& current_buddy = buddies[i];
 
-        // Get the long terms hsared DH key
-        unsigned char shared_dh_secret[DP5Params::PUBKEY_BYTES];
-        params.diffie_hellman(shared_dh_secret, this->_privkey, current_buddy.pubkey);
+        // Get the long terms shared DH key
+        unsigned char shared_dh_secret[PUBKEY_BYTES];
+        diffie_hellman(shared_dh_secret, this->_privkey, current_buddy.pubkey);
 
         // Derive the epoch keys 
         unsigned char* shared_key = out_data[i];
-        unsigned char data_key[DP5Params::DATAKEY_BYTES];
-        DP5Params::H1H2(shared_key, data_key, epoch_bytes, shared_dh_secret);
+        unsigned char data_key[DATAKEY_BYTES];
+        H1H2(shared_key, data_key, epoch_bytes, shared_dh_secret);
 
         // Encrypt the associated data
-        unsigned char* ciphertext = out_data[i] + (DP5Params::SHAREDKEY_BYTES);
-        params.Enc(ciphertext, data_key, current_buddy.data);
+        unsigned char* ciphertext = out_data[i] + (SHAREDKEY_BYTES);
+        Enc(ciphertext, data_key, current_buddy.data);
         s.assign((char*) out_data[i], record_length);
         to_sort.push_back(s);        
     }
     
     // Now pad the end of the array with random entries
-    for(unsigned int i = buddies.size(); i < DP5Params::MAX_BUDDIES; i++)
+    for(unsigned int i = buddies.size(); i < MAX_BUDDIES; i++)
     {
         string s;
         unsigned char* shared_key = out_data[i];
-        unsigned char* ciphertext = out_data[i] + DP5Params::SHAREDKEY_BYTES;
-        random_bytes(shared_key, DP5Params::SHAREDKEY_BYTES);
-        random_bytes(ciphertext, DP5Params::DATAENC_BYTES);
+        unsigned char* ciphertext = out_data[i] + SHAREDKEY_BYTES;
+        random_bytes(shared_key, SHAREDKEY_BYTES);
+        random_bytes(ciphertext, DATAENC_BYTES);
         s.assign((char*)out_data[i], record_length);
         to_sort.push_back(s);
     }    
@@ -70,7 +68,7 @@ int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies)
     // Sort the records and construct the message
     msgtosend.assign("", 0);
     sort(to_sort.begin(), to_sort.end());
-    for (unsigned int i = 0 ; i < DP5Params::MAX_BUDDIES; i++){
+    for (unsigned int i = 0 ; i < MAX_BUDDIES; i++){
        msgtosend += to_sort[i]; 
     }
 
@@ -82,17 +80,15 @@ int complete_reg(const string &replymsg){
     if (replymsg.length() != 1+DP5Params::EPOCH_BYTES)
         return 0xFE; // Meaning "wrong input length"
     
-    DP5Params params;
-
     // Parse the message
     unsigned char * buffer = (unsigned char *) replymsg.c_str();
     unsigned char server_err = buffer[0];
-    static unsigned int server_epoch = params.epoch_bytes_to_num(buffer + 1);
+    static unsigned int server_epoch = DP5Params::epoch_bytes_to_num(buffer + 1);
     
     if (server_err != 0x00)
         return server_err; // Give the client the error number
 
-    unsigned int next_epoch = params.current_epoch() + 1;
+    unsigned int next_epoch = DP5Params::current_epoch() + 1;
     if (server_epoch != next_epoch)
         return 0xFD; // The server epoch does not match our next epoch. 
 
@@ -158,12 +154,12 @@ int main(int argc, char **argv)
     dump("Out string ", (unsigned char *) s.c_str(), s.length());
 
 
-    unsigned char rmsg[1+DP5Params::EPOCH_BYTES];
+    unsigned char rmsg[1+dp5.EPOCH_BYTES];
     rmsg[0] = 0x00;
     unsigned int next_epoch = dp5.current_epoch() + 1;
     dp5.epoch_num_to_bytes(1+rmsg, next_epoch);
     string rstr;
-    rstr.assign((char*)rmsg, 1+DP5Params::EPOCH_BYTES);
+    rstr.assign((char*)rmsg, 1+dp5.EPOCH_BYTES);
 
     int err2 = complete_reg(rstr);
     printf("Result 2 ok: %s\n", (err2==0x00)?("True"):("False"));
