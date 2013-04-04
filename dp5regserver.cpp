@@ -5,7 +5,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <stdint.h>
+#include <math.h>
 
+#include <iostream>
+#include <fstream>
 #include <stdexcept>
 
 #include "dp5regserver.h"
@@ -191,6 +195,13 @@ client_reg_return:
     msgtoreply.assign((char *)resp, 1+EPOCH_BYTES);
 }
 
+// Compare two registration records for use in qsort
+static int cmprecords(const void *a, const void *b)
+{
+    return memcmp(a, b,
+		DP5RegServer::HASHKEY_BYTES + DP5RegServer::DATAENC_BYTES);
+}
+
 // Call this when the epoch changes.  Pass in ostreams to which this
 // function should write the metadata and data files to serve in
 // this epoch.  The function will return the new epoch number.
@@ -233,13 +244,148 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     flock(lockedfd, LOCK_UN);
 
     // Process the registration file from lockedfd
+    unsigned int recordsize = HASHKEY_BYTES + DATAENC_BYTES;
+
+    struct stat regst;
+    int res = fstat(lockedfd, &regst);
+    if (res < 0) {
+	throw runtime_error("Cannot stat registration file");
+    }
+    size_t toread = regst.st_size;
+    if (toread % recordsize != 0) {
+	throw runtime_error("Corrupted registration file");
+    }
+    unsigned int numrecords = toread / recordsize;
+    unsigned char *regdata = new unsigned char[toread];
+    if (!regdata) {
+	throw runtime_error("Out of memory reading registration file");
+    }
+    unsigned char *regptr = regdata;
+
+    // Read the whole file
+    while (toread > 0) {
+	res = read(lockedfd, regptr, toread);
+	if (res <= 0) {
+	    delete[] regdata;
+	    if (res < 0) {
+		perror("reading registration file");
+	    }
+	    throw runtime_error("Error reading registration file");
+	}
+	regptr += res;
+	toread -= res;
+    }
 
     // When we're done with the registration file, close it and unlink
     // it
     close(lockedfd);
+    // For debugging purposes, don't actually unlink it for now
     //unlink(newfname);
     free(newfname);
 
+    // Sort the entries in the registration file
+    qsort(regdata, numrecords, recordsize, cmprecords);
+
+    // Extract the ones with unique hashed keys
+    unsigned char *uniqrecs = new unsigned char[numrecords * recordsize];
+    if (!uniqrecs) {
+	delete[] regdata;
+	throw runtime_error("Out of memory uniqifying registration file");
+    }
+    unsigned char *uniqptr = uniqrecs;
+    unsigned int uniqcnt = 0;
+    for (unsigned int i=0; i<numrecords; ++i) {
+	if (i==0 || memcmp(regdata+(i-1)*recordsize, regdata+i*recordsize,
+			    HASHKEY_BYTES)) {
+	    memmove(uniqptr, regdata+i*recordsize,
+		    HASHKEY_BYTES + DATAENC_BYTES);
+	    uniqptr += HASHKEY_BYTES + DATAENC_BYTES;
+	    uniqcnt++;
+	}
+    }
+    delete[] regdata;
+
+    // Now we're going to use a pseudorandom function (PRF) to partition
+    // the hashed keys into buckets.
+
+    // Compute the number of PRF buckets we want to have
+    unsigned int ostensible_numkeys = 0 * MAX_CLIENTS * MAX_BUDDIES;
+    if (uniqcnt > ostensible_numkeys) {
+	ostensible_numkeys = uniqcnt;
+    }
+    uint64_t datasize = ostensible_numkeys *
+			(HASHKEY_BYTES + DATAENC_BYTES) *
+			PIR_WORDS_PER_BYTE;
+    unsigned int num_buckets = (unsigned int)ceil(sqrt((double)datasize));
+
+    // Try NUM_PRF_ITERS random PRF keys and see which one results in
+    // the smallest largest bucket.
+    unsigned char best_prfkey[PRFKEY_BYTES];
+    unsigned int best_size = uniqcnt+1;
+    for (unsigned int iter=0; iter<NUM_PRF_ITERS; ++iter) {
+	unsigned long count[num_buckets];
+	memset(count, 0, sizeof(count));
+	unsigned long largest_bucket_size = 0;
+	unsigned char prfkey[PRFKEY_BYTES];
+	random_bytes(prfkey, PRFKEY_BYTES);
+	PRF prf(prfkey, num_buckets);
+	uniqptr = uniqrecs;
+	for (unsigned long k=0; k<uniqcnt && largest_bucket_size < best_size;
+		++k) {
+	    unsigned int bucket = prf.M(uniqptr);
+	    uniqptr += HASHKEY_BYTES + DATAENC_BYTES;
+	    count[bucket] += 1;
+	    if (count[bucket] > largest_bucket_size) {
+		largest_bucket_size = count[bucket];
+	    }
+	}
+
+	if (largest_bucket_size < best_size) {
+	    memmove(best_prfkey, prfkey, PRFKEY_BYTES);
+	    best_size = largest_bucket_size;
+	}
+    }
+
+    cerr << num_buckets << " " << best_size << "*" << (HASHKEY_BYTES + DATAENC_BYTES) << "=" << (best_size*(HASHKEY_BYTES + DATAENC_BYTES)) << "\n";
+
+    unsigned char *datafile =
+	new unsigned char[num_buckets*best_size*(HASHKEY_BYTES+DATAENC_BYTES)];
+    if (!datafile) {
+	delete[] uniqrecs;
+	throw runtime_error("Out of memory allocating data file");
+    }
+    memset(datafile, 0xff,
+	num_buckets*best_size*(HASHKEY_BYTES+DATAENC_BYTES));
+    unsigned long count[num_buckets];
+    memset(count, 0, sizeof(count));
+    PRF prf(best_prfkey, num_buckets);
+    uniqptr = uniqrecs;
+    for (unsigned long k=0; k<uniqcnt; ++k) {
+	unsigned int bucket = prf.M(uniqptr);
+	if (count[bucket] >= best_size) {
+	    delete[] uniqrecs;
+	    delete[] datafile;
+	    cerr << bucket << " " << count[bucket] << " " << best_size << "\n";
+	    throw runtime_error("Inconsistency creating buckets");
+	}
+	memmove(datafile+bucket*(best_size*(HASHKEY_BYTES+DATAENC_BYTES))
+		+ count[bucket]*(HASHKEY_BYTES+DATAENC_BYTES),
+		uniqptr, HASHKEY_BYTES+DATAENC_BYTES);
+	count[bucket] += 1;
+	uniqptr += HASHKEY_BYTES + DATAENC_BYTES;
+    }
+    delete[] uniqrecs;
+
+    metadataos.write((const char *)best_prfkey, PRFKEY_BYTES);
+    metadataos.write((const char *)&num_buckets, UINT_BYTES);
+    metadataos.write((const char *)&best_size, UINT_BYTES);
+    metadataos.flush();
+
+    dataos.write((const char *)datafile,
+	    num_buckets*best_size*(HASHKEY_BYTES+DATAENC_BYTES));
+    dataos.flush();
+
+    delete[] datafile;
     return workingepoch;
 }
 
@@ -283,7 +429,11 @@ static void *client_reg_thread(void *strp)
 
 static void *epoch_change_thread(void *none)
 {
-    rs->epoch_change(cout, cout);
+    ofstream md("metadata.out");
+    ofstream d("data.out");
+    rs->epoch_change(md, d);
+    d.close();
+    md.close();
     return NULL;
 }
 
