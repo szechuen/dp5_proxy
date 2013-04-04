@@ -152,9 +152,9 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     }
 
     if (regmsglen % inrecord_size != 0) {
-	    // The input was not an integer number of records.  Reject it.
+        // The input was not an integer number of records.  Reject it.
         err = 0x03;
-	    goto client_reg_return;
+        goto client_reg_return;
     }
     numrecords = regmsglen / inrecord_size;
 
@@ -276,7 +276,8 @@ static void *client_reg_thread(void *strp)
     string res;
     string *data = (string *)strp;
     rs->client_reg(res, *data);
-    printf("%02x %08x\n", res.data()[0], *(unsigned int*)(res.data()+1));
+    printf("%02x %08x %08x\n", res.data()[0],
+	*(unsigned int*)(data->data()), *(unsigned int*)(res.data()+1));
     return NULL;
 }
 
@@ -298,19 +299,20 @@ int main(int argc, char **argv)
     mkdir("datadir", 0700);
 
     rs = new DP5RegServer(DP5RegServer::current_epoch(), "regdir", "datadir");
+    unsigned int epoch = rs->current_epoch();
 
     // Create the blocks of data to submit
     vector<string> submits[2];
 
     for (int subflag=0; subflag<2; ++subflag) {
 	for (int i=0; i<num_clients; ++i) {
-	    size_t datasize = num_buddies *
+	    size_t datasize = rs->EPOCH_BYTES + num_buddies *
 		(rs->SHAREDKEY_BYTES + rs->DATAENC_BYTES);
 	    unsigned char data[datasize];
 	    unsigned char *thisdata = data;
         
-        rs->epoch_num_to_bytes(thisdata,rs->current_epoch()+1);
-        thisdata += rs->EPOCH_BYTES;
+	    rs->epoch_num_to_bytes(thisdata,epoch+1+subflag);
+	    thisdata += rs->EPOCH_BYTES;
 
 	    for (int j=0; j<num_buddies; ++j) {
 		// Random key
