@@ -7,6 +7,7 @@
 #include <sys/file.h>
 #include <stdint.h>
 #include <math.h>
+#include <arpa/inet.h>
 
 #include <iostream>
 #include <fstream>
@@ -378,8 +379,12 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     delete[] uniqrecs;
 
     metadataos.write((const char *)best_prfkey, PRFKEY_BYTES);
-    metadataos.write((const char *)&num_buckets, UINT_BYTES);
-    metadataos.write((const char *)&best_size, UINT_BYTES);
+    unsigned int num_buckets_be = htonl(num_buckets);
+    unsigned int best_size_be = htonl(best_size);
+    metadataos.write(((const char *)&num_buckets_be)
+	+sizeof(unsigned int)-UINT_BYTES, UINT_BYTES);
+    metadataos.write(((const char *)&best_size_be)
+	+sizeof(unsigned int)-UINT_BYTES, UINT_BYTES);
     metadataos.flush();
 
     dataos.write((const char *)datafile,
