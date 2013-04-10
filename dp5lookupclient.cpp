@@ -30,18 +30,20 @@ int DP5LookupClient::Request::pir_query(vector<string> &requeststrs,
     }
 
     int ret = _pirclient->send_request(pir_bucketnums, iosvec);
-    if (ret) {
-	return err;
+    if (!ret) {
+	err = 0;
     }
 
     requeststrs.clear();
     for (unsigned int j=0; j<_num_servers; ++j) {
-	requeststrs.push_back(((stringstream*)(iosvec[j]))->str());
+	if (!ret) {
+	    requeststrs.push_back(((stringstream*)(iosvec[j]))->str());
+	}
 	delete iosvec[j];
 	iosvec[j] = NULL;
     }
 
-    return 0;
+    return err;
 }
 
 // The glue API to the PIR layer.  Pass the responses from the
@@ -52,6 +54,49 @@ int DP5LookupClient::Request::pir_response(vector<string> &buckets,
 		const vector<string> &responses)
 {
     int err = -1;
+
+    if (responses.size() != _num_servers) {
+	return err;
+    }
+
+    // Receive the replies
+    vector<iostream *> iosvec;
+    for (unsigned int i=0; i<_num_servers;++i) {
+	iosvec.push_back(new stringstream(responses[i]));
+    }
+
+    unsigned int num_replies = _pirclient->receive_replies(iosvec);
+
+    for (unsigned int i=0; i<_num_servers;++i) {
+	delete iosvec[i];
+	iosvec[i] = NULL;
+    }
+    iosvec.clear();
+
+    // The minimum number of servers that must be honest for us to
+    // recover the data.  Let's just do the simplest thing for now.
+    unsigned int min_honest = (num_replies + _privacy_level + 1) / 2;
+
+    // Process the replies.  The empty blocknumers and iosvec will cause
+    // bad things to happen if the "fetch more blocks to try to correct
+    // more errors" code is invoked.  For now, we won't worry about
+    // having lots of Byzantine lookup servers, and indeed since
+    // min_honest is set to the above value, this should never happen.
+    vector<dbsize_t> block_numbers;
+    vector< vector<PercyResult> > pirres = _pirclient->process_replies(
+	min_honest, block_numbers, iosvec);
+
+    err = 0;
+    buckets.clear();
+    size_t num_res = pirres.size();
+    for (size_t r=0; r<num_res; ++r) {
+	if (pirres[r].size() == 1) {
+	    buckets.push_back(pirres[r][0].sigma);
+	} else {
+	    buckets.push_back(string());
+	    err = -1;
+	}
+    }
 
     return err;
 }
