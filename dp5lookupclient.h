@@ -68,7 +68,34 @@ public:
 
 	// The metadata to use
 	Metadata _metadata_current;
+
+	// The glue API to the PIR layer.  Pass a vector of the bucket
+	// numbers to look up.  This should already be padded to one of
+	// the valid sizes listed in QUERY_SIZES.  Place the querys to
+	// send to the servers into requeststrs.  Return 0 on success,
+	// non-0 on failure.
+	int pir_query(vector<string> &requeststrs,
+			const vector<unsigned int> &bucketnums);
+
+	// The glue API to the PIR layer.  Pass the responses from the
+	// servers into responsestrs.  buckets will be filled with the
+	// contents of the buckets indexed by bucketnums.  Return 0 on
+	// success, non-0 on failure.
+	int pir_response(vector<string> &buckets,
+			const vector<string> &responses);
     };
+
+    // The number of valid numbers of buddies a client can send at
+    // lookup time
+    static const unsigned int NUM_QUERY_SIZES = 2;
+
+    // The array of valid numbers of buddies a client can send at lookup
+    // time (The actual values are set in the cpp file.)
+    static unsigned int QUERY_SIZES[NUM_QUERY_SIZES];
+
+    // The number of PIR servers that can collude without revealing a
+    // client's query
+    static const unsigned int PRIVACY_LEVEL = 2;
 
     // The constructor consumes the client's private key
     DP5LookupClient(const unsigned char privkey[PRIVKEY_BYTES]);
