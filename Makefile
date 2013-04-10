@@ -63,5 +63,8 @@ test_client.o: dp5regclient.cpp dp5regclient.h dp5params.h
 dp5lookupclient.o: dp5lookupclient.cpp dp5lookupclient.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
+dp5lookupserver.o: dp5lookupserver.cpp dp5lookupserver.h dp5params.h
+	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
+
 clean:
 	-rm -f *.o
