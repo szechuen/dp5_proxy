@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include "dp5params.h"
+#include "percyparams.h"
+#include "percyclient.h"
 
 struct BuddyKey {
     // A buddy's public key
@@ -41,6 +43,80 @@ public:
     // A class representing an in-progress lookup request
     class Request {
     public:
+	// Constructor
+	Request(): _pirparams(NULL), _pirclient(NULL),
+		    _pir_server_indices(NULL) {}
+
+	// Destructor
+	~Request() {
+	    delete[] _pir_server_indices;
+	    delete _pirparams;
+	    delete _pirclient;
+	}
+
+	// Copy constructor
+	Request(const Request &other) {
+	    _num_servers = other._num_servers;
+	    _privacy_level = other._privacy_level;
+	    _metadata_current = other._metadata_current;
+	    _pirparams = NULL;
+	    if (other._pirparams) {
+		_pirparams = new PercyClientParams(*other._pirparams);
+	    }
+	    _pirclient = NULL;
+	    if (other._pirclient) {
+		_pirclient = new PercyClient(*other._pirclient);
+	    }
+	    _pir_server_indices = NULL;
+	    if (other._pir_server_indices) {
+		_pir_server_indices = new sid_t[_num_servers];
+		memmove(_pir_server_indices, other._pir_server_indices,
+			_num_servers * sizeof(sid_t));
+	    }
+	}
+
+	// Assignment operator
+	Request& operator=(Request other) {
+	    // Swap the fields of the temporary "other" with ours
+	    // so things get properly freed
+	    sid_t *tmp = other._pir_server_indices;
+	    other._pir_server_indices = _pir_server_indices;
+	    _pir_server_indices = tmp;
+
+	    PercyClientParams *tmpc = other._pirparams;
+	    other._pirparams = _pirparams;
+	    _pirparams = tmpc;
+
+	    PercyClient *tmpcl = other._pirclient;
+	    other._pirclient = _pirclient;
+	    _pirclient = tmpcl;
+
+	    // The non-dynamic members can be just copied
+	    _num_servers = other._num_servers;
+	    _privacy_level = other._privacy_level;
+	    _metadata_current = other._metadata_current;
+
+	    return *this;
+	}
+
+	// Initialize the Request object
+	void init(unsigned int num_servers, unsigned int privacy_level,
+		    const Metadata &metadata) {
+	    _num_servers = num_servers;
+	    _privacy_level = privacy_level;
+	    _metadata_current = metadata;
+	    _pirparams = new PercyClientParams(
+		_metadata_current.bucket_size *
+		    (HASHKEY_BYTES + DATAENC_BYTES),
+		_metadata_current.num_buckets, 0, to_ZZ("256"), MODE_GF28,
+		    NULL, false);
+	    _pir_server_indices = new sid_t[_num_servers];
+
+	    _pirclient = new PercyClient(*_pirparams, _num_servers,
+					    _privacy_level);
+	    _pirclient->choose_indices(_pir_server_indices);
+	}
+
 	// Get the messages to send to the lookup servers.  Send the ith
 	// entry of the resulting vector to lookup server i, unless the
 	// ith entry is the empty string (in which case don't send
@@ -68,6 +144,15 @@ public:
 
 	// The metadata to use
 	Metadata _metadata_current;
+
+	// The PercyClientParams, constructed from the above pieces
+	PercyClientParams *_pirparams;
+
+	// The PercyClient in use
+	PercyClient *_pirclient;
+
+	// The server indices used by PIR
+	sid_t *_pir_server_indices;
 
 	// The glue API to the PIR layer.  Pass a vector of the bucket
 	// numbers to look up.  This should already be padded to one of

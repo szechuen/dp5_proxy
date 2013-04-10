@@ -1,3 +1,5 @@
+PERCYINC = ../percy
+NTLINC = /usr/local/include/NTL
 CC = gcc
 CXX = g++
 CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations
@@ -57,6 +59,9 @@ test_rsreg.o: dp5regserver.cpp dp5regserver.h dp5params.h
 
 test_client.o: dp5regclient.cpp dp5regclient.h dp5params.h
 	g++ $(CXXFLAGS) -DTEST_CLIENT -c $< -o $@
+
+dp5lookupclient.o: dp5lookupclient.cpp dp5lookupclient.h dp5params.h
+	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
 clean:
 	-rm -f *.o
