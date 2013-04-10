@@ -195,10 +195,11 @@ client_reg_return:
     msgtoreply.assign((char *)resp, 1+EPOCH_BYTES);
 }
 
-// Compare two registration records for use in qsort
+// Compare two registration records for use in qsort.  Note that this sorts
+// in reverse order.
 static int cmprecords(const void *a, const void *b)
 {
-    return memcmp(a, b,
+    return memcmp(b, a,
 		DP5RegServer::HASHKEY_BYTES + DP5RegServer::DATAENC_BYTES);
 }
 
@@ -354,7 +355,7 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
 	delete[] uniqrecs;
 	throw runtime_error("Out of memory allocating data file");
     }
-    memset(datafile, 0xff,
+    memset(datafile, 0x00,
 	num_buckets*best_size*(HASHKEY_BYTES+DATAENC_BYTES));
     unsigned long count[num_buckets];
     memset(count, 0, sizeof(count));
@@ -369,7 +370,7 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
 	    throw runtime_error("Inconsistency creating buckets");
 	}
 	memmove(datafile+bucket*(best_size*(HASHKEY_BYTES+DATAENC_BYTES))
-		+ count[bucket]*(HASHKEY_BYTES+DATAENC_BYTES),
+		+ (best_size-count[bucket]-1)*(HASHKEY_BYTES+DATAENC_BYTES),
 		uniqptr, HASHKEY_BYTES+DATAENC_BYTES);
 	count[bucket] += 1;
 	uniqptr += HASHKEY_BYTES + DATAENC_BYTES;

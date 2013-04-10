@@ -217,7 +217,7 @@ f. Allocate num_buckets buckets, each of size
 
    Sort the (K_k,ED_k) elements within each bucket according to K_k.
 
-   Fill any unused space in any bucket with bytes of 0xff.
+   *Left-pad* any unused space in any bucket with bytes of 0x00.
 
 g. We will create a data file and a metadata file for the current epoch.
    The datatype UInt denotes a UINT_BYTES byte big-endian unsigned
