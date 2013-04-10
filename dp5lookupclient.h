@@ -111,6 +111,9 @@ public:
 		_metadata_current.num_buckets, 0, to_ZZ("256"), MODE_GF28,
 		    NULL, false);
 	    _pir_server_indices = new sid_t[_num_servers];
+	    for (unsigned int j=0; j<_num_servers; ++j) {
+		_pir_server_indices[j] = (sid_t)(j+1);
+	    }
 
 	    _pirclient = new PercyClient(*_pirparams, _num_servers,
 					    _privacy_level);
