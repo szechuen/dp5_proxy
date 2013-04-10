@@ -16,7 +16,32 @@ int DP5LookupClient::Request::pir_query(vector<string> &requeststrs,
 {
     int err = -1;
 
-    return err;
+    // Convert the bucketnums to the right type
+    vector<dbsize_t> pir_bucketnums;
+    size_t numqs = bucketnums.size();
+    for (size_t i=0; i<numqs; ++i) {
+	pir_bucketnums.push_back((dbsize_t)bucketnums[i]);
+    }
+
+    // Create the iostreams to hold the output
+    vector<iostream*> iosvec;
+    for (unsigned int j=0; j<_num_servers; ++j) {
+	iosvec.push_back(new stringstream());
+    }
+
+    int ret = _pirclient->send_request(pir_bucketnums, iosvec);
+    if (ret) {
+	return err;
+    }
+
+    requeststrs.clear();
+    for (unsigned int j=0; j<_num_servers; ++j) {
+	requeststrs.push_back(((stringstream*)(iosvec[j]))->str());
+	delete iosvec[j];
+	iosvec[j] = NULL;
+    }
+
+    return 0;
 }
 
 // The glue API to the PIR layer.  Pass the responses from the
