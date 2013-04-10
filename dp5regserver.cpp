@@ -310,9 +310,9 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     // the hashed keys into buckets.
 
     // Compute the number of PRF buckets we want to have
-    unsigned int ostensible_numkeys = 0 * MAX_CLIENTS * MAX_BUDDIES;
-    if (uniqcnt > ostensible_numkeys) {
-	ostensible_numkeys = uniqcnt;
+    unsigned int ostensible_numkeys = uniqcnt;
+    if (ostensible_numkeys < 1) {
+	ostensible_numkeys = 1;
     }
     uint64_t datasize = ostensible_numkeys *
 			(HASHKEY_BYTES + DATAENC_BYTES) *

@@ -161,14 +161,11 @@ b. Read the epoch file current_epoch to retrieve the list of hashed keys
    (HK_1,ED_1),...,(HK_{num_keys|,ED_{num_keys})
 
 c. Compute the number of PRF buckets
-   num_buckets = ceil(sqrt(max(num_keys, MAX_CLIENTS * MAX_BUDDIES) *
-                           (HASHKEY_BYTES + DATAENC_BYTES) *
+   num_buckets = ceil(sqrt(max(num_keys,1) * (HASHKEY_BYTES + DATAENC_BYTES) *
 			   PIR_WORDS_PER_BYTE))
 
 : PIR_WORDS_PER_BYTE is 8 if we're using Chor et al.'s simple PIR, or 1
 : if we're using Goldberg's PIR.
-: For our parameters, num_buckets = 4561 for Chor et al.'s PIR, or 1613
-: for Goldberg's PIR, unless num_keys > 100,000.
 
 d. Let M be a pseudorandom function family with keys being PRFKEY_BYTES
    byte strings and codomain {0,1,2,..,num_buckets-1}.
