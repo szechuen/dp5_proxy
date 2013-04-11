@@ -75,7 +75,7 @@ int DP5LookupClient::Request::pir_response(vector<string> &buckets,
 
     // The minimum number of servers that must be honest for us to
     // recover the data.  Let's just do the simplest thing for now.
-    unsigned int min_honest = (num_replies + _privacy_level + 1) / 2;
+    unsigned int min_honest = (num_replies + _privacy_level) / 2 + 1;
 
     // Process the replies.  The empty blocknumers and iosvec will cause
     // bad things to happen if the "fetch more blocks to try to correct
