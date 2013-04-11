@@ -7,7 +7,7 @@
 #include <arpa/inet.h>
 
 #include <stdexcept>
-
+#include <sstream>
 
 #include "dp5lookupserver.h"
 
@@ -119,6 +119,29 @@ DP5LookupServer::~DP5LookupServer()
     }
     free(_datafilename);
     free(_metadatafilename);
+}
+
+// The glue API to the PIR layer.  Pass a request string as produced
+// by pir_query.  reponse is filled in with the reponse; pass it to
+// pir_response.  Return 0 on success, non-0 on failure.
+int DP5LookupServer::pir_process(string &response, const string &request)
+{
+    if (!_pirserver || !_pirserverparams) {
+	return -1;
+    }
+
+    stringstream ins(request);
+    stringstream outs;
+
+    bool ret = _pirserver->handle_request(*_pirserverparams, ins, outs);
+
+    if (!ret) {
+	return -1;
+    }
+
+    response = outs.str();
+
+    return 0;
 }
 
 #ifdef TEST_LSCD
