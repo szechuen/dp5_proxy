@@ -43,17 +43,17 @@ void DP5LookupServer::init(unsigned int epoch, const char *metadatafilename,
 	throw runtime_error("Cannot mmap metadata file");
     }
 
-    unsigned int num_buckets = 0;
-    unsigned int bucket_size = 0;
-    memmove(((char *)&num_buckets)+sizeof(unsigned int)-UINT_BYTES,
+    unsigned int num_buckets_be = 0;
+    unsigned int bucket_size_be = 0;
+    memmove(((char *)&num_buckets_be)+sizeof(unsigned int)-UINT_BYTES,
 	_metadatafilecontents+PRFKEY_BYTES, UINT_BYTES);
-    memmove(((char *)&bucket_size)+sizeof(unsigned int)-UINT_BYTES,
+    memmove(((char *)&bucket_size_be)+sizeof(unsigned int)-UINT_BYTES,
 	_metadatafilecontents+PRFKEY_BYTES+UINT_BYTES, UINT_BYTES);
-    num_buckets = ntohl(num_buckets);
-    bucket_size = ntohl(bucket_size);
+    _num_buckets = ntohl(num_buckets_be);
+    _bucket_size = ntohl(bucket_size_be);
 
     _pirserverparams = new PercyServerParams(
-	bucket_size * (HASHKEY_BYTES + DATAENC_BYTES), num_buckets,
+	_bucket_size * (HASHKEY_BYTES + DATAENC_BYTES), _num_buckets,
 	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0, 0);
 
     _datastore = new FileDataStore(_datafilename, *_pirserverparams);
@@ -100,8 +100,10 @@ DP5LookupServer& DP5LookupServer::operator=(DP5LookupServer other)
     other._pirserver = _pirserver;
     _pirserver = tmpps;
 
-    // This can just be copied
+    // These can just be copied
     _epoch = other._epoch;
+    _num_buckets = other._num_buckets;
+    _bucket_size = other._bucket_size;
 
     return *this;
 }
@@ -176,3 +178,95 @@ int main(int argc, char **argv)
 }
 
 #endif // TEST_LSCD
+
+#ifdef TEST_PIRGLUE
+
+#include "dp5lookupclient.h"
+
+// Test the PIR API glue
+
+// Run as: ./test_pirglue | hexdump -e '10/1 "%02x" " " 1/16 "%s" "\n"'
+
+void test_pirglue()
+{
+    DP5Params params;
+
+    // The current epoch
+    unsigned int epoch = params.current_epoch();
+
+    unsigned int num_servers = params.NUM_PIRSERVERS;
+
+    // Create the right number of lookup servers
+    DP5LookupServer *servers = new DP5LookupServer[num_servers];
+
+    // Initialize them.  NOTE: You must have run test_rsreg prior to
+    // this to create the metadata.out and data.out files.
+    for(unsigned int s=0; s<num_servers; ++s) {
+	servers[s].init(epoch, "metadata.out", "data.out");
+    }
+
+    DP5LookupClient::Metadata meta;
+    meta.version = 1;
+    meta.epoch = epoch;
+    memmove(meta.prfkey, servers[0]._metadatafilecontents,
+	    servers[0].PRFKEY_BYTES);
+    meta.num_buckets = servers[0]._num_buckets;
+    meta.bucket_size = servers[0]._bucket_size;
+
+    cerr << meta.num_buckets << " buckets\n";
+    cerr << meta.bucket_size << " records per bucket\n";
+    cerr << meta.bucket_size * (params.HASHKEY_BYTES +
+	    params.DATAENC_BYTES) << " bytes per bucket\n\n";
+
+    DP5LookupClient::Request req;
+    req.init(num_servers, DP5LookupClient::PRIVACY_LEVEL, meta);
+
+    vector<unsigned int> bucketnums;
+    bucketnums.push_back(3);
+    bucketnums.push_back(1);
+    bucketnums.push_back(6);
+
+    vector<string> requests;
+
+    int res = req.pir_query(requests, bucketnums);
+    if (res) {
+	throw runtime_error("Calling pir_query");
+    }
+
+    vector<string> responses;
+    for(unsigned int s=0; s<num_servers; ++s) {
+	string resp;
+	cerr << "Query " << s+1 << " has length " <<
+		requests[s].length() << "\n";
+	res = servers[s].pir_process(resp, requests[s]);
+	if (res) {
+	    throw runtime_error("Calling pir_process");
+	}
+	cerr << "Reply " << s+1 << " has length " <<
+		resp.length() << "\n";
+	responses.push_back(resp);
+    }
+
+    vector<string> buckets;
+
+    res = req.pir_response(buckets, responses);
+    if (res) {
+	throw runtime_error("Calling pir_response");
+    }
+
+    size_t num_blocks = buckets.size();
+    cerr << num_blocks << " blocks retrieved\n";
+    for (size_t b=0; b<num_blocks; ++b) {
+	cout << buckets[b];
+    }
+}
+
+int main(int argc, char **argv)
+{
+    ZZ_p::init(to_ZZ(256));
+    test_pirglue();
+
+    return 0;
+}
+
+#endif // TEST_PIRGLUE

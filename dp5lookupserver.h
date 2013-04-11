@@ -15,7 +15,8 @@ public:
     // Default constructor
     DP5LookupServer() : _epoch(0), _metadatafilename(NULL),
 	    _datafilename(NULL), _metadatafd(-1),
-	    _metadatafilecontents(NULL), _pirserverparams(NULL),
+	    _metadatafilecontents(NULL), _num_buckets(1),
+	    _bucket_size(0), _pirserverparams(NULL),
 	    _datastore(NULL), _pirserver(NULL) {}
 
     // Copy constructor
@@ -27,16 +28,16 @@ public:
     // Destructor
     ~DP5LookupServer();
 
+    // Initialize the private members from the epoch and the filenames
+    void init(unsigned int epoch, const char *metadatafilename,
+	const char *datafilename);
+
     // Process a received request from a lookup client.  This may be
     // either a metadata or a data request.  Set reply to the reply to
     // return to the client.
     void process_request(string &reply, const string &request);
 
 private:
-    // Initialize the private members from the epoch and the filenames
-    void init(unsigned int epoch, const char *metadatafilename,
-	const char *datafilename);
-
     // The glue API to the PIR layer.  Pass a request string as produced
     // by pir_query.  reponse is filled in with the reponse; pass it to
     // pir_response.  Return 0 on success, non-0 on failure.
@@ -57,6 +58,12 @@ private:
     // The metadata file contents
     unsigned char *_metadatafilecontents;
 
+    // The number of buckets
+    unsigned int _num_buckets;
+
+    // The number of records per bucket
+    unsigned int _bucket_size;
+
     // The PercyServerParams, filled in from the metadata file
     PercyServerParams *_pirserverparams;
 
@@ -65,6 +72,11 @@ private:
 
     // The PercyServer used to serve requests
     PercyServer *_pirserver;
+
+#ifdef TEST_PIRGLUE
+    friend void test_pirglue();
+#endif // TEST_PIRGLUE
+
 };
 
 #endif

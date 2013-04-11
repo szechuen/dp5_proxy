@@ -171,6 +171,10 @@ public:
 	// success, non-0 on failure.
 	int pir_response(vector<string> &buckets,
 			const vector<string> &responses);
+
+#ifdef TEST_PIRGLUE
+	friend void test_pirglue();
+#endif // TEST_PIRGLUE
     };
 
     // The number of valid numbers of buddies a client can send at
@@ -213,6 +217,9 @@ public:
 #ifdef TEST_REQCD
     friend void test_reqcd(Request &a);
 #endif // TEST_REQCD
+#ifdef TEST_PIRGLUE
+    friend void test_pirglue();
+#endif // TEST_PIRGLUE
 
 };
 
