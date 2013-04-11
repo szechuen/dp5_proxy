@@ -108,7 +108,7 @@ public:
 	    _pirparams = new PercyClientParams(
 		_metadata_current.bucket_size *
 		    (HASHKEY_BYTES + DATAENC_BYTES),
-		_metadata_current.num_buckets, 0, to_ZZ("256"), MODE_GF28,
+		_metadata_current.num_buckets, 0, to_ZZ(256), MODE_GF28,
 		    NULL, false);
 	    _pir_server_indices = new sid_t[_num_servers];
 	    for (unsigned int j=0; j<_num_servers; ++j) {
@@ -209,6 +209,10 @@ public:
     // non-0 on failure.
     int lookup_request(Request &req, const vector<BuddyKey> buddies,
 	unsigned int num_servers, unsigned int privacy_level);
+
+#ifdef TEST_REQCD
+    friend void test_reqcd(Request &a);
+#endif // TEST_REQCD
 
 };
 

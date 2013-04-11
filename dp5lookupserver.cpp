@@ -54,7 +54,7 @@ void DP5LookupServer::init(unsigned int epoch, const char *metadatafilename,
 
     _pirserverparams = new PercyServerParams(
 	bucket_size * (HASHKEY_BYTES + DATAENC_BYTES), num_buckets,
-	0, to_ZZ("256"), MODE_GF28, false, NULL, false, 0, 0);
+	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0, 0);
 
     _datastore = new FileDataStore(_datafilename, *_pirserverparams);
 
@@ -114,7 +114,42 @@ DP5LookupServer::~DP5LookupServer()
     delete _pirserverparams;
 
     munmap(_metadatafilecontents, PRFKEY_BYTES + UINT_BYTES + UINT_BYTES);
-    close(_metadatafd);
+    if (_metadatafd >= 0) {
+	close(_metadatafd);
+    }
     free(_datafilename);
     free(_metadatafilename);
 }
+
+#ifdef TEST_LSCD
+
+// Test the constructor, copy constructor, assignment operator,
+// destructor
+void test_lscd()
+{
+    DP5Params p;
+
+    DP5LookupServer a(p.current_epoch(), "metadata.out", "data.out");
+    DP5LookupServer b;
+    b = a;
+    DP5LookupServer c(b);
+    DP5LookupServer d = c;
+    DP5LookupServer e;
+    e = d;
+}
+
+int main(int argc, char **argv)
+{
+    ZZ_p::init(to_ZZ(256));
+
+    test_lscd();
+
+    // Ensure we've closed all of the file descriptors
+    char cmd[100];
+    sprintf(cmd, "ls -l /proc/%d/fd", getpid());
+    system(cmd);
+
+    return 0;
+}
+
+#endif // TEST_LSCD

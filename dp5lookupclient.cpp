@@ -100,3 +100,39 @@ int DP5LookupClient::Request::pir_response(vector<string> &buckets,
 
     return err;
 }
+
+#ifdef TEST_REQCD
+
+// Test the constructor, copy constructor, assignment operator,
+// destructor
+void test_reqcd(DP5LookupClient::Request &a)
+{
+    DP5Params p;
+
+    DP5LookupClient::Metadata meta;
+    meta.version = 1;
+    meta.epoch = p.current_epoch();
+    p.random_bytes(meta.prfkey, p.PRFKEY_BYTES);
+    meta.num_buckets = 1000;
+    meta.bucket_size = 50;
+
+    DP5LookupClient::Request b;
+    a.init(5, 2, meta);
+    b = a;
+    DP5LookupClient::Request c(b);
+    DP5LookupClient::Request d = c;
+    DP5LookupClient::Request e;
+    e = d;
+}
+
+int main(int argc, char **argv)
+{
+    DP5LookupClient::Request a;
+    ZZ_p::init(to_ZZ(256));
+
+    test_reqcd(a);
+
+    return 0;
+}
+
+#endif // TEST_REQCD

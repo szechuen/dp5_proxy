@@ -12,6 +12,12 @@ public:
     DP5LookupServer(unsigned int epoch, const char *metadatafilename,
 	const char *datafilename);
 
+    // Default constructor
+    DP5LookupServer() : _epoch(0), _metadatafilename(NULL),
+	    _datafilename(NULL), _metadatafd(-1),
+	    _metadatafilecontents(NULL), _pirserverparams(NULL),
+	    _datastore(NULL), _pirserver(NULL) {}
+
     // Copy constructor
     DP5LookupServer(const DP5LookupServer &other);
 
