@@ -175,6 +175,9 @@ public:
 #ifdef TEST_PIRGLUE
 	friend void test_pirglue();
 #endif // TEST_PIRGLUE
+#ifdef TEST_PIRGLUEMT
+	friend void test_pirgluemt();
+#endif // TEST_PIRGLUEMT
     };
 
     // The number of valid numbers of buddies a client can send at
@@ -220,6 +223,9 @@ public:
 #ifdef TEST_PIRGLUE
     friend void test_pirglue();
 #endif // TEST_PIRGLUE
+#ifdef TEST_PIRGLUEMT
+    friend void test_pirgluemt();
+#endif // TEST_PIRGLUEMT
 
 };
 

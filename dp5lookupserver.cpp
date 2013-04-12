@@ -345,3 +345,105 @@ int main(int argc, char **argv)
 }
 
 #endif // TEST_PIRGLUE
+
+#ifdef TEST_PIRGLUEMT
+// Test the multi-threadedness of the PIR API glue
+
+#include "dp5lookupclient.h"
+
+DP5LookupServer *server = NULL;
+
+void* test_pirgluemt_single(void *d)
+{
+    pair<string,string> *p = (pair<string,string> *)d;
+    string r;
+    server->pir_process(r, p->first);
+    if (r != p->second) {
+	cerr << "Answers differ!\n";
+    }
+    return NULL;
+}
+
+void test_pirgluemt()
+{
+    DP5Params params;
+
+    unsigned int numthreads = 100;
+    unsigned int qperthread = 3;
+    bool multithread = true;
+
+    // The current epoch
+    unsigned int epoch = params.current_epoch();
+
+    // Use a single server.  NOTE: You must have run test_rsreg prior to
+    // this to create the metadata.out and data.out files.
+    server = new DP5LookupServer(epoch, "metadata.out", "data.out");
+
+    DP5LookupClient::Metadata meta;
+    meta.version = 1;
+    meta.epoch = epoch;
+    memmove(meta.prfkey, server->_metadatafilecontents, server->PRFKEY_BYTES);
+    meta.num_buckets = server->_num_buckets;
+    meta.bucket_size = server->_bucket_size;
+
+    DP5Params::PRF prf(meta.prfkey, meta.num_buckets);
+
+    // A vector of question/answer pairs
+    vector< pair<string,string> > qas;
+
+    unsigned char hashkey[server->HASHKEY_BYTES];
+    memset(hashkey, '\0', server->HASHKEY_BYTES);
+    unsigned int iter = 0;
+
+    DP5LookupClient::Request req;
+    req.init(params.NUM_PIRSERVERS, DP5LookupClient::PRIVACY_LEVEL, meta);
+
+    for (unsigned int i=0; i<numthreads; ++i) {
+	// Generate a random question
+	vector<unsigned int> buckets;
+	cerr << "Requesting";
+	for (unsigned int j=0; j<qperthread; ++j) {
+	    ++iter;
+	    memmove(hashkey, &iter, sizeof(iter));
+	    unsigned int b = prf.M(hashkey);
+	    buckets.push_back(b);
+	    cerr << " " << b;
+	    vector<string> requests;
+	    string reply;
+	    req.pir_query(requests, buckets);
+	    server->pir_process(reply, requests[0]);
+	    qas.push_back(pair<string,string>(requests[0], reply));
+	}
+	cerr << "\n";
+    }
+
+    // Now see if we get the same answers in a multithreaded setting
+    vector<pthread_t> children;
+
+    for (unsigned int i=0; i<numthreads; ++i) {
+	if (multithread) {
+	    pthread_t thr;
+	    pthread_create(&thr, NULL, test_pirgluemt_single, &(qas[i]));
+	    children.push_back(thr);
+	} else {
+	    test_pirgluemt_single(&(qas[i]));
+	}
+    }
+
+    size_t numchildren = children.size();
+    for (unsigned int i=0; i<numchildren; ++i) {
+	pthread_join(children[i], NULL);
+    }
+
+    delete server;
+}
+
+int main(int argc, char **argv)
+{
+    ZZ_p::init(to_ZZ(256));
+    test_pirgluemt();
+
+    return 0;
+}
+
+#endif // TEST_PIRGLUEMT
