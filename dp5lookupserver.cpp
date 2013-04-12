@@ -334,6 +334,8 @@ void test_pirglue()
     for (size_t b=0; b<num_blocks; ++b) {
 	cout << buckets[b];
     }
+
+    delete[] servers;
 }
 
 int main(int argc, char **argv)
