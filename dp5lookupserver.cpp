@@ -146,6 +146,81 @@ int DP5LookupServer::pir_process(string &response, const string &request)
     return 0;
 }
 
+// Process a received request from a lookup client.  This may be either
+// a metadata or a data request.  Set reply to the reply to return to
+// the client.
+void DP5LookupServer::process_request(string &reply, const string &request)
+{
+    size_t reqlen = request.length();
+    const unsigned char *reqdata = (const unsigned char *)request.data();
+
+    // Check for a well-formed command
+    if (reqlen < 5 ||
+	    (reqdata[0] != 0xff && reqdata[0] != 0xfe && reqdata[0] != 0xfd)
+	    || epoch_bytes_to_num(reqdata+1) != _epoch) {
+	unsigned char errmsg[5];
+	if (reqlen > 0 && reqdata[0] == 0xfe) {
+	    errmsg[0] = 0x80;
+	} else if (reqlen > 0 && reqdata[1] == 0xfd) {
+	    errmsg[0] = 0x80;
+	} else {
+	    errmsg[0] = 0x00;
+	}
+	epoch_num_to_bytes(errmsg+1, _epoch);
+	reply.assign((const char *)errmsg, 5);
+	return;
+    }
+
+    // At this point, we have a well-formed 5-byte command header with
+    // the correct epoch in it.
+    if (reqdata[0] == 0xff) {
+	// Request for the metadata file
+	unsigned char repmsg[5];
+	repmsg[0] = METADATA_VERSION;
+	epoch_num_to_bytes(repmsg+1, _epoch);
+	reply.assign((const char *)repmsg, 5);
+	reply.append((const char *)_metadatafilecontents,
+	    PRFKEY_BYTES + UINT_BYTES + UINT_BYTES);
+	return;
+    }
+
+    if (reqdata[0] == 0xfe) {
+	// PIR query
+	string pirquery((const char *)reqdata+5, reqlen-5);
+	string pirresp;
+	int ret = pir_process(pirresp, pirquery);
+	if (ret) {
+	    // Error occurred
+	    unsigned char errmsg[5];
+	    errmsg[0] = 0x80;
+	    epoch_num_to_bytes(errmsg+1, _epoch);
+	    reply.assign((const char *)errmsg, 5);
+	    return;
+	}
+	unsigned char repmsg[5];
+	repmsg[0] = 0x81;
+	epoch_num_to_bytes(repmsg+1, _epoch);
+	reply.assign((const char *)repmsg, 5);
+	reply.append(pirresp);
+	return;
+    }
+
+    if (reqdata[0] == 0xfd) {
+	// Request for the whole data file
+	unsigned char repmsg[5];
+	repmsg[0] = 0x82;
+	epoch_num_to_bytes(repmsg+1, _epoch);
+	reply.assign((const char *)repmsg, 5);
+	reply.append((const char *)(_datastore->get_data()),
+	    _num_buckets * _bucket_size *
+	    (HASHKEY_BYTES + DATAENC_BYTES));
+	return;
+    }
+
+    // It should not be possible to get here
+    throw runtime_error("Unhandled request");
+}
+
 #ifdef TEST_LSCD
 
 // Test the constructor, copy constructor, assignment operator,
