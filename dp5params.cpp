@@ -196,6 +196,25 @@ unsigned int DP5Params::epoch_bytes_to_num(
     return ntohl(*(unsigned int*)epoch_bytes);
 }
 
+// Convert an uint number to an uint byte array in network order
+void DP5Params::uint_num_to_bytes(unsigned char uint_bytes[UINT_BYTES],
+	unsigned int uint_num){
+    unsigned int num_netorder = htonl(uint_num);
+    memcpy((char *) uint_bytes, ((const char *)&num_netorder)
+	    +sizeof(unsigned int)-UINT_BYTES, UINT_BYTES);
+}
+
+// Convert an uint byte array in networkorder to an uint number
+unsigned int DP5Params::uint_bytes_to_num(
+	const unsigned char uint_bytes[UINT_BYTES]){
+    unsigned int res = 0;
+    memcpy(((char *)&res) +sizeof(unsigned int)-UINT_BYTES, 
+        (const char *) uint_bytes, UINT_BYTES);
+    res = ntohl(res);
+    return res;
+}
+
+
 #ifdef TEST_DH
 #include <stdio.h>
 
@@ -437,6 +456,18 @@ int main(int argc, char **argv)
 	printf("Epoch reverse conversion failed\n");
 	return 1;
     }
+
+    // Abuse this test case to also test the conversions
+    // between uint and bytes.
+    unsigned int test_uint = 0x5678;
+    unsigned char uint_bytes[dp5.UINT_BYTES];
+    dp5.uint_num_to_bytes(uint_bytes, test_uint);
+    unsigned int res = dp5.uint_bytes_to_num(uint_bytes);
+    if (res != 0x5678){
+    printf("UINT conversion failed\n");
+	return 1;
+    }
+    
 
     printf("\nConversions successful\n");
 

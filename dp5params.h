@@ -142,6 +142,14 @@ public:
     static unsigned int epoch_bytes_to_num(
 	const unsigned char epoch_bytes[EPOCH_BYTES]);
 
+    // Convert an uint number to an uint byte array in network order
+    static void uint_num_to_bytes(unsigned char uint_bytes[UINT_BYTES],
+	    unsigned int uint_num);
+
+    // Convert an uint byte array in networkorder to an uint number
+    static unsigned int uint_bytes_to_num(
+	    const unsigned char uint_bytes[UINT_BYTES]);
+
     // Destructor, if necessary
     ~DP5Params();
 };

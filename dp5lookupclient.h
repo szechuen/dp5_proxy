@@ -198,7 +198,7 @@ public:
     // Create a request for the metadata file.  This (and the next
     // method) must complete in each epoch before invoking the lookup
     // functions.
-    void metadata_request(unsigned int epoch);
+    void metadata_request(string &msgtosend, unsigned int epoch);
 
     // Consume the reply to a metadata request.  Return 0 on success,
     // non-0 on failure.

@@ -101,6 +101,58 @@ int DP5LookupClient::Request::pir_response(vector<string> &buckets,
     return err;
 }
 
+void DP5LookupClient::metadata_request(string &msgtosend, unsigned int epoch){
+    unsigned char metadata_request_message[1+EPOCH_BYTES];
+    metadata_request_message[0] = 0xff;
+    epoch_num_to_bytes(metadata_request_message+1, epoch);
+
+    // Keep track of the current metadata request epoch
+    _metadata_request_epoch = epoch; 
+
+    // Output this message
+    msgtosend.assign((char *) metadata_request_message, 1+EPOCH_BYTES);
+}
+
+// Consume the reply to a metadata request.  Return 0 on success,
+// non-0 on failure.
+int DP5LookupClient::metadata_reply(const string &metadata){
+    const unsigned char* msgdata = (const unsigned char*) metadata.data();
+    
+    // Check input: The server returned an error.
+    if (msgdata[0] == 0x00) return 0x01;
+        
+    // Check input: We do not know about this version of the protocol.
+    if (msgdata[0] != 0x01) return 0x02;
+
+    // Check input: wrong input length
+    if(metadata.size() != (1 + EPOCH_BYTES + PRFKEY_BYTES + 2 * UINT_BYTES)) 
+        return 0x03;
+
+    unsigned int epoch = epoch_bytes_to_num(msgdata + 1);
+
+    // Check epoch: we did not expect a metadata reply
+    if (_metadata_request_epoch == 0) return 0x04;
+
+    // Check epoch: not the epoch we expected strangely
+    // TODO: should we somehow tell the client that they need to sync?
+    if (epoch != _metadata_request_epoch) return 0x05;
+    
+    // Now copy all fields to the metadata record
+    _metadata_current.version = msgdata[0];
+    _metadata_current.epoch = epoch;
+    memcpy(_metadata_current.prfkey, msgdata+(1+EPOCH_BYTES), 
+        PRFKEY_BYTES);
+    _metadata_current.num_buckets = 
+        uint_bytes_to_num(msgdata+(1+EPOCH_BYTES+PRFKEY_BYTES));
+    _metadata_current.bucket_size = 
+        uint_bytes_to_num(msgdata+(1+EPOCH_BYTES+PRFKEY_BYTES+UINT_BYTES));
+
+    // Reset the state
+    _metadata_request_epoch = 0; 
+
+    return 0x00;
+}
+
 #ifdef TEST_REQCD
 
 // Test the constructor, copy constructor, assignment operator,

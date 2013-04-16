@@ -379,12 +379,15 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     delete[] uniqrecs;
 
     metadataos.write((const char *)best_prfkey, PRFKEY_BYTES);
-    unsigned int num_buckets_be = htonl(num_buckets);
-    unsigned int best_size_be = htonl(best_size);
-    metadataos.write(((const char *)&num_buckets_be)
-	+sizeof(unsigned int)-UINT_BYTES, UINT_BYTES);
-    metadataos.write(((const char *)&best_size_be)
-	+sizeof(unsigned int)-UINT_BYTES, UINT_BYTES);
+
+    // Use standard conversion from UInt to bytes in network order
+    unsigned char num_buckets_be[UINT_BYTES];
+    unsigned char best_size_be[UINT_BYTES];
+    uint_num_to_bytes(num_buckets_be, num_buckets);
+    uint_num_to_bytes(best_size_be, best_size);
+
+    metadataos.write(((const char *)&num_buckets_be), UINT_BYTES);
+    metadataos.write(((const char *)&best_size_be), UINT_BYTES);
     metadataos.flush();
 
     dataos.write((const char *)datafile,
