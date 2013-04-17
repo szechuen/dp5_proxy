@@ -153,6 +153,88 @@ int DP5LookupClient::metadata_reply(const string &metadata){
     return 0x00;
 }
 
+// The constructor consumes the client's private key
+DP5LookupClient::DP5LookupClient(const unsigned char privkey[PRIVKEY_BYTES]){
+    memmove(_privkey,privkey, PRIVKEY_BYTES);
+}
+
+// Look up some number of buddies.  Pass in the vector of buddies'
+// public keys, the number of lookup servers there are, and the
+// privacy level to use (the privacy level is the maximum number of
+// lookup servers that can collude without learning what you are
+// looking up).  It must be the case that privacy_level <
+// num_servers.  req will be filled in with a new Request object.
+// Use the get_msgs method on that object to obtain the messages to
+// send to the servers, and the lookup_reply method on that object
+// to obtain the BuddyPresence information.  Return 0 on success,
+// non-0 on failure.
+int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies,
+	unsigned int num_servers, unsigned int privacy_level){
+
+    // Check inputs
+    if (buddies.size() > MAX_BUDDIES)
+        return 0x01; // Number of buddies exceeds maximum.
+
+    if (_metadata_current.version == 0 || _metadata_current.epoch == 0)
+        return 0x02; // No up to date metadata!.
+
+    // Determine the target epoch for the registration
+    // as the next epoch, and convert to bytes.
+    unsigned int epoch = _metadata_current.epoch;
+    unsigned char epoch_bytes[EPOCH_BYTES];
+    epoch_num_to_bytes(epoch_bytes, epoch);
+
+    // Placeholder for the output message
+    vector<string> labels;
+
+    PRF bucket_mapping(_metadata_current.prfkey, _metadata_current.num_buckets);
+    std::set<unsigned int> BIs;
+    
+    // For each real buddy
+    for(unsigned int i = 0; i < buddies.size(); i++)
+    {
+        const BuddyKey& current_buddy = buddies[i];
+
+        // Get the long terms shared DH key
+        unsigned char shared_dh_secret[PUBKEY_BYTES];
+        diffie_hellman(shared_dh_secret, _privkey, current_buddy.pubkey);
+
+        // Derive the epoch keys 
+        unsigned char shared_key[SHAREDKEY_BYTES];
+        unsigned char data_key[DATAKEY_BYTES];
+        H1H2(shared_key, data_key, epoch_bytes, shared_dh_secret);
+      
+        // Produce HKi
+        unsigned char HKi[HASHKEY_BYTES];
+        H3(HKi, epoch_bytes, shared_key);
+
+        // Produce Bi
+        unsigned int Bi = bucket_mapping.M(HKi);
+        BIs.insert(Bi);
+    }
+
+    unsigned int buckets_to_query = MAX_BUDDIES; 
+    if (BIs.size() <= 1) buckets_to_query = 1;
+
+    // Decide if PIR is worth it
+    bool do_PIR = NUM_PIRSERVERS * ( (_metadata_current.num_buckets / PIR_WORDS_PER_BYTE) +
+   (_metadata_current.bucket_size * (HASHKEY_BYTES + DATAENC_BYTES)) ) * buckets_to_query
+   < _metadata_current.num_buckets * _metadata_current.bucket_size * (HASHKEY_BYTES + DATAENC_BYTES);
+    
+    if (do_PIR) {
+        // Perform the request through PIR
+
+        req.init(num_servers, privacy_level, _metadata_current);
+
+    }
+    else
+    {
+        // Just download the whole DB
+    }
+
+    return 0x00;
+}
+
 #ifdef TEST_REQCD
 
 // Test the constructor, copy constructor, assignment operator,
