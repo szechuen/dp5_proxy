@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <string>
+#include <set>
+#include <map>
 #include "dp5params.h"
 #include "percyparams.h"
 #include "percyclient.h"
@@ -39,6 +41,9 @@ private:
 	unsigned int bucket_size;
     } _metadata_current;
 
+    // Save a copy of the private key
+    unsigned char _privkey[PRIVKEY_BYTES];
+
 public:
     // A class representing an in-progress lookup request
     class Request {
@@ -59,6 +64,9 @@ public:
 	    _num_servers = other._num_servers;
 	    _privacy_level = other._privacy_level;
 	    _metadata_current = other._metadata_current;
+        _friends = other._friends;
+        _do_PIR = other._do_PIR;
+
 	    _pirparams = NULL;
 	    if (other._pirparams) {
 		_pirparams = new PercyClientParams(*other._pirparams);
@@ -95,13 +103,26 @@ public:
 	    _num_servers = other._num_servers;
 	    _privacy_level = other._privacy_level;
 	    _metadata_current = other._metadata_current;
-
+        _friends = other._friends;
+        _do_PIR = other._do_PIR;
 	    return *this;
 	}
 
+    struct Friend_state {
+        unsigned char pubkey[DP5Params::PUBKEY_BYTES];
+        unsigned char shared_key[SHAREDKEY_BYTES];
+        unsigned char data_key[DATAKEY_BYTES];
+        unsigned char HKi[HASHKEY_BYTES];
+        unsigned int bucket;
+        unsigned int position;
+    };
+
 	// Initialize the Request object
 	void init(unsigned int num_servers, unsigned int privacy_level,
-		    const Metadata &metadata) {
+		    const Metadata &metadata, const vector<Friend_state> &friends, bool do_PIR) {
+        
+        _do_PIR = do_PIR; 
+        _friends = friends;
 	    _num_servers = num_servers;
 	    _privacy_level = privacy_level;
 	    _metadata_current = metadata;
@@ -125,7 +146,7 @@ public:
 	// ith entry is the empty string (in which case don't send
 	// anything to server i, and set the corresponding reply to the
 	// empty string in lookup_reply).
-	vector<string> get_msgs() const;
+	vector<string> get_msgs();
 
 	// Process the replies to yield the BuddyPresence information.
 	// This may only be called once for a given Request object.
@@ -138,7 +159,13 @@ public:
 	int lookup_reply(vector<BuddyPresence> &presence,
 	    const vector<string> &replies);
 
+
+
     private:
+
+    vector<Friend_state> _friends;
+    bool _do_PIR;
+
 	// The number of lookup servers
 	unsigned int _num_servers;
 
