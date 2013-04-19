@@ -11,7 +11,7 @@ LDLIBS = -lcrypto
 BINS =
 TESTS = test_dh test_hashes test_prf test_enc test_epoch \
 	test_rsconst test_rsreg test_client test_reqcd \
-	test_lscd test_pirglue test_pirgluemt
+	test_lscd test_pirglue test_pirgluemt test_integrate
 
 all: $(BINS) $(TESTS)
 
@@ -51,6 +51,9 @@ test_pirglue: test_pirglue.o dp5lookupclient.o dp5params.o curve25519-donna.o
 test_pirgluemt: test_pirgluemt.o dp5lookupclient.o dp5params.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp -lpthread
 
+test_integrate: test_integrate.o dp5regserver.o dp5regclient.o dp5params.o curve25519-donna.o
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp
+
 test_dh.o: dp5params.cpp dp5params.h
 	g++ $(CXXFLAGS) -DTEST_DH -c $< -o $@
 
@@ -87,10 +90,19 @@ test_pirglue.o: dp5lookupserver.cpp dp5lookupserver.h dp5params.h
 test_pirgluemt.o: dp5lookupserver.cpp dp5lookupserver.h dp5params.h
 	g++ $(CXXFLAGS) -DTEST_PIRGLUEMT -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
+dp5regserver.o: dp5regserver.cpp dp5regserver.h dp5params.h
+	g++ $(CXXFLAGS) -c $< -o $@
+
+dp5regclient.o: dp5regclient.cpp dp5regclient.h dp5params.h
+	g++ $(CXXFLAGS) -c $< -o $@
+
 dp5lookupclient.o: dp5lookupclient.cpp dp5lookupclient.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
 dp5lookupserver.o: dp5lookupserver.cpp dp5lookupserver.h dp5params.h
+	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
+
+test_integrate.o: dp5integrationtest.cpp dp5regserver.h dp5regclient.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
 clean:
