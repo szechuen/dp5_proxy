@@ -54,6 +54,7 @@ Upon user input that the client is online:
 
 a. Each client creates a list of the public keys of his buddies (whom he
 wants to tell he is online).  Let the number of buddies be num_buddies.
+Each client also derived their own public key, which we call Pk.
 
 b. For each public key P_i in the list, he combines it with his own
 private key to form a Diffie-Hellman shared secret s_i. (1 <= i <=
@@ -62,11 +63,11 @@ num_buddies)
 c. Express the next epoch number = (current epoch number + 1) as a
 4-byte big-endian unsigned integer E.
 
-d. Each s_i is hashed along with E to produce the key K_i = H_1(E, s_i)
+d. Each s_i is hashed along with E to produce the key K_i = H_1(E, Pk, s_i)
 of size SHAREDKEY_BYTES bytes.
 
 : SHAREDKEY_BYTES = 10
-: H_1(E, s) = SHA-256(0x00 || E || s) truncated to SHAREDKEY_BYTES bytes
+: H_1(E, Pk, s) = SHA-256(0x00 || E || Pk || s) truncated to SHAREDKEY_BYTES bytes
 : Note that we must have that 16^{SHAREDKEY_BYTES} >>
 : MAX_BUDDIES*MAX_CLIENTS
 
@@ -74,12 +75,12 @@ e. The client must attach DATAPLAIN_BYTES bytes of associated data to
 each buddy notification (for example, how to reach him; the exact
 contents and format of the associated data is left to the application,
 and is out of scope of this protocol).  Let D_i be the plaintext for
-buddy i.  Compute the data key DK_i = H_2(E, s_i), which is of length
+buddy i.  Compute the data key DK_i = H_2(E, Pk, s_i), which is of length
 DATAKEY_BYTES bytes.
 
 : DATAPLAIN_BYTES = 16
 : DATAKEY_BYTES = 16
-: H_2(E, s) = the last 16 bytes of SHA-256(0x00 || E || s)
+: H_2(E, Pk, s) = the last 16 bytes of SHA-256(0x00 || E || Pk || s)
 
 f. Encrypt the data for each buddy i as ED_i = Enc_{DK_i}(D_i) producing
 a ciphertext of length DATAENC_BYTES bytes.
@@ -297,11 +298,11 @@ c. Express the current epoch number as a 4-byte big-endian unsigned
    by combining his own private key with each of his buddy's public
    keys (1 <= i <= num_queries).
 
-d. Produce the shared keys K_i = H_1(E, s_i) of size SHAREDKEY_BYTES
+d. Produce the shared keys K_i = H_1(E, P_i, s_i) of size SHAREDKEY_BYTES
    bytes, hash them to produce HK_i = H_3(E, K_i) of size HASHKEY_BYTES
    and apply the PRF to each to produce the bucket numbers B_i =
    M_prfkey(HK_i).  Also produce the associated data keys
-   DK_i = H_2(E, s_i).
+   DK_i = H_2(E, P_i, s_i).
 
 e. Construct the set B = {B_1, ..., B_{num_queries}} (removing duplicates).
    Let |B| be the number of unique elements of B.  Find the smallest element

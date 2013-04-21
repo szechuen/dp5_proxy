@@ -69,6 +69,17 @@ void DP5Params::genkeypair(unsigned char pubkey[PUBKEY_BYTES],
     curve25519_donna(pubkey, privkey, generator);
 }
 
+// Generate a public/private keypair
+void DP5Params::getpubkey(unsigned char pubkey[PUBKEY_BYTES],
+    const unsigned char privkey[PRIVKEY_BYTES])
+{
+    // The generator
+    static const unsigned char generator[32] = {9};
+
+    // Generate the public key
+    curve25519_donna(pubkey, privkey, generator);
+}
+
 // Compute the Diffie-Hellman output for a given (buddy's) public
 // key and (your own) private key
 void DP5Params::diffie_hellman(unsigned char dh_output[PUBKEY_BYTES],
@@ -85,6 +96,7 @@ void DP5Params::diffie_hellman(unsigned char dh_output[PUBKEY_BYTES],
 void DP5Params::H1H2(unsigned char H1_out[SHAREDKEY_BYTES],
     unsigned char H2_out[DATAKEY_BYTES],
     const unsigned char E[EPOCH_BYTES],
+    const unsigned char pubkey[PUBKEY_BYTES],
     const unsigned char dhout[PUBKEY_BYTES])
 {
     unsigned char shaout[SHA256_DIGEST_LENGTH];
@@ -92,6 +104,7 @@ void DP5Params::H1H2(unsigned char H1_out[SHAREDKEY_BYTES],
     SHA256_Init(&hash);
     SHA256_Update(&hash, "\x00", 1);
     SHA256_Update(&hash, E, EPOCH_BYTES);
+    SHA256_Update(&hash, pubkey, PUBKEY_BYTES);
     SHA256_Update(&hash, dhout, PUBKEY_BYTES);
     SHA256_Final(shaout, &hash);
     memmove(H1_out, shaout, SHAREDKEY_BYTES);
@@ -301,7 +314,7 @@ int main(int argc, char **argv)
     dump("E ", epoch_bytes, dp5.EPOCH_BYTES);
     dump("s ", alice_dh, dp5.PUBKEY_BYTES);
     printf("\n");
-    dp5.H1H2(H1, H2, epoch_bytes, alice_dh);
+    dp5.H1H2(H1, H2, epoch_bytes, alice_pubkey, alice_dh);
     dump("H1", H1, dp5.SHAREDKEY_BYTES);
     dump("H2", H2, dp5.DATAKEY_BYTES);
     dp5.H3(H3, epoch_bytes, H1);

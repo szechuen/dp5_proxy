@@ -205,7 +205,8 @@ int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies
         diffie_hellman(shared_dh_secret, _privkey, friend_rec.pubkey);
 
         // Derive the epoch keys
-        H1H2(friend_rec.shared_key, friend_rec.data_key, epoch_bytes, shared_dh_secret);
+        H1H2(friend_rec.shared_key, friend_rec.data_key, epoch_bytes, 
+                buddies[i].pubkey, shared_dh_secret);
       
         // Produce HKi
         H3(friend_rec.HKi, epoch_bytes, friend_rec.shared_key);

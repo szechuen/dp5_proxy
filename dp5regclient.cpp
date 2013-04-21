@@ -20,6 +20,9 @@ int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies)
     if (buddies.size() > MAX_BUDDIES)
         return 0x01; // Number of buddies exceeds maximum.
 
+    unsigned char mypub[PUBKEY_BYTES];
+    getpubkey(mypub, _privkey);
+
     // Determine the target epoch for the registration
     // as the next epoch, and convert to bytes.
     unsigned int next_epoch = current_epoch() + 1;
@@ -39,12 +42,12 @@ int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies)
 
         // Get the long terms shared DH key
         unsigned char shared_dh_secret[PUBKEY_BYTES];
-        diffie_hellman(shared_dh_secret, this->_privkey, current_buddy.pubkey);
+        diffie_hellman(shared_dh_secret, _privkey, current_buddy.pubkey);
 
         // Derive the epoch keys 
         unsigned char* shared_key = out_data[i];
         unsigned char data_key[DATAKEY_BYTES];
-        H1H2(shared_key, data_key, epoch_bytes, shared_dh_secret);
+        H1H2(shared_key, data_key, epoch_bytes, mypub, shared_dh_secret);
 
         // Encrypt the associated data
         unsigned char* ciphertext = out_data[i] + (SHAREDKEY_BYTES);
