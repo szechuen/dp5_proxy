@@ -163,7 +163,10 @@ public:
 
     private:
 
+    // The internal state of the fiends, inc. keys and bukets
     vector<Friend_state> _friends;
+
+    // Flag indicating we do PIR, and not download.
     bool _do_PIR;
 
 	// The number of lookup servers

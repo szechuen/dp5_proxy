@@ -253,7 +253,7 @@ vector<string> DP5LookupClient::Request::get_msgs(){
 
     unsigned char request_header[1+EPOCH_BYTES];
     if (_do_PIR) { request_header[0] = 0xfe; }
-           else { request_header[0] = 0xfe; }
+           else { request_header[0] = 0xfd; }
     epoch_num_to_bytes(request_header+1, _metadata_current.epoch);
     string header;
     header.assign((const char *)request_header, 1+EPOCH_BYTES);
@@ -355,16 +355,17 @@ int DP5LookupClient::Request::lookup_reply(
             if (replies[s] != ""){
 
                 // Message should be long-ish
-                if ( replies[s].length() < 1 + EPOCH_BYTES) return 0x02;
+                if ( replies[s].length() < 1 + EPOCH_BYTES) return 0x12;
 
-                unsigned int status = replies[s].data()[0];
+                unsigned int status = ((unsigned char *) replies[s].data())[0];
                 // Expected a download request but got a PIR?
-                if (status != 0x82) return 0x03;
+                printf("Status %X\n", status);
+                if (status != 0x82) return 0x13;
             
                 unsigned int server_epoch = 
                     epoch_bytes_to_num((const unsigned char *) replies[s].data() + 1);
                 // Expect to get a reply for the current epoch            
-                if (server_epoch != _metadata_current.epoch) return 0x04;
+                if (server_epoch != _metadata_current.epoch) return 0x14;
 
                 const char * database = 
                     ((char *) replies[s].data()) + (1 + EPOCH_BYTES); 
@@ -372,7 +373,7 @@ int DP5LookupClient::Request::lookup_reply(
 
                 // Check it is a multiple of HASHKEY_BYTES + DATAENC_BYTES
                 if (database_size % (HASHKEY_BYTES + DATAENC_BYTES) != 0)
-                    return 0x05;
+                    return 0x15;
 
 
                 // Extract the buckets
@@ -385,7 +386,7 @@ int DP5LookupClient::Request::lookup_reply(
 
                         // Is this still within bounds?
                         if (idx + HASHKEY_BYTES + DATAENC_BYTES > database_size)
-                            return 0x07;
+                            return 0x17;
 
                         friend_record.assign(database + idx, 
                             _metadata_current.bucket_size  * (HASHKEY_BYTES + DATAENC_BYTES));
@@ -398,7 +399,7 @@ int DP5LookupClient::Request::lookup_reply(
             }
             
             // Did not find a single valid download reply
-            if (number_of_valid_msg < 0) return 0x06;
+            if (number_of_valid_msg < 0) return 0x16;
         }
 
         // Since we have made it so far, it means we have a bunch

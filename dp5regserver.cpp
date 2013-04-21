@@ -227,6 +227,7 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
 	int res = flock(lockedfd, LOCK_EX);
 	if (res == 0) break;
     } 
+    // TODO: Deleteme.
     printf("Locked %d EX\n", lockedfd);
 
     // Now we have the lock
@@ -241,7 +242,7 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     create_nextreg_file(workingepoch+1);
     _epoch = workingepoch;
 
-    // We can release the lock now
+    // TODO: Deleteme. We can release the lock now
     printf("Unlocking %d\n", lockedfd);
     flock(lockedfd, LOCK_UN);
 

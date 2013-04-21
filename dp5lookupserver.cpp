@@ -294,7 +294,8 @@ void test_pirglue()
 	    params.DATAENC_BYTES) << " bytes per bucket\n\n";
 
     DP5LookupClient::Request req;
-    req.init(num_servers, DP5LookupClient::PRIVACY_LEVEL, meta);
+    const vector<DP5LookupClient::Request::Friend_state> fs;
+    req.init(num_servers, DP5LookupClient::PRIVACY_LEVEL, meta, fs, true);
 
     vector<unsigned int> bucketnums;
     bucketnums.push_back(3);
@@ -398,7 +399,8 @@ void test_pirgluemt()
     unsigned int iter = 0;
 
     DP5LookupClient::Request req;
-    req.init(params.NUM_PIRSERVERS, DP5LookupClient::PRIVACY_LEVEL, meta);
+    const vector<DP5LookupClient::Request::Friend_state> fs;
+    req.init(params.NUM_PIRSERVERS, DP5LookupClient::PRIVACY_LEVEL, meta, fs, true);
 
     for (unsigned int i=0; i<numthreads; ++i) {
 	// Generate a random question
