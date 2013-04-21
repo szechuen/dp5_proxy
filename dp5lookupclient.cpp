@@ -221,10 +221,12 @@ int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies
     unsigned int buckets_to_query = MAX_BUDDIES; 
     if (BIs.size() <= 1) buckets_to_query = 1;
 
+    unsigned int pir_bytes = NUM_PIRSERVERS * ( (_metadata_current.num_buckets / PIR_WORDS_PER_BYTE) + (_metadata_current.bucket_size * (HASHKEY_BYTES + DATAENC_BYTES)) ) * buckets_to_query;
+    unsigned int download_bytes = _metadata_current.num_buckets * _metadata_current.bucket_size * (HASHKEY_BYTES + DATAENC_BYTES);
+
     // Decide if PIR is worth it
-    bool do_PIR = NUM_PIRSERVERS * ( (_metadata_current.num_buckets / PIR_WORDS_PER_BYTE) +
-   (_metadata_current.bucket_size * (HASHKEY_BYTES + DATAENC_BYTES)) ) * buckets_to_query
-   < _metadata_current.num_buckets * _metadata_current.bucket_size * (HASHKEY_BYTES + DATAENC_BYTES);
+    bool do_PIR = pir_bytes < download_bytes;
+    printf("Size: pir %i bytes vs. %i bytes", pir_bytes, download_bytes);
 
     // Seed the request with all necessary keys and information to determine
     // the messages to be sent.
@@ -313,6 +315,7 @@ int DP5LookupClient::Request::lookup_reply(
     unsigned int number_of_valid_msg = 0;
     vector<string> buckets;
     buckets.assign(MAX_BUDDIES, ""); // Hack: max number of buckets
+
     if (_do_PIR){
         vector<string> pir_replies;
         for (unsigned int s = 0; s < _num_servers; s++){
@@ -325,7 +328,7 @@ int DP5LookupClient::Request::lookup_reply(
             // Message should be long-ish
             if ( replies[s].length() < 1 + EPOCH_BYTES) return 0x02;
 
-            unsigned int status = replies[s].data()[0];
+            unsigned int status = ((unsigned char *) replies[s].data())[0];
             // Expected a PIR request but got a download.
             if (status != 0x81) return 0x03;
             
@@ -376,7 +379,6 @@ int DP5LookupClient::Request::lookup_reply(
                 if (database_size % (HASHKEY_BYTES + DATAENC_BYTES) != 0)
                     return 0x15;
 
-
                 // Extract the buckets
                 for (unsigned int f = 0; f < _friends.size(); f++){
                     string friend_record;
@@ -402,44 +404,42 @@ int DP5LookupClient::Request::lookup_reply(
             // Did not find a single valid download reply
             if (number_of_valid_msg < 0) return 0x16;
         }
-
-        // Since we have made it so far, it means we have a bunch
-        // of buckets, and should use them to extract the (HK,D) for 
-        // each friend. 
-        // TODO: We could use a binary search algorithm, but I am 
-        // just going to use linear search for the moment. Its not like
-        // we are going to be doing this very often, and it is not on 
-        // the critical path to enable other ops. Optimize later.
-
-        presence.clear();
-
-        for (unsigned int f = 0; f < _friends.size(); f++){
-            // We asked for this bucket, but it is empty!
-            if (buckets[_friends[f].position] == "") return 0x08;
-
-            const char * friend_bucket = buckets[_friends[f].position].data();
-            BuddyPresence output_record;
-            memmove(output_record.pubkey, _friends[f].pubkey, PUBKEY_BYTES);
-            output_record.is_online = false;
-
-            // Linear search through the bucket to find the hash
-            for(unsigned int i = 0; i < _metadata_current.bucket_size; i++){
-                const char * p = friend_bucket + i*(HASHKEY_BYTES + DATAENC_BYTES);
-                if (memcmp(p, _friends[f].HKi, HASHKEY_BYTES) == 0)
-                {
-                    // Found it!
-                    output_record.is_online = true;
-                    Dec(output_record.data, _friends[f].data_key, (unsigned char *) p + HASHKEY_BYTES);
-                }
-            }
-
-            presence.push_back(output_record);
-        }
-
     }
 
-    return 0x00;
 
+    // Since we have made it so far, it means we have a bunch
+    // of buckets, and should use them to extract the (HK,D) for 
+    // each friend. 
+    // TODO: We could use a binary search algorithm, but I am 
+    // just going to use linear search for the moment. Its not like
+    // we are going to be doing this very often, and it is not on 
+    // the critical path to enable other ops. Optimize later.
+
+    presence.clear();
+
+    for (unsigned int f = 0; f < _friends.size(); f++){
+        // We asked for this bucket, but it is empty!
+        if (buckets[_friends[f].position] == "") return 0x08;
+
+        const char * friend_bucket = buckets[_friends[f].position].data();
+        BuddyPresence output_record;
+        memmove(output_record.pubkey, _friends[f].pubkey, PUBKEY_BYTES);
+        output_record.is_online = false;
+
+        // Linear search through the bucket to find the hash
+        for(unsigned int i = 0; i < _metadata_current.bucket_size; i++){
+            const char * p = friend_bucket + i*(HASHKEY_BYTES + DATAENC_BYTES);
+            if (memcmp(p, _friends[f].HKi, HASHKEY_BYTES) == 0)
+            {
+                // Found it!
+                output_record.is_online = true;
+                Dec(output_record.data, _friends[f].data_key, (unsigned char *) p + HASHKEY_BYTES);
+            }
+        }
+
+        presence.push_back(output_record);
+    }
+    return 0x00;
 
 }
 

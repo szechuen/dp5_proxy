@@ -31,8 +31,8 @@ struct dp5TestClient {
 
 int main(int argc, char **argv){
     DP5Params dp5;
-    const unsigned int NUMBEROFCLIENTS = 100;
-    const unsigned int NUMBEROFFRIENDS = 10;
+    const unsigned int NUMBEROFCLIENTS = 1000;
+    const unsigned int NUMBEROFFRIENDS = 2;
 
 
     vector<dp5TestClient> tcs;
@@ -42,7 +42,7 @@ int main(int argc, char **argv){
     {
         dp5TestClient person;
         person.online = false;
-        if (f % 3 == 0) person.online = true;
+        if (f % 2 == 0) person.online = true;
         dp5.genkeypair(person.pubkey, person.privkey);
         tcs.push_back(person);
     }
@@ -179,6 +179,10 @@ int main(int argc, char **argv){
         int err4 = req.lookup_reply(presence, msgStoCpir);
         printf("Presence 1 ok (%X): %s\n",  err4, (err4==0x00)?("True"):("False"));
 
+        // check length
+        bool len_ok = (presence.size() == tcs[f].friends.size());
+        printf("Len 1 ok: %s (%lu?=%lu)\n", (len_ok)?("True"):("False"),presence.size(),tcs[f].friends.size());
+
         // Check the presence resutls are correct
         unsigned int idx = 0;       
 
@@ -204,8 +208,9 @@ int main(int argc, char **argv){
 
             bool all_ok = mem_ok && online_ok && data_ok;
             
-            printf("Presence 2 ok: %s\n", all_ok?("True"):("False"));
+            
             if (!all_ok){
+                printf("Presence 2 ok: %s\n", all_ok?("True"):("False"));
                 printf("    pubkey ok: %s\n", mem_ok?("True"):("False"));
                 printf("    online ok: %s\n", online_ok?("True"):("False"));
                 printf("         actual online: (%s)\n", (tcs[f2].online)?("True"):("False"));
