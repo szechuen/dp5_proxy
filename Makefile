@@ -4,16 +4,23 @@ NTLINC = /usr/local/include/NTL
 NTLLIB = /usr/local/lib
 CC = gcc
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations
-CFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations
+CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
+CFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
 LDLIBS = -lcrypto
 
-BINS =
+BINS = libdp5
 TESTS = test_dh test_hashes test_prf test_enc test_epoch \
 	test_rsconst test_rsreg test_client test_reqcd \
 	test_lscd test_pirglue test_pirgluemt test_integrate
 
 all: $(BINS) $(TESTS)
+
+python: libdp5 dp5py.cpp setup.py
+	python setup.py build
+	cp `find . -name dp5.so` dp5.so
+
+libdp5: dp5regclient.o dp5lookupclient.o dp5params.o curve25519-donna.o
+	ar rcs $@.a $^
 
 test_dh: test_dh.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
@@ -102,8 +109,13 @@ dp5lookupclient.o: dp5lookupclient.cpp dp5lookupclient.h dp5params.h
 dp5lookupserver.o: dp5lookupserver.cpp dp5lookupserver.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
+dp5params.o: dp5params.cpp dp5params.h
+	g++ $(CXXFLAGS) -c $< -o $@
+
 test_integrate.o: dp5integrationtest.cpp dp5lookupclient.h dp5lookupserver.h dp5regserver.h dp5regclient.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
 clean:
 	-rm -f *.o
+	rm -rf build
+
