@@ -89,7 +89,7 @@ int main(int argc, char **argv){
             buds.push_back(b);
         }
 
-        printf("Number of friends: %lu\n", buds.size());
+        printf("Number of friends: %lu\n", (unsigned long)(buds.size()));
 
         // Run the registration process with the server
         string msgCtoS;
@@ -181,7 +181,7 @@ int main(int argc, char **argv){
 
         // check length
         bool len_ok = (presence.size() == tcs[f].friends.size());
-        printf("Len 1 ok: %s (%lu?=%lu)\n", (len_ok)?("True"):("False"),presence.size(),tcs[f].friends.size());
+        printf("Len 1 ok: %s (%lu?=%lu)\n", (len_ok)?("True"):("False"),(unsigned long)(presence.size()),(unsigned long)(tcs[f].friends.size()));
 
         // Check the presence resutls are correct
         unsigned int idx = 0;       
