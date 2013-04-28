@@ -226,7 +226,7 @@ int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies
 
     // Decide if PIR is worth it
     bool do_PIR = pir_bytes < download_bytes;
-    printf("Size: pir %i bytes vs. %i bytes", pir_bytes, download_bytes);
+    // printf("Size: pir %i bytes vs. %i bytes", pir_bytes, download_bytes);
 
     // Seed the request with all necessary keys and information to determine
     // the messages to be sent.
@@ -363,7 +363,7 @@ int DP5LookupClient::Request::lookup_reply(
 
                 unsigned int status = ((unsigned char *) replies[s].data())[0];
                 // Expected a download request but got a PIR?
-                printf("Status %X\n", status);
+                // printf("Status %X\n", status);
                 if (status != 0x82) return 0x13;
             
                 unsigned int server_epoch = 

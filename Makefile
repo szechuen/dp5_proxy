@@ -17,9 +17,10 @@ all: $(BINS) $(TESTS)
 
 python: libdp5 dp5py.cpp setup.py
 	python setup.py build
+	rm dp5.so
 	cp `find . -name dp5.so` dp5.so
 
-libdp5: dp5regclient.o dp5lookupclient.o dp5params.o curve25519-donna.o
+libdp5: dp5lookupserver.o dp5regserver.o dp5regclient.o dp5lookupclient.o dp5params.o curve25519-donna.o
 	ar rcs $@.a $^
 
 test_dh: test_dh.o curve25519-donna.o

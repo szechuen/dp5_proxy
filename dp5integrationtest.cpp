@@ -110,7 +110,7 @@ int main(int argc, char **argv){
     ofstream d("integrated_data.out");
     rs->epoch_change(md, d);
     d.close();
-    md.close();
+    md.close(); 
 
     // And now we are going to build a number of lookup servers
     const unsigned int epoch = dp5.current_epoch() + 1;
