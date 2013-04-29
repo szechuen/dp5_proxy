@@ -160,8 +160,8 @@ if __name__ == '__main__':
         'server.socket_port' : 443,
 
         'server.ssl_module' : 'pyopenssl',
-        'server.ssl_certificate' : '/home/george/Desktop/SSLtest/server.crt',
-        'server.ssl_private_key' : '/home/george/Desktop/SSLtest/server.key'
+        'server.ssl_certificate' : 'testcerts/server.crt',
+        'server.ssl_private_key' : 'testcerts/server.key'
     }
 
     cherrypy.config.update(server_config)
