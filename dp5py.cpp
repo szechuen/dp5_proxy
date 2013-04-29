@@ -367,21 +367,35 @@ static PyObject* pyserverinitreg(PyObject* self, PyObject* args){
 
 static PyObject* pyserverclientreg(PyObject* self, PyObject* args){
     PyObject * server_cap;
-    char * data;
-    Py_ssize_t datasize;
-    int ok = PyArg_ParseTuple(args, "Oz#", &server_cap, &data, &datasize);
-    if (!ok) return NULL;
-    if (!PyCapsule_CheckExact(server_cap)) return NULL;
+    Py_buffer data;
+    
+    int ok = PyArg_ParseTuple(args, "Os*", &server_cap, &data);
+    if (!ok) {
+        PyBuffer_Release(&data);
+        return NULL;
+    }
+    if (!PyCapsule_CheckExact(server_cap)){
+        PyBuffer_Release(&data);
+        return NULL;
+    }
 
     s_server * s = (s_server *) PyCapsule_GetPointer(server_cap, "dp5_server");
     // Clean delete of previous instance!
-    if (!s->regs) return NULL;
+    if (!s->regs){
+        PyBuffer_Release(&data);
+        return NULL;
+    }
 
     string datain;
-    datain.assign(data, datasize);
+    datain.assign((char*) data.buf, data.len);
     string dataout;
+
+    Py_BEGIN_ALLOW_THREADS
     (s->regs)->client_reg(dataout, datain);
-    PyObject *ret = Py_BuildValue("z#", (char *)dataout.data(), dataout.length()); 
+    Py_END_ALLOW_THREADS
+    
+    PyObject *ret = Py_BuildValue("z#", (char *)dataout.data(), dataout.length());
+    PyBuffer_Release(&data);
     return ret;
 }
 
@@ -429,21 +443,32 @@ static PyObject* pyserverinitlookup(PyObject* self, PyObject* args){
 
 static PyObject* pyserverprocessrequest(PyObject* self, PyObject* args){
     PyObject * server_cap;
-    char * data;
-    Py_ssize_t datasize;
-    int ok = PyArg_ParseTuple(args, "Oz#", &server_cap, &data, &datasize);
-    if (!ok) return NULL;
-    if (!PyCapsule_CheckExact(server_cap)) return NULL;
+    Py_buffer data;
+
+    int ok = PyArg_ParseTuple(args, "Os*", &server_cap, &data);
+    if (!ok) {
+         PyBuffer_Release(&data);
+         return NULL;
+    }
+    if (!PyCapsule_CheckExact(server_cap)) {
+         PyBuffer_Release(&data);
+         return NULL;
+    }
 
     s_server * s = (s_server *) PyCapsule_GetPointer(server_cap, "dp5_server");
     // Clean delete of previous instance!
     if (!s->lookups) return NULL;
 
     string datain;
-    datain.assign(data, datasize);
+    datain.assign((char*)data.buf, data.len);
     string dataout;
+
+    Py_BEGIN_ALLOW_THREADS    
     (s->lookups)->process_request(dataout, datain);
-    PyObject *ret = Py_BuildValue("z#", (char *)dataout.data(), dataout.length()); 
+    Py_END_ALLOW_THREADS
+
+    PyObject *ret = Py_BuildValue("z#", (char *)dataout.data(), dataout.length());
+    PyBuffer_Release(&data); 
     return ret;
 }
 
