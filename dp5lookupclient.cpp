@@ -24,7 +24,7 @@ int DP5LookupClient::Request::pir_query(vector<string> &requeststrs,
     }
 
     // Create the iostreams to hold the output
-    vector<iostream*> iosvec;
+    vector<ostream*> iosvec;
     for (unsigned int j=0; j<_num_servers; ++j) {
 	iosvec.push_back(new stringstream());
     }
@@ -60,7 +60,7 @@ int DP5LookupClient::Request::pir_response(vector<string> &buckets,
     }
 
     // Receive the replies
-    vector<iostream *> iosvec;
+    vector<istream *> iosvec;
     for (unsigned int i=0; i<_num_servers;++i) {
 	iosvec.push_back(new stringstream(responses[i]));
     }
@@ -77,21 +77,16 @@ int DP5LookupClient::Request::pir_response(vector<string> &buckets,
     // recover the data.  Let's just do the simplest thing for now.
     unsigned int min_honest = (num_replies + _privacy_level) / 2 + 1;
 
-    // Process the replies.  The empty blocknumers and iosvec will cause
-    // bad things to happen if the "fetch more blocks to try to correct
-    // more errors" code is invoked.  For now, we won't worry about
-    // having lots of Byzantine lookup servers, and indeed since
-    // min_honest is set to the above value, this should never happen.
-    vector<dbsize_t> block_numbers;
-    vector< vector<PercyResult> > pirres = _pirclient->process_replies(
-	min_honest, block_numbers, iosvec);
+    // Process the replies.
+    vector<PercyBlockResults> pirres;
+    _pirclient->process_replies(min_honest, pirres);
 
     err = 0;
     buckets.clear();
     size_t num_res = pirres.size();
     for (size_t r=0; r<num_res; ++r) {
-	if (pirres[r].size() == 1) {
-	    buckets.push_back(pirres[r][0].sigma);
+	if (pirres[r].results.size() == 1) {
+	    buckets.push_back(pirres[r].results[0].sigma);
 	} else {
 	    buckets.push_back(string());
 	    err = -1;

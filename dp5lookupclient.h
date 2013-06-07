@@ -25,6 +25,8 @@ struct BuddyPresence {
     unsigned char data[DP5Params::DATAPLAIN_BYTES];
 };
 
+typedef PercyClient_GF2E<GF28_Element> PercyClientGF28;
+
 class DP5LookupClient: public DP5Params {
 private:
     // The epoch number for which we have an outstanding metadata request,
@@ -49,12 +51,10 @@ public:
     class Request {
     public:
 	// Constructor
-	Request(): _pirparams(NULL), _pirclient(NULL),
-		    _pir_server_indices(NULL) {}
+	Request(): _pirparams(NULL), _pirclient(NULL) {}
 
 	// Destructor
 	~Request() {
-	    delete[] _pir_server_indices;
 	    delete _pirparams;
 	    delete _pirclient;
 	}
@@ -73,13 +73,7 @@ public:
 	    }
 	    _pirclient = NULL;
 	    if (other._pirclient) {
-		_pirclient = new PercyClient(*other._pirclient);
-	    }
-	    _pir_server_indices = NULL;
-	    if (other._pir_server_indices) {
-		_pir_server_indices = new sid_t[_num_servers];
-		memmove(_pir_server_indices, other._pir_server_indices,
-			_num_servers * sizeof(sid_t));
+		_pirclient = new PercyClientGF28(*other._pirclient);
 	    }
 	}
 
@@ -87,15 +81,12 @@ public:
 	Request& operator=(Request other) {
 	    // Swap the fields of the temporary "other" with ours
 	    // so things get properly freed
-	    sid_t *tmp = other._pir_server_indices;
-	    other._pir_server_indices = _pir_server_indices;
-	    _pir_server_indices = tmp;
 
 	    PercyClientParams *tmpc = other._pirparams;
 	    other._pirparams = _pirparams;
 	    _pirparams = tmpc;
 
-	    PercyClient *tmpcl = other._pirclient;
+	    PercyClientGF28 *tmpcl = other._pirclient;
 	    other._pirclient = _pirclient;
 	    _pirclient = tmpcl;
 
@@ -131,14 +122,9 @@ public:
 		    (HASHKEY_BYTES + DATAENC_BYTES),
 		_metadata_current.num_buckets, 0, to_ZZ(256), MODE_GF28,
 		    NULL, false);
-	    _pir_server_indices = new sid_t[_num_servers];
-	    for (unsigned int j=0; j<_num_servers; ++j) {
-		_pir_server_indices[j] = (sid_t)(j+1);
-	    }
 
-	    _pirclient = new PercyClient(*_pirparams, _num_servers,
-					    _privacy_level);
-	    _pirclient->choose_indices(_pir_server_indices);
+	    _pirclient = (PercyClientGF28*)PercyClient::make_client(
+			    *_pirparams, _num_servers, _privacy_level);
 	}
 
 	// Get the messages to send to the lookup servers.  Send the ith
@@ -182,10 +168,7 @@ public:
 	PercyClientParams *_pirparams;
 
 	// The PercyClient in use
-	PercyClient *_pirclient;
-
-	// The server indices used by PIR
-	sid_t *_pir_server_indices;
+	PercyClientGF28 *_pirclient;
 
 	// The glue API to the PIR layer.  Pass a vector of the bucket
 	// numbers to look up.  This should already be padded to one of
