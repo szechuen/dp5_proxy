@@ -1,3 +1,6 @@
+#include <sstream>
+#include <stdio.h>
+
 #include "dp5lookupclient.h"
 #include "percyclient.h"
 
@@ -23,13 +26,13 @@ int DP5LookupClient::Request::pir_query(vector<string> &requeststrs,
 	pir_bucketnums.push_back((dbsize_t)bucketnums[i]);
     }
 
-    // Create the iostreams to hold the output
-    vector<ostream*> iosvec;
+    // Create the ostreams to hold the output
+    vector<ostream*> osvec;
     for (unsigned int j=0; j<_num_servers; ++j) {
-	iosvec.push_back(new stringstream());
+	osvec.push_back(new stringstream());
     }
 
-    int ret = _pirclient->send_request(pir_bucketnums, iosvec);
+    int ret = _pirclient->send_request(pir_bucketnums, osvec);
     if (!ret) {
 	err = 0;
     }
@@ -37,10 +40,10 @@ int DP5LookupClient::Request::pir_query(vector<string> &requeststrs,
     requeststrs.clear();
     for (unsigned int j=0; j<_num_servers; ++j) {
 	if (!ret) {
-	    requeststrs.push_back(((stringstream*)(iosvec[j]))->str());
+	    requeststrs.push_back(((stringstream*)(osvec[j]))->str());
 	}
-	delete iosvec[j];
-	iosvec[j] = NULL;
+	delete osvec[j];
+	osvec[j] = NULL;
     }
 
     return err;
@@ -60,18 +63,18 @@ int DP5LookupClient::Request::pir_response(vector<string> &buckets,
     }
 
     // Receive the replies
-    vector<istream *> iosvec;
+    vector<istream *> isvec;
     for (unsigned int i=0; i<_num_servers;++i) {
-	iosvec.push_back(new stringstream(responses[i]));
+	isvec.push_back(new stringstream(responses[i]));
     }
 
-    unsigned int num_replies = _pirclient->receive_replies(iosvec);
+    unsigned int num_replies = _pirclient->receive_replies(isvec);
 
     for (unsigned int i=0; i<_num_servers;++i) {
-	delete iosvec[i];
-	iosvec[i] = NULL;
+	delete isvec[i];
+	isvec[i] = NULL;
     }
-    iosvec.clear();
+    isvec.clear();
 
     // The minimum number of servers that must be honest for us to
     // recover the data.  Let's just do the simplest thing for now.
