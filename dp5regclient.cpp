@@ -14,7 +14,7 @@ DP5RegClient::DP5RegClient(const unsigned char privkey[PRIVKEY_BYTES]){
     memmove(this->_privkey,privkey, PRIVKEY_BYTES);
 }
 
-int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies){
+int DP5RegClient::start_reg(string &msgtosend, unsigned int next_epoch, const vector<BuddyInfo> &buddies){
     
     // Check inputs
     if (buddies.size() > MAX_BUDDIES)
@@ -25,7 +25,7 @@ int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies)
 
     // Determine the target epoch for the registration
     // as the next epoch, and convert to bytes.
-    unsigned int next_epoch = current_epoch() + 1;
+    
     unsigned char epoch_bytes[EPOCH_BYTES];
     epoch_num_to_bytes(epoch_bytes, next_epoch);
 
@@ -78,7 +78,7 @@ int DP5RegClient::start_reg(string &msgtosend, const vector<BuddyInfo> &buddies)
     return 0x00;
 }
 
-int DP5RegClient::complete_reg(const string &replymsg){
+int DP5RegClient::complete_reg(const string &replymsg, unsigned int next_epoch){
     // check the input length
     if (replymsg.length() != 1+EPOCH_BYTES)
         return 0xFE; // Meaning "wrong input length"
@@ -91,7 +91,7 @@ int DP5RegClient::complete_reg(const string &replymsg){
     if (server_err != 0x00)
         return server_err; // Give the client the error number
 
-    unsigned int next_epoch = DP5Params::current_epoch() + 1;
+    
     if (server_epoch != next_epoch)
         return 0xFD; // The server epoch does not match our next epoch. 
 
@@ -148,10 +148,12 @@ int main(int argc, char **argv)
     dump("Buddies ", (unsigned char *) buddies, sizeof(BuddyInfo)*10);
 
     // Make the first message
+    unsigned int next_epoch = client.current_epoch() + 1;
+
     string s;
     dump("In string ", (unsigned char *) s.c_str(), s.length());
 
-    int err1 = client.start_reg(s, buds);
+    int err1 = client.start_reg(s, next_epoch, buds);
     printf("Result 1 ok: %s\n", (err1==0x00)?("True"):("False"));    
 
     dump("Out string ", (unsigned char *) s.c_str(), s.length());
@@ -159,12 +161,12 @@ int main(int argc, char **argv)
 
     unsigned char rmsg[1+dp5.EPOCH_BYTES];
     rmsg[0] = 0x00;
-    unsigned int next_epoch = dp5.current_epoch() + 1;
+    // unsigned int next_epoch = dp5.current_epoch() + 1;
     dp5.epoch_num_to_bytes(1+rmsg, next_epoch);
     string rstr;
     rstr.assign((char*)rmsg, 1+dp5.EPOCH_BYTES);
 
-    int err2 = client.complete_reg(rstr);
+    int err2 = client.complete_reg(rstr, next_epoch);
     printf("Result 2 ok: %s\n", (err2==0x00)?("True"):("False"));
 }
 #endif // TEST_CLIENT

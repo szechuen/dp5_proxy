@@ -93,13 +93,14 @@ int main(int argc, char **argv){
 
         // Run the registration process with the server
         string msgCtoS;
-        int err1 = tcs[f].reg->start_reg(msgCtoS, buds);
+        unsigned int next_epoch = tcs[f].reg->current_epoch() + 1;
+        int err1 = tcs[f].reg->start_reg(msgCtoS, next_epoch, buds);
         printf("Result 1 ok: %s\n", (err1==0x00)?("True"):("False"));
 
         string msgStoC;
         rs->client_reg(msgStoC, msgCtoS);
 
-        int err2 = tcs[f].reg->complete_reg(msgStoC);
+        int err2 = tcs[f].reg->complete_reg(msgStoC, next_epoch);
         printf("Result 2 ok: %s\n", (err2==0x00)?("True"):("False"));
         
     }

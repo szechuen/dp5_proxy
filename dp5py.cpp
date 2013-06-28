@@ -100,7 +100,8 @@ static PyObject* pyclientregstart(PyObject* self, PyObject* args){
     // We expect 2 arguments: an s_client and a buddy list
     PyObject* sclient;
     PyObject* buddielist;
-    int ok = PyArg_ParseTuple(args, "OO", &sclient, &buddielist);
+    unsigned int next_epoch;
+    int ok = PyArg_ParseTuple(args, "OkO", &sclient, &next_epoch, &buddielist);
     if (!ok) return NULL;
     if (!PyCapsule_CheckExact(sclient)) return NULL;
     if (!PyList_Check(buddielist)) return NULL;
@@ -139,7 +140,7 @@ static PyObject* pyclientregstart(PyObject* self, PyObject* args){
          PyErr_SetString(PyExc_RuntimeError, "Bad capsule");
          return NULL;
     }
-    ok = (c->reg)->start_reg(result, bs);
+    ok = (c->reg)->start_reg(result, next_epoch, bs);
     if (ok != 0x00){
         printf("Error: %hd\n",ok);
         PyErr_SetString(PyExc_RuntimeError, "Protocol interface error");
@@ -152,9 +153,10 @@ static PyObject* pyclientregstart(PyObject* self, PyObject* args){
 
 static PyObject* pyclientregcomplete(PyObject* self, PyObject* args){
     PyObject* sclient;
+    unsigned int next_epoch;
     char *msg;
     Py_ssize_t msgsize;
-    int ok = PyArg_ParseTuple(args, "Oz#", &sclient, &msg, &msgsize);
+    int ok = PyArg_ParseTuple(args, "Oz#k", &sclient, &msg, &msgsize, &next_epoch);
     if (!ok) return NULL;
     if (!PyCapsule_CheckExact(sclient)) return NULL;
     
@@ -166,7 +168,7 @@ static PyObject* pyclientregcomplete(PyObject* self, PyObject* args){
          PyErr_SetString(PyExc_RuntimeError, "Bad capsule");
          return NULL;
     }
-    ok = (c->reg)->complete_reg(smsg);
+    ok = (c->reg)->complete_reg(smsg, next_epoch);
     if (ok != 0x00){
         printf("Error: %hd\n",ok);
         PyErr_SetString(PyExc_RuntimeError, "Protocol interface error");

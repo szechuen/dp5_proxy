@@ -23,12 +23,15 @@ public:
     // MAX_BUDDIES).  Return 0 on success, in which case msgtosend will be
     // filled with the message to send to the registration server.
     // Return non-zero on error.
-    int start_reg(string &msgtosend, const vector<BuddyInfo> &buddies);
+    int start_reg(string &msgtosend, 
+                  unsigned int next_epoch, 
+                  const vector<BuddyInfo> &buddies);
 
     // Once the above message is sent to the registration server, pass
     // the reply to this function.  Return 0 on success, non-zero on
     // error.
-    int complete_reg(const string &replymsg);
+    int complete_reg(const string &replymsg, 
+                      unsigned int next_epoch);
 
 private:
     // Save a copy of the private key

@@ -52,14 +52,15 @@ for i in range(NUM):
         continue
 
     ## Get the registration message for a list of friends [(pubkey(32), data(16))]
-    reg_msg = dp5.clientregstart(client, buddies);
+    next_epoch = dp5.getepoch() + 1
+    reg_msg = dp5.clientregstart(client, next_epoch, buddies);
     assert  len(reg_msg) == 2604
 
     # Send message to server.
     reply_msg = dp5.serverclientreg(server, reg_msg)
 
     # Process the message back from the server
-    dp5.clientregcomplete(client, reply_msg)
+    dp5.clientregcomplete(client, reply_msg, next_epoch)
 
 ## Roll over the epoch
 newepoch = dp5.serverepochchange(server, "meta%d.dat" % epoch, 

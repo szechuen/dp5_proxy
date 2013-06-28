@@ -26,7 +26,8 @@ class dp5client:
 
     def register(self,buddies):
         # Create the registration request
-        reg_msg = dp5.clientregstart(self._client, buddies);
+        next_epoch = dp5.getepoch() + 1
+        reg_msg = dp5.clientregstart(self._client, next_epoch, buddies);
 
         # Perform the request
         epoch = dp5.getepoch()
@@ -34,7 +35,7 @@ class dp5client:
         reply = requests.post(url, verify=SSLVERIFY, data=reg_msg)
 
         # Finish the request
-        dp5.clientregcomplete(self._client, reply.content)
+        dp5.clientregcomplete(self._client, reply.content, next_epoch)
 
     def lookup(self, buddies, epoch=None):
         metamsg = dp5.clientmetadatarequest(self._client, epoch)
