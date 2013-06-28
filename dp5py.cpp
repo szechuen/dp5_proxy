@@ -7,6 +7,8 @@
 #include "dp5regserver.h"
 #include "dp5lookupserver.h"
 
+#include <fstream>
+
 // Python module compilation notes 
 //
 // NTL: We need to compile NTL using Position-Independent-Code. Configure it as:
@@ -85,7 +87,8 @@ static PyObject* pygetnewclient(PyObject* self, PyObject* args){
     c->reg = new DP5RegClient(c->privkey);
 
     // Allocate a request in place
-    DP5LookupClient::Request * temp = new (&(c->req)) DP5LookupClient::Request();
+    // DP5LookupClient::Request * temp = 
+    new (&(c->req)) DP5LookupClient::Request();
 
     PyObject * cap = PyCapsule_New((void *) c, "dp5_client", 
         (PyCapsule_Destructor) &client_delete);
