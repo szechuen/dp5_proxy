@@ -13,11 +13,16 @@ TESTS = test_dh test_hashes test_prf test_enc test_epoch \
 	test_rsconst test_rsreg test_client test_reqcd \
 	test_lscd test_pirglue test_pirgluemt test_integrate
 
+UNAME = $(shell uname -s)
+ifeq ($(UNAME),Darwin)
+	ARCHFLAGS = ARCHFLAGS="-arch x86_64"
+endif
+
 all: $(BINS) $(TESTS)
 
 python: libdp5 dp5py.cpp setup.py
-	python setup.py build
-	rm dp5.so
+	$(ARCHFLAGS) python setup.py build
+	-rm dp5.so
 	cp `find . -name dp5.so` dp5.so
 
 libdp5: dp5lookupserver.o dp5regserver.o dp5regclient.o dp5lookupclient.o dp5params.o curve25519-donna.o
