@@ -1,0 +1,5 @@
+*.o
+test_*
+dp5.so
+libdp5.a
+build
