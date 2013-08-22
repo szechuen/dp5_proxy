@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #include <iostream>
 #include <fstream>

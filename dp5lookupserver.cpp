@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #include <stdexcept>
 #include <sstream>
