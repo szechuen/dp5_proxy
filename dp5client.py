@@ -10,9 +10,13 @@ import requests
 SSLVERIFY = False
 
 class dp5client:
-    def __init__(self, servers, private_key):
-        self._regserver = servers["regServer"]
-        self._lookupservers = servers["lookupServers"]
+    def __init__(self, config, private_key):
+        self._regserver = config["regServer"]
+        self._lookupservers = config["lookupServers"]
+        try: 
+            self._privacyLevel = config["privacyLevel"]
+        except: 
+            self._privacyLevel = len(self._lookupservers)-1
         self._priv = private_key
 
         # Access the network to retrive the configuration
@@ -49,7 +53,7 @@ class dp5client:
         dp5.clientmetadatareply(self._client, metareply.content)
 
         ## TODO: Use a few threads to paralelize
-        reqs = dp5.clientlookuprequest(self._client, buddies)
+        reqs = dp5.clientlookuprequest(self._client, buddies, len(self._lookupservers), self._privacyLevel)
         replies = []
         for r in reqs:
             if r != None:                             
