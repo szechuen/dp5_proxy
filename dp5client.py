@@ -1,4 +1,7 @@
-import dp5
+import dp5 
+import sys
+import json
+import random
 
 import requests
 
@@ -7,12 +10,13 @@ import requests
 SSLVERIFY = False
 
 class dp5client:
-    def __init__(self, host, private_key):
-        self._host = host
+    def __init__(self, servers, private_key):
+        self._regserver = servers["regServer"]
+        self._lookupservers = servers["lookupServers"]
         self._priv = private_key
 
         # Access the network to retrive the configuration
-        url = "https://" + self._host
+        url = "https://" + self._regserver
         self._params = requests.get(url, verify=SSLVERIFY).json()
 
         # Make sure we are in sync    
@@ -31,15 +35,16 @@ class dp5client:
 
         # Perform the request
         epoch = dp5.getepoch()
-        url = "https://" + self._host + ("/register/%s/" % epoch)
+        url = "https://" + self._regserver + ("/register/%s/" % epoch)
         reply = requests.post(url, verify=SSLVERIFY, data=reg_msg)
 
         # Finish the request
         dp5.clientregcomplete(self._client, reply.content, next_epoch)
 
     def lookup(self, buddies, epoch=None):
-        metamsg = dp5.clientmetadatarequest(self._client, epoch)
-        url = "https://" + self._host + ("/lookup/%s/" % epoch)
+        metamsg = dp5.clientmetadatarequest(self._client, epoch)  
+        
+        url = "https://" + random.choice(self._lookupservers) + ("/lookup/%s/" % epoch)
         metareply = requests.post(url, verify=SSLVERIFY, data=metamsg)        
         dp5.clientmetadatareply(self._client, metareply.content)
 
@@ -47,9 +52,10 @@ class dp5client:
         reqs = dp5.clientlookuprequest(self._client, buddies)
         replies = []
         for r in reqs:
-            if r != None:
+            if r != None:                             
+                server = self._lookupservers[len(replies) % len(self._lookupservers)]
                 ## TODO: Read addresses of other servers in DP5 cluster
-                url = "https://" + self._host + ("/lookup/%s/" % epoch)
+                url = "https://" + server + ("/lookup/%s/" % epoch)
                 lookupreply = requests.post(url, verify=SSLVERIFY, data=r)        
                 replies += [lookupreply.content]
             else:
@@ -67,17 +73,19 @@ if __name__ == "__main__":
     for f in range(10):
         pub, _ = dp5.genkeypair()
         data = ("F%s" % f).center(dp5.getdatasize(), "-")
-        buddies += [(pub,data)]
+        buddies += [(pub,data)]   
+        
+    servers = json.load(file(sys.argv[1]))
             
-    aclient = dp5client("localhost:443", privk)
+    aclient = dp5client(servers, privk)
     aclient.register(buddies)
 
-    ## Simulate an time period advance
-    url = "https://" + "localhost:443" + "/debugfastforward"
+    ## Simulate an time period advance 
+    url = "https://" + servers["regServer"] + "/debugfastforward"
     ff = requests.get(url, verify=SSLVERIFY)
     print ff.content
 
-    buds = [b for b, _ in buddies]
+    buds = [b for b, _ in buddies]   
     presence = aclient.lookup(buds, dp5.getepoch() + 1)
     print "Presence:", presence 
     
