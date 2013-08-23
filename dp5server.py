@@ -2,9 +2,13 @@ import cherrypy
 import json
 import sys
 import traceback
+import requests
 
 import dp5
 
+
+
+SSLVERIFY = False
 
 # How to generate an RSA self-signed cert using openssl
 #
@@ -40,29 +44,33 @@ class RootServer:
         self._add += add
         return dp5.getepoch() + self._add
 
-    def update_lookup(self):
+    def update_lookup(self, epoch):
         if self.is_lookup:
             assert self.epoch not in self.lookup_handlers
             ## TODO: If local files are not available
             ##        Retrieve them from the registration
             ##        server using HTTPs.
-            try:
-                metafile, datafile = self.filenames(self.epoch)
 
-                ## Throw exception if not found
-                open(metafile)
-                open(datafile)
+            metafile, datafile = self.filenames(epoch)
 
-                server = dp5.getnewserver()
+            for filename in [metafile, datafile]:
+                try:
+                    with open(filename): pass
+                except:
+                    if self.is_register:    # If we are also a reg server, nothing to be done here
+                        return
+                    r = requests.get(self.config["regServer"] + "/download/%d%s" % (epoch, filename == metafile and "/meta" or ""), verify=SSLVERIFY)
+                    r.raise_for_status()
+                    with open(filename, 'w') as f:
+                        f.write(r.content)
 
-                dp5.serverinitlookup(server, self.epoch, metafile, datafile)
-                self.lookup_handlers[self.epoch] = server
-            except:
-                print "No metadatafile available"
-                pass
+            server = dp5.getnewserver()
 
-            ## TODO: Delete old instances of the server
-
+            dp5.serverinitlookup(server, epoch, metafile, datafile)
+            self.lookup_handlers[epoch] = server
+            return server
+        else:
+            return None
 
     def check_epoch(self):
         if self.epoch == None:
@@ -75,8 +83,6 @@ class RootServer:
                 server = dp5.getnewserver()
                 dp5.serverinitreg(server, self.epoch, self.config["regdir"], self.config["datadir"])
                 self.register_handlers[self.epoch] = server
-
-            self.update_lookup()
 
         elif self.epoch < self.getepoch():
 
@@ -91,8 +97,6 @@ class RootServer:
                 self.register_handlers[self.epoch] = server
             else:
                 self.epoch = self.getepoch()
-
-            self.update_lookup()
 
         else:
             pass # do nothing
@@ -142,21 +146,22 @@ class RootServer:
     @cherrypy.expose
     def lookup(self, epoch):
         try:
-            self.check_epoch()
-            assert self.epoch == int(epoch)
             assert self.is_lookup
-            assert self.epoch in self.lookup_handlers
+
+        # Lazily set up lookup server
+            try:
+                server = self.lookup_handlers[int(epoch)]
+            except KeyError:
+                server = self.update_lookup(int(epoch))
+
+            post_body = cherrypy.request.body.read()
+            reply_msg = dp5.serverprocessrequest(server, post_body)
+
+            ## Reply with the raw data
+            cherrypy.response.headers["Content-Type"] = "application/octet-stream"
+            return reply_msg
         except:
             raise cherrypy.HTTPError(403)
-
-        server = self.lookup_handlers[self.epoch]
-
-        post_body = cherrypy.request.body.read()
-        reply_msg = dp5.serverprocessrequest(server, post_body)
-
-        ## Reply with the raw data
-        cherrypy.response.headers["Content-Type"] = "application/octet-stream"
-        return reply_msg
 
     @cherrypy.expose
     def download(self, epoch, metadata=False):
