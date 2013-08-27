@@ -1,7 +1,11 @@
 import dp5 
 import sys
 import json
-import random
+import random 
+import cPickle
+from users import User
+import math
+import binascii
 
 import requests
 
@@ -67,29 +71,29 @@ class dp5client:
         presence = dp5.clientlookupreply(self._client, replies)
         return presence
 
-if __name__ == "__main__":
 
-    ### Example data
-    pubk,privk = dp5.genkeypair()
 
-    ## Make up some friends
-    buddies = [(pubk, "*"*dp5.getdatasize())] # add myself as a friend
-    for f in range(10):
-        pub, _ = dp5.genkeypair()
-        data = ("F%s" % f).center(dp5.getdatasize(), "-")
-        buddies += [(pub,data)]   
-        
+if __name__ == "__main__":  
+    
     servers = json.load(file(sys.argv[1]))
-            
-    aclient = dp5client(servers, privk)
-    aclient.register(buddies)
+    users = cPickle.load(file(sys.argv[2]))
+    
+    prefix = int(math.log(len(users), 16))+1      # reduce chance of collisions
+    assert 2*prefix < dp5.getdatasize()     
+    
+    def shortname(pub,len=prefix):
+      return binascii.hexlify(pub[:len])
 
+    for u in users:
+        buddies = [(pub, ('%s->%s' % (shortname(u.pub),shortname(pub))).center(dp5.getdatasize())) for pub in u.buddies]
+        u.client = dp5client(servers, u.priv)
+        u.client.register(buddies)
+                  
     ## Simulate an time period advance 
     url = "https://" + servers["regServer"] + "/debugfastforward"
     ff = requests.get(url, verify=SSLVERIFY)
     print ff.content
-
-    buds = [b for b, _ in buddies]   
-    presence = aclient.lookup(buds, dp5.getepoch() + 1)
-    print "Presence:", presence 
     
+    for u in users:
+        presence = u.client.lookup(u.buddies, dp5.getepoch() +1)  
+        print "Presence:", binascii.hexlify(u.pub[:prefix]), presence
