@@ -4,7 +4,9 @@ import sys
 import traceback
 import requests
 
-import dp5
+import dp5      
+import os
+import fcntl
 
 
 
@@ -53,16 +55,41 @@ class RootServer:
 
             metafile, datafile = self.filenames(epoch)
 
-            for filename in [metafile, datafile]:
-                try:
-                    with open(filename): pass
-                except:
-                    if self.is_register:    # If we are also a reg server, nothing to be done here
-                        return
-                    r = requests.get(self.config["regServer"] + "/download/%d%s" % (epoch, filename == metafile and "/meta" or ""), verify=SSLVERIFY)
-                    r.raise_for_status()
-                    with open(filename, 'w') as f:
-                        f.write(r.content)
+            for filename in [metafile, datafile]: 
+                while True:  
+                    try:
+                        with open(filename) as f: 
+                                while True:
+                                    fcntl.flock(f, fcntl.LOCK_SH)
+                                    f.seek(0, 2)      
+                                    if f.tell() > 0:        # Download has been completed
+                                        break
+                                    else:          
+                                        print "File not ready", filename
+                                        fcntl.flock(f, fcntl.LOCK_UN) # Unlock for the other process
+                                        time.sleep(1)       # FIXME: is this needed?
+                                break   
+                    except IOError:
+                        print "No file", filename
+                        if self.is_register:
+                            return
+                        try:                  
+                            fd = os.open(filename, os.O_CREAT | os.O_WRONLY | os.O_EXCL)
+                        except:                  
+                            print "Could not create file", filename
+                            continue    # Could not create file, must already be being downloaded 
+                        try:  
+                            f = os.fdopen(fd, 'w')
+                            fcntl.flock(f, fcntl.LOCK_EX)  # lock for exclusive access
+                            r = requests.get(self.config["regServer"] + "/download/%d%s" % (epoch, filename == metafile and "/meta" or ""), verify=SSLVERIFY)
+                            r.raise_for_status()
+                            f.write(r.content)
+                        except:            
+                            print "Download failed"
+                            os.remove(filename)     # Download failed, remove file
+                            raise
+                        finally:
+                            f.close()       # close file and release lock
 
             server = dp5.getnewserver()
 
