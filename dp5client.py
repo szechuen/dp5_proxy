@@ -81,6 +81,10 @@ def regfun(u):
     u.client = dp5client(servers, u.priv)
     u.client.register(buddies)
 
+def lookupfun(u):
+    presence = dp5client(servers,u.priv).lookup(u.buddies, dp5.getepoch()+1)  
+    print "Presence:", hexlify(u.pub[:prefix]), presence
+
 
 if __name__ == "__main__":  
     
@@ -98,7 +102,6 @@ if __name__ == "__main__":
     url = "https://" + servers["regServer"] + "/debugfastforward"
     ff = requests.get(url, verify=SSLVERIFY)
     print ff.content   
+
+    pool.map(lookupfun, users)
     
-    for u in users:
-        presence = dp5client(servers,u.priv).lookup(u.buddies, dp5.getepoch()+1)  
-        print "Presence:", hexlify(u.pub[:prefix]), presence
