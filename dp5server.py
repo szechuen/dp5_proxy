@@ -3,6 +3,7 @@ import json
 import sys
 import traceback
 import requests
+import threading
 
 import dp5      
 import os
@@ -34,7 +35,9 @@ class RootServer:
         self.lookup_handlers = {}
 
         # For debugging
-        self._add = 0
+        self._add = 0      
+        
+        self.lookup_lock = threading.Lock()
 
         self.check_epoch()
 
@@ -46,15 +49,17 @@ class RootServer:
         self._add += add
         return dp5.getepoch() + self._add
 
-    def update_lookup(self, epoch):
-        if self.is_lookup:
-            assert self.epoch not in self.lookup_handlers
-            ## TODO: If local files are not available
-            ##        Retrieve them from the registration
-            ##        server using HTTPs.
-
+    def lookup_server(self, epoch):
+        if not self.is_lookup:
+            return None
+        self.lookup_lock.acquire()
+        try:
+            if epoch in self.lookup_handlers:
+                return self.lookup_handlers[epoch]
+                        
             metafile, datafile = self.filenames(epoch)
-
+                                      
+            # FIXME: this is only needed if we have multiple server processes on the same file system
             for filename in [metafile, datafile]: 
                 while True:  
                     try:
@@ -72,7 +77,7 @@ class RootServer:
                     except IOError:
                         print "No file", filename
                         if self.is_register:
-                            return
+                            return None
                         try:                  
                             fd = os.open(filename, os.O_CREAT | os.O_WRONLY | os.O_EXCL)
                         except:                  
@@ -96,8 +101,8 @@ class RootServer:
             dp5.serverinitlookup(server, epoch, metafile, datafile)
             self.lookup_handlers[epoch] = server
             return server
-        else:
-            return None
+        finally:
+            self.lookup_lock.release()
 
     def check_epoch(self):
         if self.epoch == None:
@@ -172,24 +177,18 @@ class RootServer:
 
     @cherrypy.expose
     def lookup(self, epoch):
-        try:
-            assert self.is_lookup
+        assert self.is_lookup
 
-        # Lazily set up lookup server
-            try:
-                server = self.lookup_handlers[int(epoch)]
-            except KeyError:
-                server = self.update_lookup(int(epoch))
+    # Lazily set up lookup server 
+        server = self.lookup_server(int(epoch))
 
-            post_body = cherrypy.request.body.read()
-            reply_msg = dp5.serverprocessrequest(server, post_body)
+        post_body = cherrypy.request.body.read()
+        reply_msg = dp5.serverprocessrequest(server, post_body)
 
-            ## Reply with the raw data
-            cherrypy.response.headers["Content-Type"] = "application/octet-stream"
-            return reply_msg
-        except:
-            raise cherrypy.HTTPError(403)
-
+        ## Reply with the raw data
+        cherrypy.response.headers["Content-Type"] = "application/octet-stream"
+        return reply_msg
+ 
     @cherrypy.expose
     def download(self, epoch, metadata=False):
         try:
