@@ -5,7 +5,8 @@ import random
 import cPickle
 from users import User
 import math
-import binascii
+from binascii import hexlify     
+import multiprocessing
 
 import requests
 
@@ -31,7 +32,8 @@ class dp5client:
         if int(self._params["epoch"] != dp5.getepoch()):
             msg = "Client and Server epoch out of sync. \
                   (Client: %s Server: %s)" % (dp5.getepoch(), self._params["epoch"]) 
-            raise Exception(msg)
+            #raise Exception(msg)
+            print msg
 
         # Initialize the client
         self._client = dp5.getnewclient(self._priv)
@@ -70,7 +72,14 @@ class dp5client:
                 replies += [None]
         presence = dp5.clientlookupreply(self._client, replies)
         return presence
+            
+prefix = 3
 
+import os
+def regfun(u):
+    buddies = [(pub, ('%s->%s' % (hexlify(u.pub[:prefix]),hexlify(pub[:prefix]))).center(dp5.getdatasize())) for pub in u.buddies]
+    u.client = dp5client(servers, u.priv)
+    u.client.register(buddies)
 
 
 if __name__ == "__main__":  
@@ -78,22 +87,18 @@ if __name__ == "__main__":
     servers = json.load(file(sys.argv[1]))
     users = cPickle.load(file(sys.argv[2]))
     
-    prefix = int(math.log(len(users), 16))+1      # reduce chance of collisions
-    assert 2*prefix < dp5.getdatasize()     
+    pool = multiprocessing.Pool(10)
     
-    def shortname(pub,len=prefix):
-      return binascii.hexlify(pub[:len])
-
-    for u in users:
-        buddies = [(pub, ('%s->%s' % (shortname(u.pub),shortname(pub))).center(dp5.getdatasize())) for pub in u.buddies]
-        u.client = dp5client(servers, u.priv)
-        u.client.register(buddies)
+    ##prefix = int(math.log(len(users), 16))+1      # reduce chance of collisions
+    assert 4*prefix+2 <= dp5.getdatasize()     
+            
+    pool.map(regfun, users)
                   
     ## Simulate an time period advance 
     url = "https://" + servers["regServer"] + "/debugfastforward"
     ff = requests.get(url, verify=SSLVERIFY)
-    print ff.content
+    print ff.content   
     
     for u in users:
-        presence = u.client.lookup(u.buddies, dp5.getepoch() +1)  
-        print "Presence:", binascii.hexlify(u.pub[:prefix]), presence
+        presence = dp5client(servers,u.priv).lookup(u.buddies, dp5.getepoch()+1)  
+        print "Presence:", hexlify(u.pub[:prefix]), presence
