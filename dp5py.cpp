@@ -1,3 +1,4 @@
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "dp5params.h"
 
@@ -230,8 +231,10 @@ static PyObject* pyclientmetadatareply(PyObject* self, PyObject* args){
 static PyObject* pyclientlookuprequest(PyObject* self, PyObject* args){
     // printf("Got to request... 1\n");
     PyObject* sclient;
-    PyObject* buddies;
-    int ok = PyArg_ParseTuple(args, "OO", &sclient, &buddies);
+    PyObject* buddies;     
+	unsigned int num_servers;
+	unsigned int privacy;
+    int ok = PyArg_ParseTuple(args, "OOII", &sclient, &buddies, &num_servers, &privacy);
     if (!ok) return NULL;
     if (!PyCapsule_CheckExact(sclient)) return NULL;
     if (!PyList_Check(buddies)) return NULL;
@@ -256,10 +259,9 @@ static PyObject* pyclientlookuprequest(PyObject* self, PyObject* args){
         buds.push_back(b);
     }
 
-    const unsigned int num_servers = (c->cli)->NUM_PIRSERVERS;
     if (!(c->cli)) return NULL;
 
-    ok = (c->cli)->lookup_request(c->req, buds, num_servers, num_servers-1);
+    ok = (c->cli)->lookup_request(c->req, buds, num_servers, privacy);
     if (ok != 0x00) return NULL;
 
     vector<string> msgCtoSpir = (c->req).get_msgs();
