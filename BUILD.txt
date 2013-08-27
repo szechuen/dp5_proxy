@@ -1,5 +1,28 @@
 I. C++ Libraries and Tests
 
+The DP5 C++ library depends on GMP, NTL, percy++, and OpenSSL.
+
+Building GMP: 
+( Download latest source from: http://gmplib.org/ )
+   $ cd <gmp source directory>
+   $ ./configure "CFLAGS=-fPIC"
+   $ make
+   $ make check
+   $ sudo make install
+
+Building NTL:
+( Download latest source from: http://www.shoup.net/ntl/ )
+   $ cd <ntl source directory>
+   $ ./configure "CFLAGS=-fPIC" NTL_GMP_LIP=on
+   $ make
+   $ make check
+   $ sudo make install
+
+Building percy++:
+   ( Get the latest source for percy++ )
+   (Add the -fPIC flag in the makefile)
+   $ make libs   
+
 To build the DP5 C++ libraries and test programs just do:
 (Explain the dependencies on ntl and percy++)
 
