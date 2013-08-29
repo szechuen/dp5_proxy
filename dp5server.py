@@ -51,10 +51,12 @@ class RootServer:
 
     def lookup_server(self, epoch):
         if not self.is_lookup:
-            return None
+            return None 
+        if epoch in self.lookup_handlers:       # We're assuming element assignment and lookup is atomic so we can do this check without 
+            return self.lookup_handlers[epoch]  # acquiring the lock            
         self.lookup_lock.acquire()
         try:
-            if epoch in self.lookup_handlers:
+            if epoch in self.lookup_handlers:   # Redo the check to avoid race conditions
                 return self.lookup_handlers[epoch]
                         
             metafile, datafile = self.filenames(epoch)
