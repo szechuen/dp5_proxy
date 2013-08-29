@@ -75,7 +75,7 @@ static PyObject* pygetnewclient(PyObject* self, PyObject* args){
 
     // Get a private key
     char *privkey;
-    Py_ssize_t keysize;
+    Py_ssize_t keysize = 0;
     DP5Params dp5;
 
     int ok = PyArg_ParseTuple(args, "z#", &privkey, &keysize);
@@ -156,7 +156,7 @@ static PyObject* pyclientregcomplete(PyObject* self, PyObject* args){
     PyObject* sclient;
     unsigned int next_epoch;
     char *msg;
-    Py_ssize_t msgsize;
+    Py_ssize_t msgsize = 0;
     int ok = PyArg_ParseTuple(args, "Oz#I", &sclient, &msg, &msgsize, &next_epoch);
     if (!ok) return NULL;
     if (!PyCapsule_CheckExact(sclient)) return NULL;
@@ -204,7 +204,7 @@ static PyObject* pyclientmetadatarequest(PyObject* self, PyObject* args){
 static PyObject* pyclientmetadatareply(PyObject* self, PyObject* args){
     PyObject* sclient;
     char * data;
-    Py_ssize_t datasize;
+    Py_ssize_t datasize = 0;
 
     int ok = PyArg_ParseTuple(args, "Oz#", &sclient, &data, &datasize);
     if (!ok) return NULL;
