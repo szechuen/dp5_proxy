@@ -19,12 +19,13 @@ if cherrypy.__version__.startswith('3.0') and cherrypy.engine.state == 0:
     atexit.register(cherrypy.engine.stop)
 
 config = json.load(file(sys.argv[1]))
+print "Using config file:", sys.argv[1]
 cherrypy.config.update(dict(map(fromUnicode,x) for x in config["server"].items()))
 application = cherrypy.Application(RootServer(config), script_name=None, config=None)
 
 
 resource = WSGIResource(reactor, reactor.getThreadPool(), application)
-reactor.listenSSL(8443, Site(resource),ssl.DefaultOpenSSLContextFactory(
+reactor.listenSSL(config["server"]["server.socket_port"], Site(resource),ssl.DefaultOpenSSLContextFactory(
             'testcerts/server.key', 'testcerts/server.crt'))
 
 if __name__ == "__main__":
