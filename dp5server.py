@@ -53,58 +53,48 @@ class RootServer:
         if not self.is_lookup:
             return None 
         if epoch in self.lookup_handlers:       # We're assuming element assignment and lookup is atomic so we can do this check without 
-            return self.lookup_handlers[epoch]  # acquiring the lock            
-        self.lookup_lock.acquire()
-        try:
+            return self.lookup_handlers[epoch]  # acquiring the lock  
+        with self.lookup_lock:
             if epoch in self.lookup_handlers:   # Redo the check to avoid race conditions
                 return self.lookup_handlers[epoch]
                         
             metafile, datafile = self.filenames(epoch)
-                                      
-            # FIXME: this is only needed if we have multiple server processes on the same file system
-            for filename in [metafile, datafile]: 
-                while True:  
+            
+            for filename in [metafile, datafile]:              
+                # All locks will be released when file closed 
+                # as this with block is exited
+                with open(filename + ".lock", "w") as lockf:   
+                    fcntl.flock(lockf, fcntl.LOCK_SH)          
                     try:
-                        with open(filename) as f: 
-                                while True:
-                                    fcntl.flock(f, fcntl.LOCK_SH)
-                                    f.seek(0, 2)      
-                                    if f.tell() > 0:        # Download has been completed
-                                        break
-                                    else:          
-                                        print "File not ready", filename
-                                        fcntl.flock(f, fcntl.LOCK_UN) # Unlock for the other process
-                                        time.sleep(1)       # FIXME: is this needed?
-                                break   
-                    except IOError:
-                        print "No file", filename
-                        if self.is_register:
-                            return None
-                        try:                  
-                            fd = os.open(filename, os.O_CREAT | os.O_WRONLY | os.O_EXCL)
-                        except:                  
-                            print "Could not create file", filename
-                            continue    # Could not create file, must already be being downloaded 
-                        try:  
-                            f = os.fdopen(fd, 'w')
-                            fcntl.flock(f, fcntl.LOCK_EX)  # lock for exclusive access
-                            r = requests.get(self.config["regServer"] + "/download/%d%s" % (epoch, filename == metafile and "/meta" or ""), verify=SSLVERIFY)
-                            r.raise_for_status()
-                            f.write(r.content)
-                        except:            
-                            print "Download failed"
-                            os.remove(filename)     # Download failed, remove file
-                            raise
-                        finally:
-                            f.close()       # close file and release lock
-
+                        with open(filename):    # File exists, we're good
+                            continue            
+                    except:
+                        pass                    # File doesn't exist, continue
+                                                     
+                    # Remove read lock to prevent deadlock 
+                    # and then acquire exclusive lock
+                    fcntl.flock(lockf, fcntl.LOCK_UN)                 
+                    fcntl.flock(lockf, fcntl.LOCK_EX)
+                    
+                    # Check again if file exists
+                    try:
+                        with open(filename):    # File exists, we're good
+                            continue
+                    except:
+                        pass                    # File doesn't exist, continue
+                        
+                    cherrypy.log("Downloading " + filename)
+                    r = requests.get(self.config["regServer"] + "/download/%d%s" % (epoch, filename == metafile and "/meta" or ""), verify=SSLVERIFY)
+                    r.raise_for_status()        # Throw exception if download failed
+                            
+                    with file(filename, 'w') as f:
+                        f.write(r.content)                     
+                    
             server = dp5.getnewserver()
 
             dp5.serverinitlookup(server, epoch, metafile, datafile)
             self.lookup_handlers[epoch] = server
             return server
-        finally:
-            self.lookup_lock.release()
 
     def check_epoch(self):
         if self.epoch == None:
