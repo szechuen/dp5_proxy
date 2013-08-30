@@ -88,6 +88,6 @@ This will proceed to register each user in the `users.200` file, then use a debu
 Caveats
 -------
 
-The client will use a number of processes for querying (default: 5*number of CPUs) so this may add extra load on your machine. 
+The client will use a number of processes for querying (default: 5*number of CPUs) so this may add extra load on your machine. Also, the process pool doesn't always respond to Ctrl-C well, so I type Ctrl-Z followed by `kill %%`.
 
 There is an interaction between the process pool on the client, the thread pool on the lookup server, and the `urllib3` module that keeps connections open that can cause the lookup server to wait for a request on an idle connection while not servicing requests on other connections and get "stuck". You will notice that nothing is happening for about 10 seconds and then things move forward a bit. The simplest way to fix it is to increase the size of the cherrypy threadpool to match the number of client processes: add `"server.thread_pool": 100` to the `"server"` section of `lookupserver.cfg`. We are working on a better longer-term solution.
