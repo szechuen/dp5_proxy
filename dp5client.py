@@ -77,6 +77,7 @@ prefix = 3
 
 import os
 def regfun(u):
+    print "Register", hexlify(u.pub[:prefix])
     buddies = [(pub, ('%s->%s' % (hexlify(u.pub[:prefix]),hexlify(pub[:prefix]))).center(dp5.getdatasize())) for pub in u.buddies]
     u.client = dp5client(servers, u.priv)
     u.client.register(buddies)
@@ -87,21 +88,30 @@ def lookupfun(u):
 
 
 if __name__ == "__main__":  
-    
-    servers = json.load(file(sys.argv[1]))
-    users = cPickle.load(file(sys.argv[2]))
-    
-    pool = multiprocessing.Pool(10)
-    
-    ##prefix = int(math.log(len(users), 16))+1      # reduce chance of collisions
-    assert 4*prefix+2 <= dp5.getdatasize()     
-            
-    pool.map(regfun, users)
-                  
+                                                         
+    try:
+        servers = json.load(file(sys.argv[1]))
+        users = cPickle.load(file(sys.argv[2]))
+    except:
+        print "Usage:", sys.argv[0], "servers.cfg", "userfile" 
+        sys.exit(1)
+                                                               
+    # 5x number of cores to 
+    pool = multiprocessing.Pool(multiprocessing.cpu_count() * 5)
+        
+    results = [pool.apply_async(regfun, args=(u,)) for u in users]
+
+    # Wait for all results
+    for r in results:
+        r.get()
+                          
     ## Simulate an time period advance 
     url = "https://" + servers["regServer"] + "/debugfastforward"
     ff = requests.get(url, verify=SSLVERIFY)
     print ff.content   
+        
+    results = [pool.apply_async(lookupfun, args=(u,)) for u in users]
 
-    pool.map(lookupfun, users)
-    
+    # Wait for all results
+    for r in results:
+        r.get()    
