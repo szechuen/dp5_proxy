@@ -13,9 +13,11 @@ import requests
 # Turn on when valid certificates are expected
 # (off for debugging on localhost)
 SSLVERIFY = False
+protocol = "https"
 
 class dp5client:
     def __init__(self, config, private_key):
+        self.protocol = protocol ## FIX global variable
         self._regserver = config["regServer"]
         self._lookupservers = config["lookupServers"]
         try: 
@@ -25,7 +27,7 @@ class dp5client:
         self._priv = private_key
 
         # Access the network to retrive the configuration
-        url = "https://" + self._regserver
+        url = self.protocol +"://" + self._regserver
         self._params = requests.get(url, verify=SSLVERIFY).json()
 
         # Make sure we are in sync    
@@ -45,7 +47,7 @@ class dp5client:
 
         # Perform the request
         epoch = dp5.getepoch()
-        url = "https://" + self._regserver + ("/register/%s/" % epoch)
+        url = self.protocol + "://" + self._regserver + ("/register/%s/" % epoch)
         reply = requests.post(url, verify=SSLVERIFY, data=reg_msg)
 
         # Finish the request
@@ -54,7 +56,7 @@ class dp5client:
     def lookup(self, buddies, epoch=None):
         metamsg = dp5.clientmetadatarequest(self._client, epoch)  
         
-        url = "https://" + random.choice(self._lookupservers) + ("/lookup/%s/" % epoch)
+        url = self.protocol + "://" + random.choice(self._lookupservers) + ("/lookup/%s/" % epoch)
         metareply = requests.post(url, verify=SSLVERIFY, data=metamsg)        
         dp5.clientmetadatareply(self._client, metareply.content)
 
@@ -65,7 +67,7 @@ class dp5client:
             if r != None:                             
                 server = self._lookupservers[len(replies) % len(self._lookupservers)]
                 ## TODO: Read addresses of other servers in DP5 cluster
-                url = "https://" + server + ("/lookup/%s/" % epoch)
+                url = self.protocol + "://" + server + ("/lookup/%s/" % epoch)
                 lookupreply = requests.post(url, verify=SSLVERIFY, data=r)        
                 replies += [lookupreply.content]
             else:
@@ -106,7 +108,7 @@ if __name__ == "__main__":
         r.get()
                           
     ## Simulate an time period advance 
-    url = "https://" + servers["regServer"] + "/debugfastforward"
+    url = protocol + "://" + servers["regServer"] + "/debugfastforward"
     ff = requests.get(url, verify=SSLVERIFY)
     print ff.content   
         
