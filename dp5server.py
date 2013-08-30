@@ -3,8 +3,11 @@ import json
 import sys
 import traceback
 import requests
+import threading
 
-import dp5
+import dp5      
+import os
+import fcntl
 
 
 
@@ -32,7 +35,9 @@ class RootServer:
         self.lookup_handlers = {}
 
         # For debugging
-        self._add = 0
+        self._add = 0      
+        
+        self.lookup_lock = threading.Lock()
 
         self.check_epoch()
 
@@ -44,33 +49,52 @@ class RootServer:
         self._add += add
         return dp5.getepoch() + self._add
 
-    def update_lookup(self, epoch):
-        if self.is_lookup:
-            assert self.epoch not in self.lookup_handlers
-            ## TODO: If local files are not available
-            ##        Retrieve them from the registration
-            ##        server using HTTPs.
-
+    def lookup_server(self, epoch):
+        if not self.is_lookup:
+            return None 
+        if epoch in self.lookup_handlers:       # We're assuming element assignment and lookup is atomic so we can do this check without 
+            return self.lookup_handlers[epoch]  # acquiring the lock  
+        with self.lookup_lock:
+            if epoch in self.lookup_handlers:   # Redo the check to avoid race conditions
+                return self.lookup_handlers[epoch]
+                        
             metafile, datafile = self.filenames(epoch)
-
-            for filename in [metafile, datafile]:
-                try:
-                    with open(filename): pass
-                except:
-                    if self.is_register:    # If we are also a reg server, nothing to be done here
-                        return
+            
+            for filename in [metafile, datafile]:              
+                # All locks will be released when file closed 
+                # as this with block is exited
+                with open(filename + ".lock", "w") as lockf:   
+                    fcntl.flock(lockf, fcntl.LOCK_SH)          
+                    try:
+                        with open(filename):    # File exists, we're good
+                            continue            
+                    except:
+                        pass                    # File doesn't exist, continue
+                                                     
+                    # Remove read lock to prevent deadlock 
+                    # and then acquire exclusive lock
+                    fcntl.flock(lockf, fcntl.LOCK_UN)                 
+                    fcntl.flock(lockf, fcntl.LOCK_EX)
+                    
+                    # Check again if file exists
+                    try:
+                        with open(filename):    # File exists, we're good
+                            continue
+                    except:
+                        pass                    # File doesn't exist, continue
+                        
+                    cherrypy.log("Downloading " + filename)
                     r = requests.get(self.config["regServer"] + "/download/%d%s" % (epoch, filename == metafile and "/meta" or ""), verify=SSLVERIFY)
-                    r.raise_for_status()
-                    with open(filename, 'w') as f:
-                        f.write(r.content)
-
+                    r.raise_for_status()        # Throw exception if download failed
+                            
+                    with file(filename, 'w') as f:
+                        f.write(r.content)                     
+                    
             server = dp5.getnewserver()
 
             dp5.serverinitlookup(server, epoch, metafile, datafile)
             self.lookup_handlers[epoch] = server
             return server
-        else:
-            return None
 
     def check_epoch(self):
         if self.epoch == None:
@@ -145,24 +169,18 @@ class RootServer:
 
     @cherrypy.expose
     def lookup(self, epoch):
-        try:
-            assert self.is_lookup
+        assert self.is_lookup
 
-        # Lazily set up lookup server
-            try:
-                server = self.lookup_handlers[int(epoch)]
-            except KeyError:
-                server = self.update_lookup(int(epoch))
+    # Lazily set up lookup server 
+        server = self.lookup_server(int(epoch))
 
-            post_body = cherrypy.request.body.read()
-            reply_msg = dp5.serverprocessrequest(server, post_body)
+        post_body = cherrypy.request.body.read()
+        reply_msg = dp5.serverprocessrequest(server, post_body)
 
-            ## Reply with the raw data
-            cherrypy.response.headers["Content-Type"] = "application/octet-stream"
-            return reply_msg
-        except:
-            raise cherrypy.HTTPError(403)
-
+        ## Reply with the raw data
+        cherrypy.response.headers["Content-Type"] = "application/octet-stream"
+        return reply_msg
+ 
     @cherrypy.expose
     def download(self, epoch, metadata=False):
         try:

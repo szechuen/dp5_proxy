@@ -3,7 +3,7 @@ from distutils.core import setup, Extension
 module1 = Extension('dp5', 
                     include_dirs = [r"../percy", r"/usr/local/include/NTL"],
                     library_dirs = [r"./", r"/usr/local/lib", r"../percy"],
-                    libraries = ['dp5', 'percyclient', 'percyserver', 'ntl', 'crypto'],
+                    libraries = ['dp5', 'percyclient', 'percyserver', 'ntl', 'crypto', 'gmp'],
                     sources = ['dp5py.cpp'],
 		    extra_compile_args=['-O0'])
  
