@@ -7,6 +7,7 @@ from users import User
 import math
 from binascii import hexlify     
 import multiprocessing
+import time
 
 import requests
 
@@ -79,14 +80,14 @@ prefix = 3
 
 import os
 def regfun(u):
-    print "Register", hexlify(u.pub[:prefix])
+    #print "Register", hexlify(u.pub[:prefix])
     buddies = [(pub, ('%s->%s' % (hexlify(u.pub[:prefix]),hexlify(pub[:prefix]))).center(dp5.getdatasize())) for pub in u.buddies]
     u.client = dp5client(servers, u.priv)
     u.client.register(buddies)
 
 def lookupfun(u):
     presence = dp5client(servers,u.priv).lookup(u.buddies, dp5.getepoch()+1)  
-    print "Presence:", hexlify(u.pub[:prefix]), presence
+    #print "Presence:", hexlify(u.pub[:prefix]), presence
 
 
 if __name__ == "__main__":  
@@ -101,19 +102,25 @@ if __name__ == "__main__":
     # 5x number of cores to 
     pool = multiprocessing.Pool(multiprocessing.cpu_count() * 5)
         
+    print "Registering..."
+    start = time.time()
     results = [pool.apply_async(regfun, args=(u,)) for u in users]
 
     # Wait for all results
     for r in results:
         r.get()
+    print "Done (%0.3s)" % (time.time() - start)
                           
     ## Simulate an time period advance 
     url = protocol + "://" + servers["regServer"] + "/debugfastforward"
     ff = requests.get(url, verify=SSLVERIFY)
     print ff.content   
-        
+       
+    print "Looking up"
+    start = time.time()
     results = [pool.apply_async(lookupfun, args=(u,)) for u in users]
 
     # Wait for all results
     for r in results:
         r.get()    
+    print "Done (%0.3s)" % (time.time() - start)
