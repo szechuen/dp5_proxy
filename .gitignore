@@ -3,4 +3,6 @@ test_*
 dp5.so
 libdp5.a
 build
-lookupserver1.cfg
+*.cfg
+regdir
+datadir
