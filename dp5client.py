@@ -14,16 +14,19 @@ import requests
 # Turn on when valid certificates are expected
 # (off for debugging on localhost)
 SSLVERIFY = False
-protocol = "https"
+protocol = "https"  
+
+
 
 class dp5client:
     def __init__(self, config, private_key):
         self.protocol = protocol ## FIX global variable
         self._regserver = config["regServer"]
-        self._lookupservers = config["lookupServers"]
+        self._lookupservers = config["lookupServers"] 
+        self._numlookupservers = len(self._lookupservers) 
         try: 
             self._privacyLevel = config["privacyLevel"]
-        except: 
+        except KeyError: 
             self._privacyLevel = len(self._lookupservers)-1
         self._priv = private_key
 
@@ -39,7 +42,9 @@ class dp5client:
             print msg
 
         # Initialize the client
-        self._client = dp5.getnewclient(self._priv)
+        self._client = dp5.getnewclient(self._priv) 
+        
+        
 
     def register(self,buddies):
         # Create the registration request
@@ -52,8 +57,8 @@ class dp5client:
         reply = requests.post(url, verify=SSLVERIFY, data=reg_msg)
 
         # Finish the request
-        dp5.clientregcomplete(self._client, reply.content, next_epoch)
-
+        dp5.clientregcomplete(self._client, reply.content, next_epoch)    
+        
     def lookup(self, buddies, epoch=None):
         metamsg = dp5.clientmetadatarequest(self._client, epoch)  
         
@@ -61,19 +66,23 @@ class dp5client:
         metareply = requests.post(url, verify=SSLVERIFY, data=metamsg)        
         dp5.clientmetadatareply(self._client, metareply.content)
 
-        ## TODO: Use a few threads to paralelize
         reqs = dp5.clientlookuprequest(self._client, buddies, len(self._lookupservers), self._privacyLevel)
-        replies = []
-        for r in reqs:
-            if r != None:                             
-                server = self._lookupservers[len(replies) % len(self._lookupservers)]
-                ## TODO: Read addresses of other servers in DP5 cluster
-                url = self.protocol + "://" + server + ("/lookup/%s/" % epoch)
-                lookupreply = requests.post(url, verify=SSLVERIFY, data=r)        
-                replies += [lookupreply.content]
+        replies = []                       
+        pool = multiprocessing.pool.ThreadPool(processes=1)
+        for req,server in zip(reqs,self._lookupservers):
+            if req != None:                            
+                url = self.protocol + "://" + server + ("/lookup/%s/" % epoch)   
+                replies.append(pool.apply_async(requests.post, args=(url,), kwds={'verify':SSLVERIFY, 'data':req}))
             else:
-                replies += [None]
-        presence = dp5.clientlookupreply(self._client, replies)
+                replies.append(None)                       
+        # Wait for replies to be received
+        realreplies = []
+        for r in replies:
+            if r:
+                realreplies.append(r.get().content)
+            else:
+                realreplies.append(None)
+        presence = dp5.clientlookupreply(self._client, realreplies)
         return presence
             
 prefix = 3
