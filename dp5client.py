@@ -105,8 +105,13 @@ if __name__ == "__main__":
         servers = json.load(file(sys.argv[1]))
         users = cPickle.load(file(sys.argv[2]))
     except:
-        print "Usage:", sys.argv[0], "servers.cfg", "userfile" 
+        print "Usage:", sys.argv[0], "servers.cfg", "userfile", "[lookups]" 
         sys.exit(1)
+        
+    try:
+        numlookups = int(sys.argv[3])
+    except:
+        numlookups = len(users)
                                                                
     # 5x number of cores to 
     pool = multiprocessing.Pool(multiprocessing.cpu_count() * 5)
@@ -127,7 +132,7 @@ if __name__ == "__main__":
        
     print "Looking up"
     start = time.time()
-    results = [pool.apply_async(lookupfun, args=(u,)) for u in users]
+    results = [pool.apply_async(lookupfun, args=(u,)) for u in random.sample(users, numlookups)]
 
     # Wait for all results
     for r in results:
