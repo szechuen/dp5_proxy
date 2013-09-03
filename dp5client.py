@@ -68,7 +68,7 @@ class dp5client:
 
         reqs = dp5.clientlookuprequest(self._client, buddies, len(self._lookupservers), self._privacyLevel)
         replies = []                       
-        pool = multiprocessing.pool.ThreadPool(processes=1)
+        pool = multiprocessing.pool.ThreadPool(processes=self._numlookupservers)
         for req,server in zip(reqs,self._lookupservers):
             if req != None:                            
                 url = self.protocol + "://" + server + ("/lookup/%s/" % epoch)   
