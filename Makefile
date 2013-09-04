@@ -22,8 +22,8 @@ all: $(BINS) $(TESTS)
 
 python: libdp5 dp5py.cpp setup.py
 	$(ARCHFLAGS) python setup.py build
-	-rm dp5.so
-	cp `find . -name dp5.so` dp5.so
+	rm -f dp5.so
+	cp `find build -name dp5.so` dp5.so
 
 libdp5: dp5lookupserver.o dp5regserver.o dp5regclient.o dp5lookupclient.o dp5params.o curve25519-donna.o
 	ar rcs $@.a $^
@@ -122,6 +122,7 @@ test_integrate.o: dp5integrationtest.cpp dp5lookupclient.h dp5lookupserver.h dp5
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
 clean:
-	-rm -f *.o
+	rm -f *.o
+	rm -f dp5.so 
 	rm -rf build
 
