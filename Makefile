@@ -126,3 +126,8 @@ clean:
 	rm -f dp5.so 
 	rm -rf build
 
+pairing.o: pairing.cpp
+	g++ $(CXXFLAGS) -I../relic/include -c $< -o $@
+
+pairing: pairing.o
+	g++ -L../relic/lib -o $@ $< -lrelic
