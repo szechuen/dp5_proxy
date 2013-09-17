@@ -1,7 +1,11 @@
 PERCYINC = ../percy
 PERCYLIB = ../percy
 NTLINC = /usr/local/include/NTL
-NTLLIB = /usr/local/lib
+NTLLIB = /usr/local/lib 
+RELICINC = ../relic/include
+RELICWRAPINC = ../relicwrapper-0.9/
+RELICLIB = ../relic/lib
+RELICWRAPLIB = ../relicwrapper-0.9/
 CC = gcc
 CXX = g++
 CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
@@ -44,10 +48,10 @@ test_epoch: test_epoch.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 test_rsconst: test_rsconst.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(RELICWRAPLIB) -lrelicwrapper -L$(RELICLIB) -lrelic_s
 
 test_rsreg: test_rsreg.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(RELICWRAPLIB) -lrelicwrapper -L$(RELICLIB) -lrelic_s -lpthread
 
 test_client: test_client.o dp5params.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread
@@ -83,10 +87,10 @@ test_epoch.o: dp5params.cpp dp5params.h
 	g++ $(CXXFLAGS) -DTEST_EPOCH -c $< -o $@
 
 test_rsconst.o: dp5regserver.cpp dp5regserver.h dp5params.h
-	g++ $(CXXFLAGS) -DTEST_RSCONST -c $< -o $@
+	g++ $(CXXFLAGS) -DTEST_RSCONST -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
 
 test_rsreg.o: dp5regserver.cpp dp5regserver.h dp5params.h
-	g++ $(CXXFLAGS) -DTEST_RSREG -c $< -o $@
+	g++ $(CXXFLAGS) -DTEST_RSREG -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
 
 test_client.o: dp5regclient.cpp dp5regclient.h dp5params.h
 	g++ $(CXXFLAGS) -DTEST_CLIENT -c $< -o $@
@@ -104,7 +108,7 @@ test_pirgluemt.o: dp5lookupserver.cpp dp5lookupserver.h dp5params.h
 	g++ $(CXXFLAGS) -DTEST_PIRGLUEMT -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
 dp5regserver.o: dp5regserver.cpp dp5regserver.h dp5params.h
-	g++ $(CXXFLAGS) -c $< -o $@
+	g++ $(CXXFLAGS) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
 
 dp5regclient.o: dp5regclient.cpp dp5regclient.h dp5params.h
 	g++ $(CXXFLAGS) -c $< -o $@

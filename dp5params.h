@@ -24,7 +24,13 @@ public:
     static const unsigned int EPOCH_LEN = 1800; // 30 minutes
 
     // Number of bytes in a shared key
-    static const unsigned int SHAREDKEY_BYTES = 10;
+    static const unsigned int SHAREDKEY_BYTES = 10;  
+    
+    // Number of bytes in an epoch signature (element of G2)
+    static const unsigned int EPOCH_SIG_BYTES = 128; 
+    
+    // Number of bytes in a verified signature (element of GT)
+    static const unsigned int SIG_VERIFY_BYTES = 384; 
 
     // Number of bytes in a hashed shared key
     static const unsigned int HASHKEY_BYTES = 10;
@@ -91,7 +97,12 @@ public:
     // a hash value of size HASHKEY_BYTES bytes.
     static void H3(unsigned char H3_out[HASHKEY_BYTES],
 	const unsigned char E[EPOCH_BYTES],
-	const unsigned char H1_out[SHAREDKEY_BYTES]);
+	const unsigned char H1_out[SHAREDKEY_BYTES]);  
+	                                                       
+    // Hash function H_4 consumes a pairing computation from the BLS 
+    // protocol and produces a hash value of size HASHKEY_BYTES bytes
+    static void H4(unsigned char H4_out[HASHKEY_BYTES],
+        const unsigned char verifybytes[SIG_VERIFY_BYTES]);
 
     // Pseudorandom functions
     class PRF {

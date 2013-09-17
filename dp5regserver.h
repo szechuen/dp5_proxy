@@ -3,7 +3,9 @@
 
 #include <string>
 #include <iostream>
-#include "dp5params.h"
+#include "dp5params.h"  
+
+#include <Pairing.h>
 
 class DP5RegServer : public DP5Params {
 public:
@@ -15,7 +17,7 @@ public:
     // epoch, and the directory in which to store the metadata and data
     // files.
     DP5RegServer(unsigned int current_epoch, const char *regdir,
-	const char *datadir);
+	const char *datadir, bool usePairings = false);
 
     // Copy constructor
     DP5RegServer(const DP5RegServer &other);
@@ -47,7 +49,10 @@ protected:
     char *_regdir;
 
     // The directory in which to store metadata and data files
-    char *_datadir;
+    char *_datadir;      
+
+	bool _usePairings;
+    const Pairing _pairing;
 
     // Create the registration file for the given epoch.
     void create_nextreg_file(unsigned int useepoch);
