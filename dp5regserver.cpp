@@ -12,7 +12,9 @@
 
 #include <iostream>
 #include <fstream>
-#include <stdexcept>
+#include <stdexcept>         
+
+#include <Pairing.h>
 
 #include "dp5regserver.h"
 
@@ -50,7 +52,7 @@ void DP5RegServer::create_nextreg_file(unsigned int useepoch)
 // epoch, and the directory in which to store the metadata and data
 // files.
 DP5RegServer::DP5RegServer(unsigned int current_epoch, const char *regdir,
-    const char *datadir) : _epoch(current_epoch)
+    const char *datadir, bool usePairings) : _epoch(current_epoch), _usePairings(usePairings)
 {
     _regdir = strdup(regdir);
     _datadir = strdup(datadir);
@@ -62,7 +64,8 @@ DP5RegServer::DP5RegServer(unsigned int current_epoch, const char *regdir,
 // Copy constructor
 DP5RegServer::DP5RegServer(const DP5RegServer &other)
 {
-    _epoch = other._epoch;
+    _epoch = other._epoch;   
+    _usePairings = other._usePairings;
     _regdir = strdup(other._regdir);
     _datadir = strdup(other._datadir);
 }
@@ -79,7 +82,8 @@ DP5RegServer& DP5RegServer::operator=(DP5RegServer other)
     other._datadir = _datadir;
     _datadir = tmp;
     
-    _epoch = other._epoch;
+    _epoch = other._epoch; 
+    _usePairings = other._usePairings;
 
     return *this;
 }
@@ -100,8 +104,10 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     unsigned char err = 0xff;
     unsigned int next_epoch = 0;
 
-    const unsigned char *allindata = (const unsigned char *)regmsg.data();
-    const unsigned int inrecord_size = SHAREDKEY_BYTES + DATAENC_BYTES;
+    const unsigned char *allindata = (const unsigned char *)regmsg.data();    
+    // C++ is very particular about how const members without separate definition can be used, hence the '+'
+    // (see http://stackoverflow.com/questions/3025997/c-defining-static-const-integer-members-in-class-definition)
+    const unsigned int inrecord_size = (_usePairings ? +EPOCH_SIG_BYTES : +SHAREDKEY_BYTES) + DATAENC_BYTES;    
     const unsigned int outrecord_size = HASHKEY_BYTES + DATAENC_BYTES;
 
     unsigned int numrecords;
@@ -167,11 +173,29 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     unsigned char outrecord[outrecord_size];
     unsigned char nextepochbytes[EPOCH_BYTES];
     epoch_num_to_bytes(nextepochbytes, next_epoch);
+           
+    // TODO: should we check that numrecords == 1 if _usePairings is on?
 
     for (unsigned int i=0; i<numrecords; ++i) {
-	// Hash the key, copy the data
-	H3(outrecord, nextepochbytes, indata);
-	memmove(outrecord + HASHKEY_BYTES, indata + SHAREDKEY_BYTES,
+        if (_usePairings) {  
+	    // Compute a pairing on 
+            G2 sig(_pairing);
+            
+            sig.fromBin((const char *) indata);
+                               
+            // e(g, sig)
+            GT verify_token = _pairing.apply(_pairing.g1_get_gen(), sig);
+            
+            unsigned char verifybytes[SIG_VERIFY_BYTES];
+            
+            verify_token.toBin((char *) verifybytes);
+            
+            H4(outrecord, verifybytes);
+        } else {
+	    // Hash the key, copy the data             	
+	    H3(outrecord, nextepochbytes, indata);
+        }    
+	memmove(outrecord + HASHKEY_BYTES, indata + (_usePairings ? +EPOCH_SIG_BYTES : +SHAREDKEY_BYTES),
 		DATAENC_BYTES);
 
 	// Append the record to the registration file
@@ -451,24 +475,31 @@ static void *epoch_change_thread(void *none)
 // Use hexdump -e '10/1 "%02x" " " 1/16 "%s" "\n"' to view the output
 int main(int argc, char **argv)
 {
-    int num_clients = (argc > 1 ? atoi(argv[1]) : 10);
+    int num_clients = (argc > 1 ? atoi(argv[1]) : 10); 
     int num_buddies = (argc > 2 ? atoi(argv[2]) : DP5Params::MAX_BUDDIES);
-    int multithread = 1;
+    int multithread = 0;                  
+    bool usePairing = (num_buddies == 0); 
+    if (usePairing)
+	num_buddies = 1;
 
     // Ensure the directories exist
     mkdir("regdir", 0700);
     mkdir("datadir", 0700);
 
-    rs = new DP5RegServer(DP5RegServer::current_epoch(), "regdir", "datadir");
+    rs = new DP5RegServer(DP5RegServer::current_epoch(), "regdir", "datadir", usePairing);
     unsigned int epoch = rs->current_epoch();
 
     // Create the blocks of data to submit
     vector<string> submits[2];
 
     for (int subflag=0; subflag<2; ++subflag) {
-	for (int i=0; i<num_clients; ++i) {
-	    size_t datasize = rs->EPOCH_BYTES + num_buddies *
-		(rs->SHAREDKEY_BYTES + rs->DATAENC_BYTES);
+	for (int i=0; i<num_clients; ++i) {  
+		size_t datasize = rs->EPOCH_BYTES;
+		if (usePairing) {
+			datasize += rs->EPOCH_SIG_BYTES + rs->DATAENC_BYTES;
+		} else {
+			datasize += num_buddies * (rs->SHAREDKEY_BYTES + rs->DATAENC_BYTES);
+		}
 	    unsigned char data[datasize];
 	    unsigned char *thisdata = data;
         
@@ -476,21 +507,27 @@ int main(int argc, char **argv)
 	    thisdata += rs->EPOCH_BYTES;
 
 	    for (int j=0; j<num_buddies; ++j) {
-		// Random key
-		rs->random_bytes(thisdata, rs->SHAREDKEY_BYTES);
+		if (usePairing) {
+			G2 g2; // initialized to random
+			g2.toBin((char *) thisdata);
+			thisdata += rs->EPOCH_SIG_BYTES;
+		} else {
+			rs->random_bytes(thisdata, rs->SHAREDKEY_BYTES);
+			thisdata += rs->SHAREDKEY_BYTES;
+		}
 		// Identifiable data
-		thisdata[rs->SHAREDKEY_BYTES] = '[';
-		thisdata[rs->SHAREDKEY_BYTES+1] = 'P'+subflag;
-		thisdata[rs->SHAREDKEY_BYTES+2] = '0'+i;
+		thisdata[0] = '[';
+		thisdata[1] = 'P'+subflag;
+		thisdata[2] = '0'+i;
 		int bytesout;
-		sprintf((char *)thisdata+rs->SHAREDKEY_BYTES+3, "%u%n",
+		sprintf((char *)thisdata+3, "%u%n",
 		    j, &bytesout);
-		memset(thisdata+rs->SHAREDKEY_BYTES+3+bytesout,
+		memset(thisdata+3+bytesout,
 			' ', rs->DATAENC_BYTES-4-bytesout);
-		thisdata[rs->SHAREDKEY_BYTES+rs->DATAENC_BYTES-1]
+		thisdata[rs->DATAENC_BYTES-1]
 		    = ']';
 
-		thisdata += rs->SHAREDKEY_BYTES + rs->DATAENC_BYTES;
+		thisdata += rs->DATAENC_BYTES;
 	    }
 	    submits[subflag].push_back(string((char *)data, datasize));
 	}
