@@ -180,7 +180,8 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
         if (_usePairings) {  
 	    // Compute a pairing on 
             G2 sig(_pairing);
-            
+                       
+	    // FIXME: this really needs better validation
             sig.fromBin((const char *) indata);
                                
             // e(g, sig)
@@ -477,8 +478,8 @@ int main(int argc, char **argv)
 {
     int num_clients = (argc > 1 ? atoi(argv[1]) : 10); 
     int num_buddies = (argc > 2 ? atoi(argv[2]) : DP5Params::MAX_BUDDIES);
-    int multithread = 0;                  
-    bool usePairing = (num_buddies == 0); 
+    int multithread = 1;                  
+    bool usePairing = (num_buddies == 0); // 0 buddies means use pairing version
     if (usePairing)
 	num_buddies = 1;
 
@@ -508,7 +509,7 @@ int main(int argc, char **argv)
 
 	    for (int j=0; j<num_buddies; ++j) {
 		if (usePairing) {
-			G2 g2; // initialized to random
+			G2 g2(false); // initialized to random
 			g2.toBin((char *) thisdata);
 			thisdata += rs->EPOCH_SIG_BYTES;
 		} else {
