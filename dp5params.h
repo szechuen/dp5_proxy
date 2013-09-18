@@ -15,7 +15,13 @@ public:
     static const unsigned int NUM_PIRSERVERS = 5;
 
     // Number of bytes in a private key
-    static const unsigned int PRIVKEY_BYTES = 32;
+    static const unsigned int PRIVKEY_BYTES = 32;  
+
+    // Number of bytes in a BLS private key (element of Z_R)
+    static const unsigned int BLS_PRIVKEY_BYTES = 32;  
+    
+    // Number of bytes in a shared encryption derivation key
+    static const unsigned int PREKEY_BYTES = 16;
 
     // Number of bytes in a public key
     static const unsigned int PUBKEY_BYTES = 32;
@@ -102,8 +108,14 @@ public:
     // Hash function H_4 consumes a pairing computation from the BLS 
     // protocol and produces a hash value of size HASHKEY_BYTES bytes
     static void H4(unsigned char H4_out[HASHKEY_BYTES],
-        const unsigned char verifybytes[SIG_VERIFY_BYTES]);
-
+        const unsigned char verifybytes[SIG_VERIFY_BYTES]);   
+                                                  
+    // Hash function H_4 consumed an epoch and a shared key derivation
+    // key and returns a hash value of size DATAKEY_BYTES
+    static void H5(unsigned char H5_out[DATAKEY_BYTES],
+        const unsigned char E[EPOCH_BYTES],
+        const unsigned char prekey[PREKEY_BYTES]);  
+        
     // Pseudorandom functions
     class PRF {
     public:
