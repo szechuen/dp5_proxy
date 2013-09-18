@@ -111,7 +111,10 @@ dp5regserver.o: dp5regserver.cpp dp5regserver.h dp5params.h
 	g++ $(CXXFLAGS) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
 
 dp5regclient.o: dp5regclient.cpp dp5regclient.h dp5params.h
-	g++ $(CXXFLAGS) -c $< -o $@
+	g++ $(CXXFLAGS) -c $< -o $@       
+
+dp5combregclient.o: dp5combregclient.cpp dp5combregclient.h dp5params.h
+	g++ $(CXXFLAGS) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
 
 dp5lookupclient.o: dp5lookupclient.cpp dp5lookupclient.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@

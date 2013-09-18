@@ -139,7 +139,22 @@ void DP5Params::H4(unsigned char H4_out[HASHKEY_BYTES],
     SHA256_Update(&hash, verifybytes, SIG_VERIFY_BYTES);
     SHA256_Final(shaout, &hash);
     memmove(H4_out, shaout, HASHKEY_BYTES);
-}
+}         
+
+void DP5Params::H5(unsigned char H5_out[DATAKEY_BYTES],
+    const unsigned char E[EPOCH_BYTES],
+    const unsigned char prekey[PREKEY_BYTES]) 
+{
+    unsigned char shaout[SHA256_DIGEST_LENGTH];
+    SHA256_CTX hash;
+    SHA256_Init(&hash);
+    SHA256_Update(&hash, "\x03", 1);
+    SHA256_Update(&hash, E, EPOCH_BYTES);
+    SHA256_Update(&hash, prekey, PREKEY_BYTES);
+    SHA256_Final(shaout, &hash);
+    memmove(H5_out, shaout, DATAKEY_BYTES);      
+}  
+
 
 // Pseudorandom functions
 // The constuctor consumes a key of size PRFKEY_BYTES bytes and
