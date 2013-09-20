@@ -8,14 +8,19 @@ RELICLIB = ../relic/lib
 RELICWRAPLIB = ../relicwrapper-0.9/
 CC = gcc
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
+CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC 
 CFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
 LDLIBS = -lcrypto
+GTEST_DIR = ../gtest-1.7.0
 
 BINS = libdp5
 TESTS = test_dh test_hashes test_prf test_enc test_epoch \
 	test_rsconst test_rsreg test_client test_reqcd \
 	test_lscd test_pirglue test_pirgluemt test_integrate
+
+GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
+                $(GTEST_DIR)/include/gtest/internal/*.h
+GTEST_SRCS_ = $(GTEST_DIR)/src/*.cc $(GTEST_DIR)/src/*.h $(GTEST_HEADERS)
 
 UNAME = $(shell uname -s)
 ifeq ($(UNAME),Darwin)
@@ -28,6 +33,22 @@ python: libdp5 dp5py.cpp setup.py
 	$(ARCHFLAGS) python setup.py build
 	rm -f dp5.so
 	cp `find build -name dp5.so` dp5.so
+
+gtest-all.o : $(GTEST_SRCS_)
+	$(CXX)  -I$(GTEST_DIR) -I$(GTEST_DIR)/include $(CXXFLAGS) -pthread -c \
+            $(GTEST_DIR)/src/gtest-all.cc
+
+
+gtest_main.o : $(GTEST_SRCS_)
+	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR) $(CXXFLAGS) -pthread -c \
+            $(GTEST_DIR)/src/gtest_main.cc
+
+gtest.a : gtest-all.o
+	$(AR) $(ARFLAGS) $@ $^
+
+gtest_main.a : gtest-all.o gtest_main.o
+	$(AR) $(ARFLAGS) $@ $^
+
 
 libdp5: dp5lookupserver.o dp5regserver.o dp5regclient.o dp5lookupclient.o dp5params.o curve25519-donna.o
 	ar rcs $@.a $^
@@ -127,6 +148,11 @@ dp5params.o: dp5params.cpp dp5params.h
 
 test_integrate.o: dp5integrationtest.cpp dp5lookupclient.h dp5lookupserver.h dp5regserver.h dp5regclient.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
+
+pairing_unittest.o: pairing_unittest.cpp dp5params.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c pairing_unittest.cpp
+pairing_unittest: pairing_unittest.o dp5params.o curve25519-donna.o gtest_main.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDLIBS) -lpthread $^ -o $@
 
 clean:
 	rm -f *.o
