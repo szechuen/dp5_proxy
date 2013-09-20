@@ -33,6 +33,8 @@ class BLSTest : public ::testing::Test {
 protected:
 	Pairing pairing;
 	unsigned char E[DP5Params::EPOCH_BYTES];
+	unsigned char epoch_sig_bytes[DP5Params::EPOCH_SIG_BYTES];
+
 	Zr exponent;
 	G1 pubkey;
 
@@ -40,16 +42,14 @@ protected:
 		exponent = Zr(23);
 		DP5Params::epoch_num_to_bytes(E, 0);
 		pubkey = pairing.g1_get_gen() ^ exponent;
+
+		G2 epoch_hash(pairing, E, DP5Params::EPOCH_BYTES);
+
+		G2 epoch_sig = epoch_hash ^ exponent;
+		epoch_sig.toBin((char *) epoch_sig_bytes);
 	}
 };
 TEST_F(BLSTest, HashSigNoError) {
-	G2 epoch_hash(pairing, E, DP5Params::EPOCH_BYTES);
-
-	G2 epoch_sig = epoch_hash ^ exponent;
-
-	unsigned char epoch_sig_bytes[DP5Params::EPOCH_SIG_BYTES];
-	epoch_sig.toBin((char *) epoch_sig_bytes);
-
 	unsigned char hashkey[DP5Params::HASHKEY_BYTES];
 	EXPECT_EQ(DP5Params::hash_key_from_sig(hashkey, epoch_sig_bytes), 0);
 }
