@@ -125,6 +125,8 @@ public:
     static int hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
         const unsigned char signature[EPOCH_SIG_BYTES]);
 
+    /// Computes a hash key given a BLS public key and the
+    /// current epoch
     static int hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
         const unsigned char publickey[BLS_PUB_BYTES], 
         unsigned int epoch);

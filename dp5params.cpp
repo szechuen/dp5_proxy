@@ -279,6 +279,14 @@ int DP5Params::hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
     return 0;
 }
 
+int DP5Params::hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
+    const unsigned char publickey[BLS_PUB_BYTES], 
+    unsigned int epoch) {
+    return 0; // test-driven development!
+}
+        
+
+
 
 
 #ifdef TEST_DH

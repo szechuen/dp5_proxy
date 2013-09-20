@@ -34,10 +34,12 @@ protected:
 	Pairing pairing;
 	unsigned char E[DP5Params::EPOCH_BYTES];
 	Zr exponent;
+	G1 pubkey;
 
 	virtual void SetUp() {
 		exponent = Zr(23);
 		DP5Params::epoch_num_to_bytes(E, 0);
+		pubkey = pairing.g1_get_gen() ^ exponent;
 	}
 };
 TEST_F(BLSTest, HashSigNoError) {
@@ -50,4 +52,12 @@ TEST_F(BLSTest, HashSigNoError) {
 
 	unsigned char hashkey[DP5Params::HASHKEY_BYTES];
 	EXPECT_EQ(DP5Params::hash_key_from_sig(hashkey, epoch_sig_bytes), 0);
+}
+
+TEST_F(BLSTest, HashPKNoError) {
+	unsigned char pubkey_bytes[DP5Params::BLS_PUB_BYTES];
+	pubkey.toBin((char *) pubkey_bytes);
+
+	unsigned char hashkey[DP5Params::HASHKEY_BYTES];
+	EXPECT_EQ(DP5Params::hash_key_from_pk(hashkey, pubkey_bytes, 0), 0);
 }
