@@ -36,9 +36,9 @@ int DP5CombinedRegClient::start_reg(string &msgtosend, unsigned int next_epoch, 
 
     // Generate the encryption key
     unsigned char data_key[DATAKEY_BYTES];
-                                                                   
     H5(data_key, epoch_bytes, _prekey);
-    
+                                  
+    // Encrypt associated data
     unsigned char ciphertext[DATAENC_BYTES];
     Enc(ciphertext, data_key, data);
     
