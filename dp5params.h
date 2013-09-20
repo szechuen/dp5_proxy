@@ -31,6 +31,9 @@ public:
 
     // Number of bytes in a shared key
     static const unsigned int SHAREDKEY_BYTES = 10;  
+
+    // Number of bytes in a BLS public key (element of G1)
+    static const unsigned int BLS_PUB_BYTES = 32;
     
     // Number of bytes in an epoch signature (element of G2)
     static const unsigned int EPOCH_SIG_BYTES = 128; 
@@ -115,6 +118,16 @@ public:
     static void H5(unsigned char H5_out[DATAKEY_BYTES],
         const unsigned char E[EPOCH_BYTES],
         const unsigned char prekey[PREKEY_BYTES]);  
+
+    /// Takes a signature on an epoch and generates the corresponding
+    /// hash key. Note: signature may come from an untrusted source,
+    /// so validation is important
+    static int hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
+        const unsigned char signature[EPOCH_SIG_BYTES]);
+
+    static int hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
+        const unsigned char publickey[BLS_PUB_BYTES], 
+        unsigned int epoch);
         
     // Pseudorandom functions
     class PRF {

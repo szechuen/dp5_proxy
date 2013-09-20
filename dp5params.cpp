@@ -13,6 +13,9 @@
 #include <openssl/sha.h>
 #include <openssl/aes.h>
 
+#define rsa_st relic_rsa_st
+#include "Pairing.h"
+
 #include "dp5params.h"
 
 extern "C" {
@@ -156,6 +159,8 @@ void DP5Params::H5(unsigned char H5_out[DATAKEY_BYTES],
 }  
 
 
+
+
 // Pseudorandom functions
 // The constuctor consumes a key of size PRFKEY_BYTES bytes and
 // a number of buckets (the size of the codomain of the function)
@@ -253,6 +258,27 @@ unsigned int DP5Params::uint_bytes_to_num(
     res = ntohl(res);
     return res;
 }
+
+int DP5Params::hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
+    const unsigned char signature[EPOCH_SIG_BYTES]) {
+    Pairing pairing;
+    G2 sig(pairing);
+               
+    // FIXME: this really needs better validation
+    sig.fromBin((const char *) signature);
+                       
+    // e(g, sig)
+    GT verify_token = pairing.apply(pairing.g1_get_gen(), sig);
+    
+    unsigned char verifybytes[SIG_VERIFY_BYTES];
+    
+    verify_token.toBin((char *) verifybytes);
+    
+    H4(key, verifybytes);
+
+    return 0;
+}
+
 
 
 #ifdef TEST_DH

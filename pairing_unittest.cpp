@@ -1,4 +1,5 @@
 #include "dp5params.h"
+#include <Pairing.h>
 #include "gtest/gtest.h"
 
 TEST(H4Test, ZeroInput) {
@@ -26,4 +27,27 @@ TEST(H5Test, ZeroInput) {
 
 	// Digest obtained using python + hashlib
 	EXPECT_EQ(memcmp(H5_out, "\xa0\x8f\xcb\x1aS3\x8a\x00t\xa8\xfd" "D\xf5\xab\xe8\x8c\xafI\x85\xebq\xb1" "8\xe5\xd2" "5UZgj\x96g'", DP5Params::DATAKEY_BYTES), 0);
+}
+
+class BLSTest : public ::testing::Test {
+protected:
+	Pairing pairing;
+	unsigned char E[DP5Params::EPOCH_BYTES];
+	Zr exponent;
+
+	virtual void SetUp() {
+		exponent = Zr(23);
+		DP5Params::epoch_num_to_bytes(E, 0);
+	}
+};
+TEST_F(BLSTest, HashSigNoError) {
+	G2 epoch_hash(pairing, E, DP5Params::EPOCH_BYTES);
+
+	G2 epoch_sig = epoch_hash ^ exponent;
+
+	unsigned char epoch_sig_bytes[DP5Params::EPOCH_SIG_BYTES];
+	epoch_sig.toBin((char *) epoch_sig_bytes);
+
+	unsigned char hashkey[DP5Params::HASHKEY_BYTES];
+	EXPECT_EQ(DP5Params::hash_key_from_sig(hashkey, epoch_sig_bytes), 0);
 }
