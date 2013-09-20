@@ -67,3 +67,10 @@ TEST_F(BLSTest, HashSigPKEqual) {
 
 	EXPECT_EQ(memcmp(hashkeysig, hashkeypk, DP5Params::HASHKEY_BYTES), 0);
 }
+
+TEST_F(BLSTest, HashSigErrorInvalid) {
+	unsigned char hashkey[DP5Params::HASHKEY_BYTES];
+	memset(epoch_sig_bytes, 0, DP5Params::EPOCH_SIG_BYTES);
+
+	EXPECT_NE(DP5Params::hash_key_from_sig(hashkey, epoch_sig_bytes), 0);
+}
