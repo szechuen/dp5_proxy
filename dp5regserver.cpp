@@ -178,20 +178,10 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
 
     for (unsigned int i=0; i<numrecords; ++i) {
         if (_usePairings) {  
-	    // Compute a pairing on 
-            G2 sig(_pairing);
-                       
-	    // FIXME: this really needs better validation
-            sig.fromBin(indata, EPOCH_SIG_BYTES);
-                               
-            // e(g, sig)
-            GT verify_token = _pairing.apply(_pairing.g1_get_gen(), sig);
-            
-            unsigned char verifybytes[SIG_VERIFY_BYTES];
-            
-            verify_token.toBin((char *) verifybytes);
-            
-            H4(outrecord, verifybytes);
+            if (hash_key_from_sig(outrecord, indata) != 0) {
+                err = 0x04;
+                goto client_reg_return;
+            }
         } else {
 	    // Hash the key, copy the data             	
 	    H3(outrecord, nextepochbytes, indata);
