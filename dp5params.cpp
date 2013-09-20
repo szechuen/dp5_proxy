@@ -282,7 +282,22 @@ int DP5Params::hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
 int DP5Params::hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
     const unsigned char publickey[BLS_PUB_BYTES], 
     unsigned int epoch) {
-    return 0; // test-driven development!
+    Pairing pairing;
+    G1 pubkey;
+    pubkey.fromBin((char *) publickey);
+
+    unsigned char E[EPOCH_BYTES];
+    epoch_num_to_bytes(E, epoch);
+    G2 epoch_hash(pairing, E, DP5Params::EPOCH_BYTES);
+
+    GT verify_token = pairing.apply(pubkey, epoch_hash);
+
+    unsigned char verifybytes[SIG_VERIFY_BYTES];
+    verify_token.toBin((char *) verifybytes);
+
+    H4(key, verifybytes);
+
+    return 0; 
 }
         
 
