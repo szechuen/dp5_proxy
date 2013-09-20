@@ -58,3 +58,12 @@ TEST_F(BLSTest, HashPKNoError) {
 	unsigned char hashkey[DP5Params::HASHKEY_BYTES];
 	EXPECT_EQ(DP5Params::hash_key_from_pk(hashkey, pubkey_bytes, 0), 0);
 }
+
+TEST_F(BLSTest, HashSigPKEqual) {
+	unsigned char hashkeysig[DP5Params::HASHKEY_BYTES];
+	ASSERT_EQ(DP5Params::hash_key_from_sig(hashkeysig, epoch_sig_bytes), 0);
+	unsigned char hashkeypk[DP5Params::HASHKEY_BYTES];
+	ASSERT_EQ(DP5Params::hash_key_from_pk(hashkeypk, pubkey_bytes, 0), 0);
+
+	EXPECT_EQ(memcmp(hashkeysig, hashkeypk, DP5Params::HASHKEY_BYTES), 0);
+}
