@@ -3,9 +3,9 @@ PERCYLIB = ../percy
 NTLINC = /usr/local/include/NTL
 NTLLIB = /usr/local/lib 
 RELICINC = ../relic/include
-RELICWRAPINC = ../relicwrapper-0.9/
+RELICWRAPINC = relicwrapper/
 RELICLIB = ../relic/lib
-RELICWRAPLIB = ../relicwrapper-0.9/
+RELICWRAPLIB = relicwrapper/
 CC = gcc
 CXX = g++
 CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC 
@@ -152,7 +152,7 @@ test_integrate.o: dp5integrationtest.cpp dp5lookupclient.h dp5lookupserver.h dp5
 pairing_unittest.o: pairing_unittest.cpp dp5params.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c pairing_unittest.cpp
 pairing_unittest: pairing_unittest.o dp5params.o curve25519-donna.o gtest_main.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICWRAPLIB) -L$(RELICLIB) -lrelicwrapper -lrelic_s -lpthread -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICWRAPLIB) -L$(RELICLIB) -lrelicwrapper -lrelic_s -lgmp -lpthread -o $@
 
 clean:
 	rm -f *.o
