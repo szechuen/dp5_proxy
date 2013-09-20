@@ -182,7 +182,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
             G2 sig(_pairing);
                        
 	    // FIXME: this really needs better validation
-            sig.fromBin((const char *) indata);
+            sig.fromBin(indata, EPOCH_SIG_BYTES);
                                
             // e(g, sig)
             GT verify_token = _pairing.apply(_pairing.g1_get_gen(), sig);
