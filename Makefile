@@ -144,15 +144,15 @@ dp5lookupserver.o: dp5lookupserver.cpp dp5lookupserver.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
 dp5params.o: dp5params.cpp dp5params.h
-	g++ $(CXXFLAGS) -c $< -o $@
+	g++ $(CXXFLAGS) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
 
 test_integrate.o: dp5integrationtest.cpp dp5lookupclient.h dp5lookupserver.h dp5regserver.h dp5regclient.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
 pairing_unittest.o: pairing_unittest.cpp dp5params.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c pairing_unittest.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c pairing_unittest.cpp
 pairing_unittest: pairing_unittest.o dp5params.o curve25519-donna.o gtest_main.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDLIBS) -lpthread $^ -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICWRAPLIB) -L$(RELICLIB) -lrelicwrapper -lrelic_s -lpthread -o $@
 
 clean:
 	rm -f *.o
