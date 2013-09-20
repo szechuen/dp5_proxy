@@ -69,10 +69,10 @@ test_epoch: test_epoch.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 test_rsconst: test_rsconst.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(RELICWRAPLIB) -lrelicwrapper -L$(RELICLIB) -lrelic_s
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(RELICWRAPLIB) -lrelicwrapper -L$(RELICLIB) -lrelic_s -lgmp
 
 test_rsreg: test_rsreg.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(RELICWRAPLIB) -lrelicwrapper -L$(RELICLIB) -lrelic_s -lpthread
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(RELICWRAPLIB) -lrelicwrapper -L$(RELICLIB) -lrelic_s -lgmp -lpthread
 
 test_client: test_client.o dp5params.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread
