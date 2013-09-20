@@ -33,7 +33,7 @@ public:
     static const unsigned int SHAREDKEY_BYTES = 10;  
 
     // Number of bytes in a BLS public key (element of G1)
-    static const unsigned int BLS_PUB_BYTES = 32;
+    static const unsigned int BLS_PUB_BYTES = 64;
     
     // Number of bytes in an epoch signature (element of G2)
     static const unsigned int EPOCH_SIG_BYTES = 128; 
