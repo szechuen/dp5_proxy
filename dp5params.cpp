@@ -264,8 +264,9 @@ int DP5Params::hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
     Pairing pairing;
     G2 sig(pairing);
                
-    // FIXME: this really needs better validation
-    sig.fromBin((const char *) signature);
+    if (sig.fromBin(signature, EPOCH_SIG_BYTES) != 0) {
+        return -1;
+    }
                        
     // e(g, sig)
     GT verify_token = pairing.apply(pairing.g1_get_gen(), sig);
@@ -284,7 +285,9 @@ int DP5Params::hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
     unsigned int epoch) {
     Pairing pairing;
     G1 pubkey;
-    pubkey.fromBin((char *) publickey);
+    if (pubkey.fromBin(publickey, BLS_PUB_BYTES) != 0) {
+        return -1; // Invalid key
+    }
 
     unsigned char E[EPOCH_BYTES];
     epoch_num_to_bytes(E, epoch);
