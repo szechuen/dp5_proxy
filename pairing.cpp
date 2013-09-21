@@ -1,9 +1,12 @@
 #include <iostream>   
 #include <time.h>
 
+#define __cplusplussave __cplusplus
+#undef __cplusplus
 extern "C" {
 #include <relic/relic.h>
 }
+#define __cplusplus __cplusplussave
          
 using namespace std;
 
