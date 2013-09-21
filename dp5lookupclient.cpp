@@ -352,7 +352,7 @@ int DP5LookupClient::Request::lookup_reply(
 
     }
     else {
-        for (unsigned int s = 0; s < _num_servers; s++){
+        for (unsigned int s = 0; s < _num_servers; s++) {
             // Process a non reply
             if (replies[s] != ""){
 
@@ -399,9 +399,10 @@ int DP5LookupClient::Request::lookup_reply(
                 break;
             }
             
-            // Did not find a single valid download reply
-            if (number_of_valid_msg < 0) return 0x16;
         }
+        // Did not find a single valid download reply
+        if (number_of_valid_msg == 0) 
+            return 0x16;
     }
 
 
