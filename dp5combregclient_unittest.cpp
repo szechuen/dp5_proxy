@@ -17,5 +17,22 @@ protected:
 
 TEST_F(CombRegClient, Constructor) {
 	DP5CombinedRegClient client(blskey, prekey);
-	
+}
+
+TEST_F(CombRegClient, StartReg) {
+	DP5CombinedRegClient client(blskey, prekey);
+
+	string result;
+	unsigned char data[DATAPLAIN_BYTES];
+
+	EXPECT_EQ(client.start_reg(result, 0, data), 0);
+	EXPECT_EQ(result.length(), EPOCH_BYTES + EPOCH_SIG_BYTES + DATAENC_BYTES);
+}
+
+TEST_F(CombRegClient, FinishReg) {
+	DP5CombinedRegClient client(blskey, prekey);
+
+	EXPECT_EQ(client.complete_reg(string("\0\0\0\0\0", 5), 0), 0);	
+	EXPECT_NE(client.complete_reg(string("\1\0\0\0\0", 5), 0), 0);
+	EXPECT_NE(client.complete_reg(string("\0\1\2\3\4", 5), 0), 0);
 }
