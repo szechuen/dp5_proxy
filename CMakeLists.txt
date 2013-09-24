@@ -22,36 +22,33 @@ add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp dp5p
 
 add_library(curve25519-donna curve25519-donna.c)
 
-macro(testdef TARGET) 
+macro(testdef TARGET SOURCES) 
 	string(TOUPPER ${TARGET} TARGET_UPPER)
+	add_executable(${TARGET} ${SOURCES})
 	set_target_properties(${TARGET} PROPERTIES COMPILE_DEFINITIONS ${TARGET_UPPER})
-	target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES} curve25519-donna)
+	target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES} curve25519-donna ${ARGN})
 	add_test(${TARGET} ${TARGET})
 endmacro(testdef)
 
 enable_testing()
 
-add_executable(test_dh dp5params.cpp)
-testdef(test_dh)
+testdef(test_dh dp5params.cpp)
 set_tests_properties (test_dh PROPERTIES PASS_REGULAR_EXPRESSION "MATCH")
 set_tests_properties (test_dh PROPERTIES FAIL_REGULAR_EXPRESSION "NO MATCH")
 
-add_executable(test_hashes dp5params.cpp)
-testdef(test_hashes)
+testdef(test_hashes dp5params.cpp)
 
-add_executable(test_prf dp5params.cpp)
-testdef(test_prf)
+testdef(test_prf dp5params.cpp)
 
-add_executable(test_enc dp5params.cpp)
-testdef(test_enc)
+testdef(test_enc dp5params.cpp)
 
-add_executable(test_epoch dp5params.cpp)
-testdef(test_epoch)
+testdef(test_epoch dp5params.cpp)
 set_tests_properties (test_epoch PROPERTIES PASS_REGULAR_EXPRESSION "successful")
 set_tests_properties (test_epoch PROPERTIES FAIL_REGULAR_EXPRESSION "NO MATCH;failed")
 
-add_executable(test_rsconst dp5regserver.cpp dp5params.cpp)
-testdef(test_rsconst)
+testdef(test_rsconst "dp5regserver.cpp;dp5params.cpp")
 
-add_executable(test_rsreg dp5regserver.cpp dp5params.cpp)
-testdef(test_rsreg)
+testdef(test_rsreg "dp5regserver.cpp;dp5params.cpp" pthread)
+
+testdef(test_client "dp5regclient.cpp;dp5params.cpp" pthread)
+set_tests_properties (test_client PROPERTIES FAIL_REGULAR_EXPRESSION "False")
