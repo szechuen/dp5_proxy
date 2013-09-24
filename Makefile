@@ -123,7 +123,7 @@ test_integrate.o: dp5integrationtest.cpp dp5lookupclient.h dp5lookupserver.h dp5
 
 clean:
 	rm -f *.o
-	rm -f dp5.so 
+	rm -f dp5.so
 	rm -rf build
 
 pairing.o: pairing.cpp
