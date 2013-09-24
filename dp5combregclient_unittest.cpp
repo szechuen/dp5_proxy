@@ -32,7 +32,13 @@ TEST_F(CombRegClient, StartReg) {
 TEST_F(CombRegClient, FinishReg) {
 	DP5CombinedRegClient client(blskey, prekey);
 
+	// OK response for epoch 0
 	EXPECT_EQ(client.complete_reg(string("\0\0\0\0\0", 5), 0), 0);	
+	// Server failure
 	EXPECT_NE(client.complete_reg(string("\1\0\0\0\0", 5), 0), 0);
+	// Epoch mismatch
 	EXPECT_NE(client.complete_reg(string("\0\1\2\3\4", 5), 0), 0);
+	// Wrong length
+	EXPECT_NE(client.complete_reg(string(""), 0), 0);
+	EXPECT_NE(client.complete_reg(string("abcdefghijklmonp"), 0), 0);
 }
