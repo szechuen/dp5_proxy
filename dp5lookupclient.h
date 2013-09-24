@@ -11,12 +11,12 @@
 
 struct BuddyKey {
     // A buddy's public key
-    unsigned char pubkey[DP5Params::PUBKEY_BYTES];
+    string pubkey;
 };
 
 struct BuddyPresence {
     // A buddy's public key
-    unsigned char pubkey[DP5Params::PUBKEY_BYTES];
+    string pubkey;
 
     // Is the buddy reporting to us that he/she is online?
     bool is_online;
@@ -44,7 +44,8 @@ private:
     } _metadata_current;
 
     // Save a copy of the private key
-    unsigned char _privkey[PRIVKEY_BYTES];
+    string _privkey;
+    bool _usePairing;
 
 public:
     // A class representing an in-progress lookup request
@@ -100,7 +101,7 @@ public:
 	}
 
     struct Friend_state {
-        unsigned char pubkey[DP5Params::PUBKEY_BYTES];
+    	string pubkey;
         unsigned char shared_key[SHAREDKEY_BYTES];
         unsigned char data_key[DATAKEY_BYTES];
         unsigned char HKi[HASHKEY_BYTES];
@@ -206,7 +207,9 @@ public:
     static const unsigned int PRIVACY_LEVEL = 2;
 
     // The constructor consumes the client's private key
-    DP5LookupClient(const unsigned char privkey[PRIVKEY_BYTES]);
+    DP5LookupClient(const string & privkey, bool usePairing = false) :
+        _privkey(privkey), _usePairing(usePairing)
+        {}
 
     // Create a request for the metadata file.  This (and the next
     // method) must complete in each epoch before invoking the lookup

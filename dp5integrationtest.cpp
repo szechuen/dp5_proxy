@@ -76,7 +76,7 @@ int main(int argc, char **argv){
     // Now register buddies for all on-line clients
     for (unsigned int f = 0; f < NUMBEROFCLIENTS; f++)
     {
-        tcs[f].cli = new DP5LookupClient(tcs[f].privkey);
+        tcs[f].cli = new DP5LookupClient(string((char *) tcs[f].privkey, DP5Params::PRIVKEY_BYTES));
         if (tcs[f].online == false) continue;
         tcs[f].reg = new DP5RegClient(tcs[f].privkey);
         
@@ -159,7 +159,7 @@ int main(int argc, char **argv){
             ix!=tcs[f].friends.end(); ++ix){
             unsigned int f2 = *ix;
             BuddyKey b;
-            memmove(b.pubkey, tcs[f2].pubkey, DP5Params::PUBKEY_BYTES);
+            b.pubkey.assign((char *) tcs[f2].pubkey, DP5Params::PUBKEY_BYTES);
             buds.push_back(b);
         }
         
@@ -197,7 +197,7 @@ int main(int argc, char **argv){
         for(std::set<unsigned int>::iterator ix = tcs[f].friends.begin();
             ix!=tcs[f].friends.end(); ++ix){
             unsigned int f2 = *ix;
-            bool mem_ok = (memcmp(presence[idx].pubkey, 
+            bool mem_ok = (memcmp(presence[idx].pubkey.c_str(), 
                 tcs[f2].pubkey, DP5Params::PUBKEY_BYTES) == 0);
             bool online_ok = (tcs[f2].online == presence[idx].is_online);
 
