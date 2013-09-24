@@ -7,6 +7,7 @@ CXX = g++
 CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
 CFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
 LDLIBS = -lcrypto
+GTEST_DIR = ../gtest-1.7.0
 
 BINS = libdp5
 TESTS = test_dh test_hashes test_prf test_enc test_epoch \
