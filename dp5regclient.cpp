@@ -86,7 +86,7 @@ int DP5RegClient::complete_reg(const string &replymsg, unsigned int next_epoch){
     // Parse the message
     unsigned char * buffer = (unsigned char *) replymsg.c_str();
     unsigned char server_err = buffer[0];
-    static unsigned int server_epoch = epoch_bytes_to_num(buffer + 1);
+    unsigned int server_epoch = epoch_bytes_to_num(buffer + 1);
     
     if (server_err != 0x00)
         return server_err; // Give the client the error number
