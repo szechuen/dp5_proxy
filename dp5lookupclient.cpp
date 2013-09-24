@@ -151,11 +151,6 @@ int DP5LookupClient::metadata_reply(const string &metadata){
     return 0x00;
 }
 
-// The constructor consumes the client's private key
-DP5LookupClient::DP5LookupClient(const unsigned char privkey[PRIVKEY_BYTES]){
-    memmove(_privkey,privkey, PRIVKEY_BYTES);
-}
-
 // Look up some number of buddies.  Pass in the vector of buddies'
 // public keys, the number of lookup servers there are, and the
 // privacy level to use (the privacy level is the maximum number of
@@ -196,15 +191,16 @@ int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies
         Request::Friend_state friend_rec;
 
         const BuddyKey& current_buddy = buddies[i];
-        memmove(friend_rec.pubkey, current_buddy.pubkey, PUBKEY_BYTES);
+        friend_rec.pubkey = current_buddy.pubkey;
 
         // Get the long terms shared DH key
         unsigned char shared_dh_secret[PUBKEY_BYTES];
-        diffie_hellman(shared_dh_secret, _privkey, friend_rec.pubkey);
+        diffie_hellman(shared_dh_secret, (const unsigned char *) _privkey.c_str(), 
+                (const unsigned char *) friend_rec.pubkey.c_str());
 
         // Derive the epoch keys
         H1H2(friend_rec.shared_key, friend_rec.data_key, epoch_bytes, 
-                buddies[i].pubkey, shared_dh_secret);
+                (const unsigned char *) buddies[i].pubkey.c_str(), shared_dh_secret);
       
         // Produce HKi
         H3(friend_rec.HKi, epoch_bytes, friend_rec.shared_key);
@@ -422,7 +418,7 @@ int DP5LookupClient::Request::lookup_reply(
 
         const char * friend_bucket = buckets[_friends[f].position].data();
         BuddyPresence output_record;
-        memmove(output_record.pubkey, _friends[f].pubkey, PUBKEY_BYTES);
+        output_record.pubkey = _friends[f].pubkey;
         output_record.is_online = false;
 
         // Linear search through the bucket to find the hash

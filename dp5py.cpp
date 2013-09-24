@@ -84,7 +84,7 @@ static PyObject* pygetnewclient(PyObject* self, PyObject* args){
     s_client * c = (s_client *) PyMem_Malloc(sizeof(s_client));
     memcpy(c->privkey, privkey, keysize);
     dp5.getpubkey(c->pubkey, c->privkey);
-    c->cli = new DP5LookupClient(c->privkey);
+    c->cli = new DP5LookupClient(string((char *) c->privkey, DP5Params::PRIVKEY_BYTES));
     c->reg = new DP5RegClient(c->privkey);
 
     // Allocate a request in place
@@ -255,7 +255,7 @@ static PyObject* pyclientlookuprequest(PyObject* self, PyObject* args){
             return NULL; }
 
         BuddyKey b;
-        memmove(b.pubkey, PyString_AsString(item), DP5Params::PUBKEY_BYTES);
+        b.pubkey.assign(PyString_AsString(item), DP5Params::PUBKEY_BYTES);
         buds.push_back(b);
     }
 
@@ -321,12 +321,12 @@ static PyObject* pyclientlookupreply(PyObject* self, PyObject* args){
     PyObject* ret = PyList_New(presence.size());
     for( unsigned int i = 0; i < presence.size(); i++){
         if (presence[i].is_online) {
-            PyObject * item = Py_BuildValue("z#Oz#", presence[i].pubkey,
+            PyObject * item = Py_BuildValue("z#Oz#", presence[i].pubkey.c_str(),
                 DP5Params::PUBKEY_BYTES, Py_True,
                 presence[i].data, DP5Params::DATAPLAIN_BYTES);
             PyList_SetItem(ret, i, item); }
         else {
-            PyObject * item = Py_BuildValue("z#OO", presence[i].pubkey,
+            PyObject * item = Py_BuildValue("z#OO", presence[i].pubkey.c_str(),
                 DP5Params::PUBKEY_BYTES, Py_False, Py_None);
             PyList_SetItem(ret, i, item);
         }
