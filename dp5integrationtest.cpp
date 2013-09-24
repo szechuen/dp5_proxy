@@ -31,9 +31,15 @@ struct dp5TestClient {
 
 int main(int argc, char **argv){
     DP5Params dp5;
-    const unsigned int NUMBEROFCLIENTS = 1000;
-    const unsigned int NUMBEROFFRIENDS = 2;
+    unsigned int NUMBEROFCLIENTS = 1000;
+    unsigned int NUMBEROFFRIENDS = 2;
 
+    if (argc > 1) {
+        NUMBEROFCLIENTS = atoi(argv[1]);
+    }
+    if (argc > 2) {
+        NUMBEROFFRIENDS = atoi(argv[2]);
+    }
 
     vector<dp5TestClient> tcs;
 
@@ -81,6 +87,7 @@ int main(int argc, char **argv){
             unsigned int f2 = *ix;
             BuddyInfo b;
             memmove(b.pubkey, tcs[f2].pubkey, DP5Params::PUBKEY_BYTES);
+            memset(b.data, 0, DP5Params::DATAPLAIN_BYTES);
             b.data[0] = 0x99; // Just a random marker
             memmove(b.data +1, 
                 (const char *) &f, sizeof(unsigned int));
@@ -198,13 +205,14 @@ int main(int argc, char **argv){
 
             if (tcs[f2].online){
             unsigned char data[DP5Params::DATAPLAIN_BYTES];
+            memset(data, 0, DP5Params::DATAPLAIN_BYTES);
             data[0] = 0x99; // Just a random marker
             memmove(data +1, 
-                (const char *) &f, sizeof(unsigned int));
-            memmove(data +1 + sizeof(unsigned int), 
                 (const char *) &f2, sizeof(unsigned int));
+            memmove(data +1 + sizeof(unsigned int), 
+                (const char *) &f, sizeof(unsigned int));
 
-            data_ok = memcmp(data, presence[idx].data, DP5Params::DATAPLAIN_BYTES);
+            data_ok = (memcmp(data, presence[idx].data, DP5Params::DATAPLAIN_BYTES) == 0);
             }
 
             bool all_ok = mem_ok && online_ok && data_ok;
