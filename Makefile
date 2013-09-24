@@ -2,10 +2,12 @@ PERCYINC = ../percy
 PERCYLIB = ../percy
 NTLINC = /usr/local/include/NTL
 NTLLIB = /usr/local/lib 
-RELICINC = ../relic/include
+RELICDIR = ../relic
+RELICINC = $(RELICDIR)/include
 RELICWRAPINC = relicwrapper/
-RELICLIB = ../relic/lib
+RELICLIB = $(RELICDIR)/lib
 RELICWRAPLIB = relicwrapper/
+LINKRELIC = -L$(RELICLIB) -lrelic_s -lgmp -L$(RELICWRAPLIB) -lrelicwrapper
 CC = gcc
 CXX = g++
 CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC 
@@ -74,23 +76,23 @@ test_rsconst: test_rsconst.o dp5params.o curve25519-donna.o
 test_rsreg: test_rsreg.o dp5params.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(RELICWRAPLIB) -lrelicwrapper -L$(RELICLIB) -lrelic_s -lgmp -lpthread
 
-test_client: test_client.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread
+test_client: test_client.o dp5params.o curve25519-donna.o 
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread $(LINKRELIC)
 
 test_reqcd: test_reqcd.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -L$(NTLLIB) -lntl -lgmp
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -L$(NTLLIB) -lntl -lgmp $(LINKRELIC)
 
 test_lscd: test_lscd.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyserver -L$(NTLLIB) -lntl -lgmp
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyserver -L$(NTLLIB) -lntl -lgmp $(LINKRELIC)
 
 test_pirglue: test_pirglue.o dp5lookupclient.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp $(LINKRELIC)
 
 test_pirgluemt: test_pirgluemt.o dp5lookupclient.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp -lpthread
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp -lpthread $(LINKRELIC)
 
 test_integrate: test_integrate.o dp5lookupclient.o dp5lookupserver.o dp5regserver.o dp5regclient.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp $(LINKRELIC)
 
 test_dh.o: dp5params.cpp dp5params.h
 	g++ $(CXXFLAGS) -DTEST_DH -c $< -o $@
@@ -147,7 +149,7 @@ dp5params.o: dp5params.cpp dp5params.h
 	g++ $(CXXFLAGS) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
 
 test_integrate.o: dp5integrationtest.cpp dp5lookupclient.h dp5lookupserver.h dp5regserver.h dp5regclient.h dp5params.h
-	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
+	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
 
 pairing_unittest.o: pairing_unittest.cpp dp5params.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c pairing_unittest.cpp
