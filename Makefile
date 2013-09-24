@@ -153,6 +153,10 @@ pairing_unittest.o: pairing_unittest.cpp dp5params.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c pairing_unittest.cpp
 pairing_unittest: pairing_unittest.o dp5params.o curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICWRAPLIB) -L$(RELICLIB) -lrelicwrapper -lrelic_s -lgmp -lpthread -o $@
+dp5combregclient_unittest.o: dp5combregclient_unittest.cpp dp5combregclient.h dp5params.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c dp5combregclient_unittest.cpp
+dp5combregclient_unittest: dp5combregclient_unittest.o dp5combregclient.o dp5params.o curve25519-donna.o gtest_main.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICWRAPLIB) -L$(RELICLIB) -lrelicwrapper -lrelic_s -lgmp -lpthread -o $@
 
 clean:
 	rm -f *.o
