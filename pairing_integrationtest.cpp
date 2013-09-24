@@ -2,6 +2,7 @@
 #include "dp5regserver.h"
 #include "gtest/gtest.h"
 #include <unistd.h>
+#include <dirent.h>
 #include <Pairing.h>
 
 class PairingIntegration : public ::testing::Test, public DP5Params {
@@ -24,6 +25,28 @@ protected:
 		memset(regdata, '-', DATAPLAIN_BYTES);
 		mkdir(regdir, 0700);
 		mkdir(datadir, 0700);
+	}
+
+	virtual void TearDown(void) {
+		erasedir(regdir);
+		erasedir(datadir);
+	}
+private:
+	void erasedir(const char * dirname) {
+		DIR *dir;
+
+		dir = opendir(dirname);
+		if (dir != NULL) {
+			while (1) {
+				dirent *dentry = readdir(dir);
+				if (dentry == NULL)
+					break;
+				string path = string(regdir) + "/" + string(dentry->d_name);
+				unlink(path.c_str());
+			}
+		}
+		closedir(dir);
+		rmdir(dirname);
 	}
 	// FIXME: teardown should wipe the directories!
 };
