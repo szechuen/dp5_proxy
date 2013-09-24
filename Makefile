@@ -10,9 +10,9 @@ RELICWRAPLIB = relicwrapper/
 LINKRELIC = -L$(RELICLIB) -lrelic_s -lgmp -L$(RELICWRAPLIB) -lrelicwrapper
 CC = gcc
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC 
+CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC -I$(RELICWRAPINC) -I$(RELICINC)
 CFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
-LDLIBS = -lcrypto
+LDLIBS = -lcrypto $(LINKRELIC)
 GTEST_DIR = ../gtest-1.7.0
 
 BINS = libdp5
@@ -56,10 +56,10 @@ libdp5: dp5lookupserver.o dp5regserver.o dp5regclient.o dp5lookupclient.o dp5par
 	ar rcs $@.a $^
 
 test_dh: test_dh.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) 
 
 test_hashes: test_hashes.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) 
 
 test_prf: test_prf.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
