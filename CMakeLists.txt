@@ -38,3 +38,20 @@ set_tests_properties (test_dh PROPERTIES FAIL_REGULAR_EXPRESSION "NO MATCH")
 
 add_executable(test_hashes dp5params.cpp)
 testdef(test_hashes)
+
+add_executable(test_prf dp5params.cpp)
+testdef(test_prf)
+
+add_executable(test_enc dp5params.cpp)
+testdef(test_enc)
+
+add_executable(test_epoch dp5params.cpp)
+testdef(test_epoch)
+set_tests_properties (test_epoch PROPERTIES PASS_REGULAR_EXPRESSION "successful")
+set_tests_properties (test_epoch PROPERTIES FAIL_REGULAR_EXPRESSION "NO MATCH;failed")
+
+add_executable(test_rsconst dp5regserver.cpp dp5params.cpp)
+testdef(test_rsconst)
+
+add_executable(test_rsreg dp5regserver.cpp dp5params.cpp)
+testdef(test_rsreg)
