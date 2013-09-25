@@ -14,11 +14,11 @@ typedef char PRFKey[PRFKEY_BYTES];
 // for a given database
 struct _DP5MetadataStruct {
 public:
+    bool usePairing;
     PRFKey prfkey;
     unsigned int dataenc_bytes;
     unsigned int epoch;
     unsigned int epoch_len;
-    bool usePairing;
     unsigned int num_buckets;
     unsigned int bucket_size;
 
@@ -45,8 +45,7 @@ public:
     }
 
     DP5Metadata(const std::string & metadata) {
-        std::stringstream stream(metadata);
-        readFromStream(stream);
+        fromString(metadata);
     }
 
     DP5Metadata();  // Sets default values
@@ -56,7 +55,10 @@ public:
         _DP5MetadataStruct(other) {}
 
     void readFromStream(std::istream & is);
-    void writeToStream(std::ostream & os);
+    void writeToStream(std::ostream & os) const;
+    std::string toString(void) const;
+    void fromString(const std::string & str);
+
     static unsigned int read_uint(std::istream & is);
     static void write_uint(std::ostream & os, unsigned int n);
     static unsigned int read_epoch(std::istream & is);

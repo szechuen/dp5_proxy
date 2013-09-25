@@ -12,7 +12,12 @@ protected:
 	string valid_metadata;
 
 	virtual void SetUp(void) {
-		valid_metadata.assign(0x23, 1 + PRFKEY_BYTES + DP5Metadata::UINT_BYTES*5 + 1);
+		int len = 2 + PRFKEY_BYTES + DP5Metadata::UINT_BYTES*4 + DP5Metadata::EPOCH_BYTES;
+		valid_metadata.push_back(DP5Metadata::METADATA_VERSION);
+		valid_metadata.push_back(1);
+		for (int i = 2; i < len; i++) {
+			valid_metadata.push_back(i);
+		}
 	}
 };
 
@@ -41,4 +46,24 @@ TEST_F(MetadataTest, CopyConstructor) {
 
 TEST_F(MetadataTest, StringConstructorInvalidInput) {
 	EXPECT_THROW({ DP5Metadata md(""); }, runtime_error);
+	string short_metadata(valid_metadata);
+	short_metadata.erase(short_metadata.end()-1, short_metadata.end());
+	ASSERT_EQ(valid_metadata.length()-1, short_metadata.length());
+	EXPECT_THROW({ DP5Metadata md(short_metadata); }, runtime_error);
 }
+
+TEST_F(MetadataTest, StringConstructorValidInput) {
+	DP5Metadata md(valid_metadata);
+	EXPECT_EQ(md.usePairing, true);
+	EXPECT_EQ(md.epoch, (unsigned) 0x02030405);
+}
+
+TEST_F(MetadataTest, ConsistentInOut) {
+	DP5Metadata md(valid_metadata);
+
+	string s = md.toString();
+	EXPECT_EQ(s, valid_metadata);	
+}
+
+
+
