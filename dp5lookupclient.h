@@ -13,41 +13,30 @@
 
 struct BuddyKey {
     // A buddy's public key
-    string pubkey;
+    std::string pubkey;
 };
 
 struct BuddyPresence {
     // A buddy's public key
-    string pubkey;
+    std::string pubkey;
 
     // Is the buddy reporting to us that he/she is online?
     bool is_online;
 
     // If is_online is true, the plaintext associated data goes here
-    unsigned char data[DP5Params::DATAPLAIN_BYTES];
+    std::string data;
 };
 
 typedef PercyClient_GF2E<GF28_Element> PercyClientGF28;
 
-class DP5LookupClient: public DP5Params {
+class DP5LookupClient: protected DP5Metadata {
 private:
     // The epoch number for which we have an outstanding metadata request,
     // or 0 if there is no outstanding metadata request
     unsigned int _metadata_request_epoch;
 
-    // The last successful metadata response.  version and epoch will be
-    // 0 if no response has yet been successfully received.
-    struct Metadata {
-	unsigned char version;
-	unsigned int epoch;
-	unsigned char prfkey[PRFKEY_BYTES];
-	unsigned int num_buckets;
-	unsigned int bucket_size;
-    } _metadata_current;
-
     // Save a copy of the private key
-    string _privkey;
-    bool _usePairing;
+    std::string _privkey;
 
 public:
     // A class representing an in-progress lookup request
@@ -103,7 +92,7 @@ public:
 	}
 
     struct Friend_state {
-    	string pubkey;
+    	std::string pubkey;
         unsigned char shared_key[SHAREDKEY_BYTES];
         unsigned char data_key[DATAKEY_BYTES];
         unsigned char HKi[HASHKEY_BYTES];
@@ -113,8 +102,7 @@ public:
 
 	// Initialize the Request object
 	void init(unsigned int num_servers, unsigned int privacy_level,
-		    const Metadata &metadata, const vector<Friend_state> &friends, bool do_PIR) {
-        
+		    const DP5Metadata &metadata, const vector<Friend_state> &friends, bool do_PIR) {        
         _do_PIR = do_PIR; 
         _friends = friends;
 	    _num_servers = num_servers;
@@ -122,7 +110,7 @@ public:
 	    _metadata_current = metadata;
 	    _pirparams = new PercyClientParams(
 		_metadata_current.bucket_size *
-		    (HASHKEY_BYTES + DATAENC_BYTES),
+		    (HASHKEY_BYTES + _metadata_current.dataenc_bytes),
 		_metadata_current.num_buckets, 0, to_ZZ(256), MODE_GF28,
 		    NULL, false);
 
@@ -164,14 +152,13 @@ public:
 	// The privacy level to use
 	unsigned int _privacy_level;
 
-	// The metadata to use
-	Metadata _metadata_current;
-
 	// The PercyClientParams, constructed from the above pieces
 	PercyClientParams *_pirparams;
 
 	// The PercyClient in use
 	PercyClientGF28 *_pirclient;
+
+	DP5Metadata _metadata_current;
 
 	// The glue API to the PIR layer.  Pass a vector of the bucket
 	// numbers to look up.  This should already be padded to one of
@@ -209,9 +196,9 @@ public:
     static const unsigned int PRIVACY_LEVEL = 2;
 
     // The constructor consumes the client's private key
-    DP5LookupClient(const string & privkey, bool usePairing = false) 
+    DP5LookupClient(const string & privkey) 
         throw (std::invalid_argument) :
-        _privkey(privkey), _usePairing(usePairing)
+        _privkey(privkey)
     {
         if (privkey.length() != PRIVKEY_BYTES) {
             stringstream error;
