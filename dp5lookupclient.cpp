@@ -191,6 +191,9 @@ int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies
         Request::Friend_state friend_rec;
 
         const BuddyKey& current_buddy = buddies[i];
+        if (current_buddy.pubkey.length() != PUBKEY_BYTES) {
+            return 0x03; // Buddy public key wrong length
+        }
         friend_rec.pubkey = current_buddy.pubkey;
 
         // Get the long terms shared DH key

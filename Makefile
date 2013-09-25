@@ -10,7 +10,7 @@ RELICWRAPLIB = relicwrapper/
 LINKRELIC = -L$(RELICLIB) -lrelic_s -lgmp -L$(RELICWRAPLIB) -lrelicwrapper
 CC = gcc
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC -I$(RELICWRAPINC) -I$(RELICINC)
+CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC -I$(RELICWRAPINC) -I$(RELICINC) -I$(PERCYINC) -I$(NTLINC)
 CFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
 LDLIBS = -lcrypto $(LINKRELIC)
 GTEST_DIR = ../gtest-1.7.0
@@ -163,6 +163,10 @@ pairing_integrationtest.o: pairing_integrationtest.cpp dp5combregclient.h dp5reg
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c pairing_integrationtest.cpp
 pairing_integrationtest: pairing_integrationtest.o dp5combregclient.o dp5regserver.o dp5params.o curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICWRAPLIB) -L$(RELICLIB) -lrelicwrapper -lrelic_s -lgmp -lpthread -o $@
+dp5lookupclient_unittest.o: dp5lookupclient_unittest.cpp dp5lookupclient.h dp5params.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c dp5lookupclient_unittest.cpp
+dp5lookupclient_unittest: dp5lookupclient_unittest.o dp5lookupclient.o dp5params.o curve25519-donna.o gtest_main.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
 
 clean:
 	rm -f *.o
