@@ -9,52 +9,32 @@
 
 #include <stdexcept>
 #include <sstream>
+#include <fstream>
 
 #include "dp5lookupserver.h"
 
 // The constructor consumes the current epoch number, and the
 // filenames of the current metadata and data files.
-DP5LookupServer::DP5LookupServer(unsigned int epoch,
-    const char *metadatafilename, const char *datafilename)
+DP5LookupServer::DP5LookupServer(const char *metadatafilename, const char *datafilename)
 {
-    init(epoch, metadatafilename, datafilename);
+    init(metadatafilename, datafilename);
 }
 
 // Initialize the private members from the epoch and the filenames
-void DP5LookupServer::init(unsigned int epoch, const char *metadatafilename,
+void DP5LookupServer::init(const char *metadatafilename,
     const char *datafilename)
 {
-    _epoch = epoch;
     _metadatafilename = strdup(metadatafilename);
     _datafilename = strdup(datafilename);
 
-    // Open the metadata file
-    _metadatafd = open(_metadatafilename, O_RDONLY);
-    if (_metadatafd < 0) {
-	perror("open metadata file");
-	throw runtime_error("Cannot open metadata file");
+    ifstream metadatafile(metadatafilename); 
+    if (!metadatafile) {
+        throw runtime_error("Cannot open metadata file");
     }
-
-    // mmap it
-    _metadatafilecontents = (unsigned char *)mmap(NULL,
-	    PRFKEY_BYTES + UINT_BYTES + UINT_BYTES, PROT_READ, MAP_PRIVATE,
-	    _metadatafd, 0);
-    if (!_metadatafilecontents) {
-	perror("mmap metadata file");
-	throw runtime_error("Cannot mmap metadata file");
-    }
-
-    unsigned int num_buckets_be = 0;
-    unsigned int bucket_size_be = 0;
-    memmove(((char *)&num_buckets_be)+sizeof(unsigned int)-UINT_BYTES,
-	_metadatafilecontents+PRFKEY_BYTES, UINT_BYTES);
-    memmove(((char *)&bucket_size_be)+sizeof(unsigned int)-UINT_BYTES,
-	_metadatafilecontents+PRFKEY_BYTES+UINT_BYTES, UINT_BYTES);
-    _num_buckets = ntohl(num_buckets_be);
-    _bucket_size = ntohl(bucket_size_be);
+    readFromStream(metadatafile);
 
     _pirserverparams = new PercyServerParams(
-	_bucket_size * (HASHKEY_BYTES + DATAENC_BYTES), _num_buckets,
+	bucket_size * (HASHKEY_BYTES + dataenc_bytes), num_buckets,
 	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0, 0);
 
     _datastore = new FileDataStore(_datafilename, *_pirserverparams);
@@ -64,8 +44,9 @@ void DP5LookupServer::init(unsigned int epoch, const char *metadatafilename,
 
 // Copy constructor
 DP5LookupServer::DP5LookupServer(const DP5LookupServer &other)
+    : DP5Metadata(other)
 {
-    init(other._epoch, other._metadatafilename, other._datafilename);
+    init(other._metadatafilename, other._datafilename);
 }
 
 // Assignment operator
@@ -81,14 +62,6 @@ DP5LookupServer& DP5LookupServer::operator=(DP5LookupServer other)
     other._datafilename = _datafilename;
     _datafilename = tmp;
 
-    int tmpfd = other._metadatafd;
-    other._metadatafd = _metadatafd;
-    _metadatafd = tmpfd;
-
-    unsigned char *tmpuc = other._metadatafilecontents;
-    other._metadatafilecontents = _metadatafilecontents;
-    _metadatafilecontents = tmpuc;
-
     PercyServerParams *tmppsp = other._pirserverparams;
     other._pirserverparams = _pirserverparams;
     _pirserverparams = tmppsp;
@@ -101,10 +74,8 @@ DP5LookupServer& DP5LookupServer::operator=(DP5LookupServer other)
     other._pirserver = _pirserver;
     _pirserver = tmpps;
 
-    // These can just be copied
-    _epoch = other._epoch;
-    _num_buckets = other._num_buckets;
-    _bucket_size = other._bucket_size;
+    // copy metadata
+    DP5Metadata::operator=(other);
 
     return *this;
 }
@@ -116,10 +87,6 @@ DP5LookupServer::~DP5LookupServer()
     delete _datastore;
     delete _pirserverparams;
 
-    munmap(_metadatafilecontents, PRFKEY_BYTES + UINT_BYTES + UINT_BYTES);
-    if (_metadatafd >= 0) {
-	close(_metadatafd);
-    }
     free(_datafilename);
     free(_metadatafilename);
 }
@@ -158,8 +125,8 @@ void DP5LookupServer::process_request(string &reply, const string &request)
     // Check for a well-formed command
     if (reqlen < 5 ||
 	    (reqdata[0] != 0xff && reqdata[0] != 0xfe && reqdata[0] != 0xfd)
-	    || epoch_bytes_to_num(reqdata+1) != _epoch) {
-	unsigned char errmsg[5];
+	    || epoch_bytes_to_num((const char *) reqdata+1) != epoch) {
+	char errmsg[5];
 	if (reqlen > 0 && reqdata[0] == 0xfe) {
 	    errmsg[0] = 0x80;
 	} else if (reqlen > 0 && reqdata[1] == 0xfd) {
@@ -167,22 +134,16 @@ void DP5LookupServer::process_request(string &reply, const string &request)
 	} else {
 	    errmsg[0] = 0x00;
 	}
-	epoch_num_to_bytes(errmsg+1, _epoch);
-	reply.assign((const char *)errmsg, 5);
+	epoch_num_to_bytes(errmsg+1, epoch);
+	reply.assign(errmsg, 5);
 	return;
     }
 
     // At this point, we have a well-formed 5-byte command header with
     // the correct epoch in it.
     if (reqdata[0] == 0xff) {
-	// Request for the metadata file
-	unsigned char repmsg[5];
-	repmsg[0] = METADATA_VERSION;
-	epoch_num_to_bytes(repmsg+1, _epoch);
-	reply.assign((const char *)repmsg, 5);
-	reply.append((const char *)_metadatafilecontents,
-	    PRFKEY_BYTES + UINT_BYTES + UINT_BYTES);
-	return;
+        reply = toString();
+    	return;
     }
 
     if (reqdata[0] == 0xfe) {
@@ -192,29 +153,29 @@ void DP5LookupServer::process_request(string &reply, const string &request)
 	int ret = pir_process(pirresp, pirquery);
 	if (ret) {
 	    // Error occurred
-	    unsigned char errmsg[5];
+	    char errmsg[5];
 	    errmsg[0] = 0x80;
-	    epoch_num_to_bytes(errmsg+1, _epoch);
-	    reply.assign((const char *)errmsg, 5);
+	    epoch_num_to_bytes(errmsg+1, epoch);
+	    reply.assign(errmsg, 5);
 	    return;
 	}
-	unsigned char repmsg[5];
+	char repmsg[5];
 	repmsg[0] = 0x81;
-	epoch_num_to_bytes(repmsg+1, _epoch);
-	reply.assign((const char *)repmsg, 5);
+	epoch_num_to_bytes(repmsg+1, epoch);
+	reply.assign(repmsg, 5);
 	reply.append(pirresp);
 	return;
     }
 
     if (reqdata[0] == 0xfd) {
 	// Request for the whole data file
-	unsigned char repmsg[5];
+	char repmsg[5];
 	repmsg[0] = 0x82;
-	epoch_num_to_bytes(repmsg+1, _epoch);
-	reply.assign((const char *)repmsg, 5);
+	epoch_num_to_bytes(repmsg+1, epoch);
+	reply.assign(repmsg, 5);
 	reply.append((const char *)(_datastore->get_data()),
-	    _num_buckets * _bucket_size *
-	    (HASHKEY_BYTES + DATAENC_BYTES));
+	    num_buckets * bucket_size *
+	    (HASHKEY_BYTES + dataenc_bytes));
 	return;
     }
 
@@ -230,7 +191,7 @@ void test_lscd()
 {
     DP5Params p;
 
-    DP5LookupServer a(p.current_epoch(), "metadata.out", "data.out");
+    DP5LookupServer a("metadata.out", "data.out");
     DP5LookupServer b;
     b = a;
     DP5LookupServer c(b);
@@ -265,12 +226,7 @@ int main(int argc, char **argv)
 
 void test_pirglue()
 {
-    DP5Params params;
-
-    // The current epoch
-    unsigned int epoch = params.current_epoch();
-
-    unsigned int num_servers = params.NUM_PIRSERVERS;
+    unsigned int num_servers = 5;
 
     // Create the right number of lookup servers
     DP5LookupServer *servers = new DP5LookupServer[num_servers];
@@ -278,7 +234,7 @@ void test_pirglue()
     // Initialize them.  NOTE: You must have run test_rsreg prior to
     // this to create the metadata.out and data.out files.
     for(unsigned int s=0; s<num_servers; ++s) {
-	servers[s].init(epoch, "metadata.out", "data.out");
+    	servers[s].init("metadata.out", "data.out");
     }
 
     DP5LookupClient::Metadata meta;

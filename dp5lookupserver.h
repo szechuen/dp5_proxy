@@ -5,18 +5,16 @@
 #include "dp5params.h"
 #include "percyserver.h"
 
-class DP5LookupServer : public DP5Params {
+class DP5LookupServer : protected DP5Metadata {
 public:
     // The constructor consumes the current epoch number, and the
     // filenames of the current metadata and data files.
-    DP5LookupServer(unsigned int epoch, const char *metadatafilename,
+    DP5LookupServer(const char *metadatafilename,
 	const char *datafilename);
 
     // Default constructor
-    DP5LookupServer() : _epoch(0), _metadatafilename(NULL),
-	    _datafilename(NULL), _metadatafd(-1),
-	    _metadatafilecontents(NULL), _num_buckets(1),
-	    _bucket_size(0), _pirserverparams(NULL),
+    DP5LookupServer() : _metadatafilename(NULL),
+	    _datafilename(NULL), _pirserverparams(NULL),
 	    _datastore(NULL), _pirserver(NULL) {}
 
     // Copy constructor
@@ -29,7 +27,7 @@ public:
     ~DP5LookupServer();
 
     // Initialize the private members from the epoch and the filenames
-    void init(unsigned int epoch, const char *metadatafilename,
+    void init(const char *metadatafilename,
 	const char *datafilename);
 
     // Process a received request from a lookup client.  This may be
@@ -43,26 +41,12 @@ private:
     // pir_response.  Return 0 on success, non-0 on failure.
     int pir_process(string &response, const string &request);
 
-    // The epoch
-    unsigned int _epoch;
 
     // The metadata filename
     char *_metadatafilename;
 
     // The data filename
     char *_datafilename;
-
-    // The metadata file descriptor
-    int _metadatafd;
-
-    // The metadata file contents
-    unsigned char *_metadatafilecontents;
-
-    // The number of buckets
-    unsigned int _num_buckets;
-
-    // The number of records per bucket
-    unsigned int _bucket_size;
 
     // The PercyServerParams, filled in from the metadata file
     PercyServerParams *_pirserverparams;
