@@ -404,7 +404,8 @@ static void dump(const char *prefix, const unsigned char *data,
 
 int main(int argc, char **argv)
 {
-    DP5Params dp5;
+    DP5Metadata dp5;
+    dp5.epoch_len = 1800;
 
     unsigned char alice_privkey[dp5.PRIVKEY_BYTES];
     unsigned char alice_pubkey[dp5.PUBKEY_BYTES];
@@ -421,15 +422,13 @@ int main(int argc, char **argv)
     dp5.diffie_hellman(alice_dh, alice_privkey, bob_pubkey);
     dp5.diffie_hellman(bob_dh, bob_privkey, alice_pubkey);
     unsigned int epoch = dp5.current_epoch();
-    unsigned char epoch_bytes[dp5.EPOCH_BYTES];
-    dp5.epoch_num_to_bytes(epoch_bytes, epoch);
-    dump("E ", epoch_bytes, dp5.EPOCH_BYTES);
+    printf("e : %d (%08x)\n", epoch, epoch);
     dump("s ", alice_dh, dp5.PUBKEY_BYTES);
     printf("\n");
-    dp5.H1H2(H1, H2, epoch_bytes, alice_pubkey, alice_dh);
+    dp5.H1H2(H1, H2,epoch, alice_pubkey, alice_dh);
     dump("H1", H1, dp5.SHAREDKEY_BYTES);
     dump("H2", H2, dp5.DATAKEY_BYTES);
-    dp5.H3(H3, epoch_bytes, H1);
+    dp5.H3(H3, epoch, H1);
     dump("H3", H3, dp5.HASHKEY_BYTES);
 
     return 0;
@@ -491,6 +490,9 @@ int main(int argc, char **argv)
 {
     DP5Params dp5;
 
+    const unsigned int DATAPLAIN_BYTES = 16;
+    const unsigned int DATAENC_BYTES = 16;
+
     unsigned char key1[dp5.DATAKEY_BYTES];
     unsigned char key2[dp5.DATAKEY_BYTES];
 
@@ -499,40 +501,33 @@ int main(int argc, char **argv)
     dump("Key 1  ", key1, dp5.DATAKEY_BYTES);
     dump("Key 2  ", key2, dp5.DATAKEY_BYTES);
 
-    unsigned char plain1[dp5.DATAPLAIN_BYTES];
-    unsigned char plain2[dp5.DATAPLAIN_BYTES];
-    for (unsigned int i=0; i<dp5.DATAPLAIN_BYTES; ++i) {
-	plain1[i] = 'A' + i;
-	plain2[i] = '0' + i;
+    string plain1, plain2;
+    for (unsigned int i=0; i<DATAPLAIN_BYTES; ++i) {
+	plain1.push_back('A' + i);
+	plain2.push_back('0' + i);
     }
-    dump("\nPlain 1", plain1, dp5.DATAPLAIN_BYTES);
-    dump("Plain 2", plain2, dp5.DATAPLAIN_BYTES);
+    dump("\nPlain 1", (const unsigned char *) plain1.data(), DATAPLAIN_BYTES);
+    dump("Plain 2", (const unsigned char *) plain2.data(), DATAPLAIN_BYTES);
 
-    unsigned char cipher11[dp5.DATAENC_BYTES];
-    unsigned char cipher12[dp5.DATAENC_BYTES];
-    unsigned char cipher21[dp5.DATAENC_BYTES];
-    unsigned char cipher22[dp5.DATAENC_BYTES];
-    dp5.Enc(cipher11, key1, plain1);
-    dp5.Enc(cipher12, key1, plain2);
-    dp5.Enc(cipher21, key2, plain1);
-    dp5.Enc(cipher22, key2, plain2);
-    dump("\nCip 1/1", cipher11, dp5.DATAENC_BYTES);
-    dump("Cip 1/2", cipher12, dp5.DATAENC_BYTES);
-    dump("Cip 2/1", cipher21, dp5.DATAENC_BYTES);
-    dump("Cip 2/2", cipher22, dp5.DATAENC_BYTES);
+    string cipher11, cipher12, cipher21, cipher22;
+    cipher11 = dp5.Enc(key1, plain1);
+    cipher12 = dp5.Enc(key1, plain2);
+    cipher21 = dp5.Enc(key2, plain1);
+    cipher22 = dp5.Enc(key2, plain2);
+    dump("\nCip 1/1", (const unsigned char *) cipher11.data(), DATAENC_BYTES);
+    dump("Cip 1/2", (const unsigned char *) cipher12.data(), DATAENC_BYTES);
+    dump("Cip 2/1", (const unsigned char *) cipher21.data(), DATAENC_BYTES);
+    dump("Cip 2/2", (const unsigned char *) cipher22.data(), DATAENC_BYTES);
 
-    unsigned char dec11[dp5.DATAPLAIN_BYTES];
-    unsigned char dec12[dp5.DATAPLAIN_BYTES];
-    unsigned char dec21[dp5.DATAPLAIN_BYTES];
-    unsigned char dec22[dp5.DATAPLAIN_BYTES];
+    string dec11, dec12, dec21, dec22;
     int res11 = dp5.Dec(dec11, key1, cipher11);
     int res12 = dp5.Dec(dec12, key1, cipher12);
     int res21 = dp5.Dec(dec21, key2, cipher21);
     int res22 = dp5.Dec(dec22, key2, cipher22);
-    printf("\n(%d) ", res11); dump("Dec 1/1", dec11, dp5.DATAPLAIN_BYTES);
-    printf("(%d) ", res12); dump("Dec 1/2", dec12, dp5.DATAPLAIN_BYTES);
-    printf("(%d) ", res21); dump("Dec 2/1", dec21, dp5.DATAPLAIN_BYTES);
-    printf("(%d) ", res22); dump("Dec 2/2", dec22, dp5.DATAPLAIN_BYTES);
+    printf("\n(%d) ", res11); dump("Dec 1/1", (const unsigned char *) dec11.data(), DATAPLAIN_BYTES);
+    printf("(%d) ", res12); dump("Dec 1/2", (const unsigned char *) dec12.data(), DATAPLAIN_BYTES);
+    printf("(%d) ", res21); dump("Dec 2/1", (const unsigned char *) dec21.data(), DATAPLAIN_BYTES);
+    printf("(%d) ", res22); dump("Dec 2/2", (const unsigned char *) dec22.data(), DATAPLAIN_BYTES);
 
     return 0;
 }
@@ -540,8 +535,7 @@ int main(int argc, char **argv)
 
 #ifdef TEST_EPOCH
 #include <stdio.h>
-
-static void dump(const char *prefix, const unsigned char *data,
+static void dump(const char *prefix, const char *data,
     size_t len)
 {
     if (prefix) {
@@ -555,11 +549,12 @@ static void dump(const char *prefix, const unsigned char *data,
 
 int main(int argc, char **argv)
 {
-    DP5Params dp5;
+    DP5Metadata dp5;
+    dp5.epoch_len = 1800;
 
     unsigned int epoch = dp5.current_epoch();
     printf("Epoch = %u\n", epoch);
-    unsigned char epoch_bytes[dp5.EPOCH_BYTES];
+    char epoch_bytes[dp5.EPOCH_BYTES];
     dp5.epoch_num_to_bytes(epoch_bytes, epoch);
     dump("E", epoch_bytes, dp5.EPOCH_BYTES);
     unsigned int back;
@@ -585,7 +580,7 @@ int main(int argc, char **argv)
     // Abuse this test case to also test the conversions
     // between uint and bytes.
     unsigned int test_uint = 0x5678;
-    unsigned char uint_bytes[dp5.UINT_BYTES];
+    char uint_bytes[dp5.UINT_BYTES];
     dp5.uint_num_to_bytes(uint_bytes, test_uint);
     unsigned int res = dp5.uint_bytes_to_num(uint_bytes);
     if (res != 0x5678){
