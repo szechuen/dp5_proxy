@@ -30,7 +30,11 @@ struct dp5TestClient {
 };
 
 int main(int argc, char **argv){
-    DP5Params dp5;
+    DP5Metadata dp5;
+    dp5.epoch_len = 1800;
+    dp5.dataenc_bytes = 16;
+    dp5.usePairings = false;
+    dp5.epoch = dp5.current_epoch();
     unsigned int NUMBEROFCLIENTS = 1000;
     unsigned int NUMBEROFFRIENDS = 2;
 
@@ -70,15 +74,14 @@ int main(int argc, char **argv){
 
     // Make a registration server
     DP5RegServer * rs = 
-        new DP5RegServer(DP5RegServer::current_epoch(), 
-                            "regdir", "datadir");
+        new DP5RegServer(dp5, "regdir", "datadir");
 
     // Now register buddies for all on-line clients
     for (unsigned int f = 0; f < NUMBEROFCLIENTS; f++)
     {
         tcs[f].cli = new DP5LookupClient(string((char *) tcs[f].privkey, DP5Params::PRIVKEY_BYTES));
         if (tcs[f].online == false) continue;
-        tcs[f].reg = new DP5RegClient(tcs[f].privkey);
+        tcs[f].reg = new DP5RegClient(dp5, tcs[f].privkey);
         
 
         vector<BuddyInfo> buds;
@@ -87,12 +90,15 @@ int main(int argc, char **argv){
             unsigned int f2 = *ix;
             BuddyInfo b;
             memmove(b.pubkey, tcs[f2].pubkey, DP5Params::PUBKEY_BYTES);
-            memset(b.data, 0, DP5Params::DATAPLAIN_BYTES);
-            b.data[0] = 0x99; // Just a random marker
-            memmove(b.data +1, 
+            char data[dp5.dataenc_bytes];
+            memset(data, 0, dp5.dataenc_bytes);
+            data[0] = 0x99; // Just a random marker
+
+            memmove(data +1, 
                 (const char *) &f, sizeof(unsigned int));
-            memmove(b.data +1 + sizeof(unsigned int), 
+            memmove(data +1 + sizeof(unsigned int), 
                 (const char *) &f2, sizeof(unsigned int));
+            b.data.assign(data, dp5.dataenc_bytes);
             buds.push_back(b);
         }
 
@@ -100,7 +106,7 @@ int main(int argc, char **argv){
 
         // Run the registration process with the server
         string msgCtoS;
-        unsigned int next_epoch = tcs[f].reg->current_epoch() + 1;
+        unsigned int next_epoch = dp5.epoch + 1;
         int err1 = tcs[f].reg->start_reg(msgCtoS, next_epoch, buds);
         printf("Result 1 ok: %s\n", (err1==0x00)?("True"):("False"));
 
@@ -122,7 +128,7 @@ int main(int argc, char **argv){
 
     // And now we are going to build a number of lookup servers
     const unsigned int epoch = dp5.current_epoch() + 1;
-    const unsigned int num_servers = dp5.NUM_PIRSERVERS;
+    const unsigned int num_servers = 5;
 
     // FIXME: Assumes library is initialized later. 
     //         This is rather opaque to the user 
@@ -135,7 +141,7 @@ int main(int argc, char **argv){
     // Initialize them.  NOTE: You must have run test_rsreg prior to
     // this to create the metadata.out and data.out files.
     for(unsigned int s=0; s<num_servers; ++s) {
-	    servers[s].init(epoch, "integrated_metadata.out", "integrated_data.out");
+	    servers[s].init("integrated_metadata.out", "integrated_data.out");
     }
 
     // Each (online) client does the PIR business
@@ -204,15 +210,15 @@ int main(int argc, char **argv){
             bool data_ok = true;
 
             if (tcs[f2].online){
-            unsigned char data[DP5Params::DATAPLAIN_BYTES];
-            memset(data, 0, DP5Params::DATAPLAIN_BYTES);
+            unsigned char data[dp5.dataenc_bytes];
+            memset(data, 0, dp5.dataenc_bytes);
             data[0] = 0x99; // Just a random marker
             memmove(data +1, 
                 (const char *) &f2, sizeof(unsigned int));
             memmove(data +1 + sizeof(unsigned int), 
                 (const char *) &f, sizeof(unsigned int));
 
-            data_ok = (memcmp(data, presence[idx].data, DP5Params::DATAPLAIN_BYTES) == 0);
+            data_ok = (memcmp(data, presence[idx].data.data(), dp5.dataenc_bytes) == 0);
             }
 
             bool all_ok = mem_ok && online_ok && data_ok;
