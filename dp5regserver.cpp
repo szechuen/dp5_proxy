@@ -431,34 +431,38 @@ int main(int argc, char **argv)
     mkdir("regdir", 0700);
     mkdir("datadir", 0700);
 
-    rs = new DP5RegServer(DP5RegServer::current_epoch(), "regdir", "datadir", usePairing);
-    unsigned int epoch = rs->current_epoch();
+    DP5Metadata md;
+    md.epoch_len = 1800;
+    md.usePairings = usePairing;
+    md.dataenc_bytes = 16;
+    md.epoch = md.current_epoch();
+    rs = new DP5RegServer(md, "regdir", "datadir");
 
     // Create the blocks of data to submit
     vector<string> submits[2];
 
     for (int subflag=0; subflag<2; ++subflag) {
 	for (int i=0; i<num_clients; ++i) {  
-		size_t datasize = rs->EPOCH_BYTES;
+		size_t datasize = md.EPOCH_BYTES;
 		if (usePairing) {
-			datasize += rs->EPOCH_SIG_BYTES + rs->dataenc_bytes;
+			datasize += md.EPOCH_SIG_BYTES + md.dataenc_bytes;
 		} else {
-			datasize += num_buddies * (rs->SHAREDKEY_BYTES + rs->dataenc_bytes);
+			datasize += num_buddies * (md.SHAREDKEY_BYTES + md.dataenc_bytes);
 		}
 	    unsigned char data[datasize];
 	    unsigned char *thisdata = data;
         
-	    rs->epoch_num_to_bytes(thisdata,epoch+1+subflag);
-	    thisdata += rs->EPOCH_BYTES;
+	    md.epoch_num_to_bytes((char *) thisdata,md.epoch+1+subflag);
+	    thisdata += md.EPOCH_BYTES;
 
 	    for (int j=0; j<num_buddies; ++j) {
 		if (usePairing) {
 			G2 g2(false); // initialized to random
 			g2.toBin((char *) thisdata);
-			thisdata += rs->EPOCH_SIG_BYTES;
+			thisdata += md.EPOCH_SIG_BYTES;
 		} else {
-			rs->random_bytes(thisdata, rs->SHAREDKEY_BYTES);
-			thisdata += rs->SHAREDKEY_BYTES;
+			md.random_bytes(thisdata, md.SHAREDKEY_BYTES);
+			thisdata += md.SHAREDKEY_BYTES;
 		}
 		// Identifiable data
 		thisdata[0] = '[';
@@ -468,11 +472,11 @@ int main(int argc, char **argv)
 		sprintf((char *)thisdata+3, "%u%n",
 		    j, &bytesout);
 		memset(thisdata+3+bytesout,
-			' ', rs->dataenc_bytes-4-bytesout);
-		thisdata[rs->dataenc_bytes-1]
+			' ', md.dataenc_bytes-4-bytesout);
+		thisdata[md.dataenc_bytes-1]
 		    = ']';
 
-		thisdata += rs->dataenc_bytes;
+		thisdata += md.dataenc_bytes;
 	    }
 	    submits[subflag].push_back(string((char *)data, datasize));
 	}
