@@ -1,18 +1,98 @@
 #ifndef __DP5PARAMS_H__
 #define __DP5PARAMS_H__
 
-using namespace std;
+#include <iostream>
+#include <string>
+#include <sstream>
 
-class DP5Params {
+static const unsigned int PRFKEY_BYTES = 8;
+typedef char PRFKey[PRFKEY_BYTES];
+
+
+
+// Contains configurable parameters
+// for a given database
+struct _DP5MetadataStruct {
+public:
+    PRFKey prfkey;
+    unsigned int dataenc_bytes;
+    unsigned int epoch;
+    unsigned int epoch_len;
+    bool usePairing;
+    unsigned int num_buckets;
+    unsigned int bucket_size;
+
+    // Number of bytes in an unsigned int representing a size sent
+    // over the network. 
+    static const unsigned int UINT_BYTES = 4;
+
+    // The version number of the metadata file
+    static const unsigned int METADATA_VERSION = 0x01;
+
+    // The length of a byte-array version of an epoch number
+    static const unsigned int EPOCH_BYTES = 4;  // epochs are 32 bit
+};
+
+///
+/// This class contains the configurable variables
+/// for a database
+///
+class DP5Metadata : public _DP5MetadataStruct {
+public:
+    /// Initialize from input stream
+    DP5Metadata(std::istream & is) {
+        readFromStream(is);
+    }
+
+    DP5Metadata(const std::string & metadata) {
+        std::stringstream stream(metadata);
+        readFromStream(stream);
+    }
+
+    DP5Metadata();  // Sets default values
+
+    // use copy constructor from the struct
+    DP5Metadata(const DP5Metadata & other) :
+        _DP5MetadataStruct(other) {}
+
+    void readFromStream(std::istream & is);
+    void writeToStream(std::ostream & os);
+    static unsigned int read_uint(std::istream & is);
+    static void write_uint(std::ostream & os, unsigned int n);
+    static unsigned int read_epoch(std::istream & is);
+    static void write_epoch(std::ostream & os, unsigned int epoch);
+
+    // Convert an epoch number to an epoch byte array
+    static void epoch_num_to_bytes(char epoch_bytes[EPOCH_BYTES],
+       unsigned int epoch_num);
+
+    // Convert an epoch byte array to an epoch number
+    static unsigned int epoch_bytes_to_num(
+       const char epoch_bytes[EPOCH_BYTES]);
+
+    // Convert an uint number to an uint byte array in network order
+    static void uint_num_to_bytes(char uint_bytes[UINT_BYTES],
+           unsigned int uint_num);
+
+    // Convert an uint byte array in networkorder to an uint number
+    static unsigned int uint_bytes_to_num(
+           const char uint_bytes[UINT_BYTES]);
+
+
+};
+
+///
+/// This class contains static (compile-time defined)
+/// parameters used in DP5. 
+///
+
+class DP5Params : public DP5Metadata {
 public:
     // The maximum number of clients
     static const unsigned int MAX_CLIENTS = 1000;
 
     // The mamimum number of buddies per client
     static const unsigned int MAX_BUDDIES = 100;
-
-    // The number of PIR servers
-    static const unsigned int NUM_PIRSERVERS = 5;
 
     // Number of bytes in a private key
     static const unsigned int PRIVKEY_BYTES = 32;  
@@ -177,21 +257,6 @@ public:
     // Retrieve the current epoch number
     static unsigned int current_epoch();
 
-    // Convert an epoch number to an epoch byte array
-    static void epoch_num_to_bytes(unsigned char epoch_bytes[EPOCH_BYTES],
-	unsigned int epoch_num);
-
-    // Convert an epoch byte array to an epoch number
-    static unsigned int epoch_bytes_to_num(
-	const unsigned char epoch_bytes[EPOCH_BYTES]);
-
-    // Convert an uint number to an uint byte array in network order
-    static void uint_num_to_bytes(unsigned char uint_bytes[UINT_BYTES],
-	    unsigned int uint_num);
-
-    // Convert an uint byte array in networkorder to an uint number
-    static unsigned int uint_bytes_to_num(
-	    const unsigned char uint_bytes[UINT_BYTES]);
 
     // Destructor, if necessary
     ~DP5Params();

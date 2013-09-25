@@ -24,6 +24,45 @@ extern "C" {
 	const unsigned char *basepoint);
 }
 
+// default constructor
+DP5Metadata::DP5Metadata() {
+    memset(prfkey, 0, sizeof(prfkey));
+    dataenc_bytes = 0;
+    epoch = 0;
+    epoch_len = 0;
+    usePairing = false;
+    num_buckets = 0;
+    bucket_size = 0;
+}
+
+unsigned int DP5Metadata::read_uint(istream & is) {
+    char data[UINT_BYTES];
+    is.read(data, UINT_BYTES);
+    return uint_bytes_to_num(data);
+}
+
+unsigned int DP5Metadata::read_epoch(istream & is) {
+    char data[EPOCH_BYTES];
+    is.read(data, EPOCH_BYTES);
+    return epoch_bytes_to_num(data);
+}
+
+void DP5Metadata::readFromStream(istream & is) {
+    unsigned int version = is.get();
+    if (!is) {
+        throw runtime_error("Could not read metadata version");
+    }
+    if (version != METADATA_VERSION) {
+        stringstream error;
+        error << "Metadata version mismatch: expected " <<
+            METADATA_VERSION << ", got " << version;
+        throw runtime_error(error.str());
+    }
+    // Read in parameters
+    is.read(prfkey, sizeof(prfkey));
+}
+
+
 // Constructor: initialize the PRNG
 DP5Params::DP5Params()
 {
@@ -227,7 +266,7 @@ unsigned int DP5Params::current_epoch()
 }
 
 // Convert an epoch number to an epoch byte array
-void DP5Params::epoch_num_to_bytes(unsigned char epoch_bytes[EPOCH_BYTES],
+void DP5Metadata::epoch_num_to_bytes(char epoch_bytes[EPOCH_BYTES],
     unsigned int epoch_num)
 {
     unsigned int big_endian_epoch_num = htonl(epoch_num);
@@ -235,14 +274,14 @@ void DP5Params::epoch_num_to_bytes(unsigned char epoch_bytes[EPOCH_BYTES],
 }
 
 // Convert an epoch byte array to an epoch number
-unsigned int DP5Params::epoch_bytes_to_num(
-    const unsigned char epoch_bytes[EPOCH_BYTES])
+unsigned int DP5Metadata::epoch_bytes_to_num(
+    const char epoch_bytes[EPOCH_BYTES])
 {
     return ntohl(*(unsigned int*)epoch_bytes);
 }
 
 // Convert an uint number to an uint byte array in network order
-void DP5Params::uint_num_to_bytes(unsigned char uint_bytes[UINT_BYTES],
+void DP5Metadata::uint_num_to_bytes(char uint_bytes[UINT_BYTES],
 	unsigned int uint_num){
     unsigned int num_netorder = htonl(uint_num);
     memcpy((char *) uint_bytes, ((const char *)&num_netorder)
@@ -250,14 +289,15 @@ void DP5Params::uint_num_to_bytes(unsigned char uint_bytes[UINT_BYTES],
 }
 
 // Convert an uint byte array in networkorder to an uint number
-unsigned int DP5Params::uint_bytes_to_num(
-	const unsigned char uint_bytes[UINT_BYTES]){
+unsigned int DP5Metadata::uint_bytes_to_num(
+	const char uint_bytes[UINT_BYTES]){
     unsigned int res = 0;
     memcpy(((char *)&res) +sizeof(unsigned int)-UINT_BYTES, 
         (const char *) uint_bytes, UINT_BYTES);
     res = ntohl(res);
     return res;
 }
+
 
 int DP5Params::hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
     const unsigned char signature[EPOCH_SIG_BYTES]) {
@@ -289,7 +329,7 @@ int DP5Params::hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
         return -1; // Invalid key
     }
 
-    unsigned char E[EPOCH_BYTES];
+    char E[EPOCH_BYTES];
     epoch_num_to_bytes(E, epoch);
     G2 epoch_hash(pairing, E, DP5Params::EPOCH_BYTES);
 
