@@ -18,6 +18,8 @@
 
 #include "dp5regserver.h"
 
+using namespace std;
+
 // Allocate a filename given the desired directory, the epoch number,
 // and the filename extension.  The caller must free() the result when
 // finished.
@@ -105,7 +107,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     const unsigned char *allindata = (const unsigned char *)regmsg.data();
     // C++ is very particular about how const members without separate definition can be used, hence the '+'
     // (see http://stackoverflow.com/questions/3025997/c-defining-static-const-integer-members-in-class-definition)
-    const unsigned int inrecord_size = (usePairings ? +EPOCH_SIG_BYTES : +SHAREDKEY_BYTES) + dataenc_bytes;
+    const unsigned int inrecord_size = SHAREDKEY_BYTES + dataenc_bytes;
     const unsigned int outrecord_size = HASHKEY_BYTES + dataenc_bytes;
 
     unsigned int numrecords;
@@ -173,7 +175,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     for (unsigned int i=0; i<numrecords; ++i) {
 	    // Hash the key, copy the data
 	    H3(outrecord, next_epoch, indata);
-    	memmove(outrecord + HASHKEY_BYTES, indata + (usePairings ? +EPOCH_SIG_BYTES : +SHAREDKEY_BYTES),
+    	memmove(outrecord + HASHKEY_BYTES, indata + SHAREDKEY_BYTES,
     		dataenc_bytes);
 
 	// Append the record to the registration file

@@ -21,6 +21,8 @@ extern "C" {
 	const unsigned char *basepoint);
 }
 
+using namespace std;
+
 // default constructor
 DP5Metadata::DP5Metadata() {
     memset(prfkey, 0, sizeof(prfkey));

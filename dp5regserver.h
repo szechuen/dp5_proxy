@@ -30,14 +30,14 @@ public:
     // pass it to this function.  msgtoreply will be filled in with the
     // message to return to the client in response.  Client
     // registrations will become visible in the *next* epoch.
-    void client_reg(string &msgtoreply, const string &regmsg);
+    void client_reg(std::string &msgtoreply, const std::string &regmsg);
 
     // Call this when the epoch changes.  Pass in ostreams to which this
     // function should write the metadata and data files to serve in
     // this epoch.  The function will return the new epoch number.
     // After this function returns, send the metadata and data files to
     // the PIR servers, labelled with the new epoch number.
-    unsigned int epoch_change(ostream &metadataos, ostream &dataos);
+    unsigned int epoch_change(std::ostream &metadataos, std::ostream &dataos);
 
 protected:
     // The directory in which to store incoming registration information
