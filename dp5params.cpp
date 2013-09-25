@@ -38,10 +38,22 @@ unsigned int DP5Metadata::read_uint(istream & is) {
     return uint_bytes_to_num(data);
 }
 
+void DP5Metadata::write_uint(ostream & os, unsigned int n) {
+    char data[UINT_BYTES];
+    uint_num_to_bytes(data, n);
+    os.write(data, UINT_BYTES);
+}
+
 unsigned int DP5Metadata::read_epoch(istream & is) {
     char data[EPOCH_BYTES];
     is.read(data, EPOCH_BYTES);
     return epoch_bytes_to_num(data);
+}
+
+void DP5Metadata::write_epoch(ostream & os, unsigned int epoch) {
+    char data[EPOCH_BYTES];
+    uint_num_to_bytes(data, epoch);
+    os.write(data, EPOCH_BYTES);
 }
 
 void DP5Metadata::readFromStream(istream & is) {
@@ -55,10 +67,52 @@ void DP5Metadata::readFromStream(istream & is) {
             METADATA_VERSION << ", got " << version;
         throw runtime_error(error.str());
     }
-    // Read in parameters
+    unsigned int x = is.get();
+    if (x == 0) {
+        usePairing = false;
+    } else if (x == 1) {
+        usePairing = true;
+    } else {
+        // we are not being liberal in what we accept
+        // since any other value is almost certainly an error
+        stringstream error;
+        error << "Unexpected value for usePairing: " << x;
+        throw runtime_error(error.str());
+    }
+    // Read in rest of parameters
+    epoch = read_epoch(is);
+    dataenc_bytes = read_uint(is);
+    epoch_len = read_uint(is);
+    num_buckets = read_uint(is);
+    bucket_size = read_uint(is);
     is.read(prfkey, sizeof(prfkey));
+
+    if (!is) {
+        throw runtime_error("Error reading metadata");
+    }
 }
 
+void DP5Metadata::fromString(const string & str) {
+    stringstream stream(str);
+    readFromStream(stream);
+}
+
+void DP5Metadata::writeToStream(ostream & os) const {
+    os.put(METADATA_VERSION);
+    os.put(usePairing);
+    write_epoch(os, epoch);
+    write_uint(os, dataenc_bytes);
+    write_uint(os, epoch_len);
+    write_uint(os, num_buckets);
+    write_uint(os, bucket_size);
+    os.write(prfkey, sizeof(prfkey));
+}
+
+string DP5Metadata::toString(void) const {
+    stringstream stream;
+    writeToStream(stream);
+    return stream.str();
+}
 
 // Constructor: initialize the PRNG
 DP5Params::DP5Params()
