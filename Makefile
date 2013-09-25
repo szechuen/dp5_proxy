@@ -4,7 +4,7 @@ NTLINC = /usr/local/include/NTL
 NTLLIB = /usr/local/lib
 CC = gcc
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
+CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC -I$(PERCYINC) -I$(NTLINC)
 CFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
 LDLIBS = -lcrypto
 GTEST_DIR = ../gtest-1.7.0
@@ -121,6 +121,11 @@ dp5params.o: dp5params.cpp dp5params.h
 
 test_integrate.o: dp5integrationtest.cpp dp5lookupclient.h dp5lookupserver.h dp5regserver.h dp5regclient.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
+
+dp5lookupclient_unittest.o: dp5lookupclient_unittest.cpp dp5lookupclient.h dp5params.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c dp5lookupclient_unittest.cpp
+dp5lookupclient_unittest: dp5lookupclient_unittest.o dp5lookupclient.o dp5params.o curve25519-donna.o gtest_main.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
 
 clean:
 	rm -f *.o

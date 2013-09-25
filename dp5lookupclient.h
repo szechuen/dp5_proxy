@@ -5,6 +5,8 @@
 #include <string>
 #include <set>
 #include <map>
+#include <stdexcept>
+#include <sstream>
 #include "dp5params.h"
 #include "percyparams.h"
 #include "percyclient.h"
@@ -207,9 +209,19 @@ public:
     static const unsigned int PRIVACY_LEVEL = 2;
 
     // The constructor consumes the client's private key
-    DP5LookupClient(const string & privkey, bool usePairing = false) :
+    DP5LookupClient(const string & privkey, bool usePairing = false) 
+        throw (std::invalid_argument) :
         _privkey(privkey), _usePairing(usePairing)
-        {}
+    {
+        if (privkey.length() != PRIVKEY_BYTES) {
+            stringstream error;
+            error << "Private key must be " << PRIVKEY_BYTES << " long  (got " 
+                << privkey.length() << ")";
+            throw std::invalid_argument(error.str());
+        }
+    }
+
+        // FIXME: make sure string is long enough
 
     // Create a request for the metadata file.  This (and the next
     // method) must complete in each epoch before invoking the lookup
