@@ -7,7 +7,7 @@
 
 #include <Pairing.h>
 
-class DP5RegServer : public DP5Params {
+class DP5RegServer : protected DP5Metadata {
 public:
     // The number of iterations over the PRF bucketization
     static const unsigned int NUM_PRF_ITERS = 10;
@@ -16,8 +16,8 @@ public:
     // in which to store the incoming registrations for the current
     // epoch, and the directory in which to store the metadata and data
     // files.
-    DP5RegServer(unsigned int current_epoch, const char *regdir,
-	const char *datadir, bool usePairings = false);
+    DP5RegServer(const DP5Metadata & metadata, const char *regdir,
+    	const char *datadir);
 
     // Copy constructor
     DP5RegServer(const DP5RegServer &other);
@@ -42,16 +42,12 @@ public:
     unsigned int epoch_change(ostream &metadataos, ostream &dataos);
 
 protected:
-    // The current epoch number
-    unsigned int _epoch;
-
     // The directory in which to store incoming registration information
     char *_regdir;
 
     // The directory in which to store metadata and data files
     char *_datadir;      
 
-	bool _usePairings;
     const Pairing _pairing;
 
     // Create the registration file for the given epoch.
