@@ -13,13 +13,18 @@ BINS = libdp5
 TESTS = test_dh test_hashes test_prf test_enc test_epoch \
 	test_rsconst test_rsreg test_client test_reqcd \
 	test_lscd test_pirglue test_pirgluemt test_integrate
+UNITTESTS:=$(patsubst %.cpp,%,$(wildcard *_unittest.cpp))
+
 
 UNAME = $(shell uname -s)
 ifeq ($(UNAME),Darwin)
 	ARCHFLAGS = ARCHFLAGS="-arch x86_64"
 endif
 
-all: $(BINS) $(TESTS)
+all: $(BINS) $(TESTS) $(UNITTESTS)
+
+test: $(UNITTESTS)
+	@for test in $(UNITTESTS) ; do ./$$test ; done
 
 python: libdp5 dp5py.cpp setup.py
 	$(ARCHFLAGS) python setup.py build
@@ -125,6 +130,10 @@ test_integrate.o: dp5integrationtest.cpp dp5lookupclient.h dp5lookupserver.h dp5
 dp5lookupclient_unittest.o: dp5lookupclient_unittest.cpp dp5lookupclient.h dp5params.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c dp5lookupclient_unittest.cpp
 dp5lookupclient_unittest: dp5lookupclient_unittest.o dp5lookupclient.o dp5params.o curve25519-donna.o gtest_main.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
+dp5params_unittest.o: dp5params_unittest.cpp dp5params.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c dp5params_unittest.cpp
+dp5params_unittest: dp5params_unittest.o dp5params.o curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
 
 clean:
