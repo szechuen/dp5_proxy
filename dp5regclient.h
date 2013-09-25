@@ -9,28 +9,26 @@
 struct BuddyInfo {
     // The buddy's public key
     unsigned char pubkey[DP5Params::PUBKEY_BYTES];
-
-    // The associated data you want to tell him
-    unsigned char data[DP5Params::DATAPLAIN_BYTES];
+    std::string data;
 };
 
-class DP5RegClient : public DP5Params {
+class DP5RegClient : protected DP5Metadata {
 public:
     // The constructor consumes the client's own private key
-    DP5RegClient(const unsigned char privkey[PRIVKEY_BYTES]);
+    DP5RegClient(const DP5Metadata & md, const unsigned char privkey[PRIVKEY_BYTES]);
 
     // Register yourself as visible to a number of buddies (at most
     // MAX_BUDDIES).  Return 0 on success, in which case msgtosend will be
     // filled with the message to send to the registration server.
     // Return non-zero on error.
-    int start_reg(string &msgtosend, 
+    int start_reg(std::string &msgtosend, 
                   unsigned int next_epoch, 
-                  const vector<BuddyInfo> &buddies);
+                  const std::vector<BuddyInfo> &buddies);
 
     // Once the above message is sent to the registration server, pass
     // the reply to this function.  Return 0 on success, non-zero on
     // error.
-    int complete_reg(const string &replymsg, 
+    int complete_reg(const std::string &replymsg, 
                       unsigned int next_epoch);
 
 private:
