@@ -156,16 +156,16 @@ public:
     // Encrypt using a key of size DATAKEY_BYTES bytes a plaintext of size
     // DATAPLAIN_BYTES bytes to yield a ciphertext of size DATAENC_BYTES
     // bytes.
-    static string Enc(const unsigned char enckey[DATAKEY_BYTES],
-	   const string & plaintext);
+    static std::string Enc(const unsigned char enckey[DATAKEY_BYTES],
+	   const std::string & plaintext);
 
     // Decrypt using a key of size DATAKEY_BYTES bytes a ciphertext of
     // size DATAENC_BYTES bytes to yield a plaintext of size
     // DATAPLAIN_BYTES.  Return 0 if the decryption was successful, -1
     // otherwise.
-    static int Dec(string & plaintext, 
+    static int Dec(std::string & plaintext, 
 	const unsigned char enckey[DATAKEY_BYTES],
-	const string & ciphertext);
+	const std::string & ciphertext);
 
 
     // Convert an epoch number to an epoch byte array
