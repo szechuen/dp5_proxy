@@ -191,10 +191,6 @@ public:
     // time (The actual values are set in the cpp file.)
     static unsigned int QUERY_SIZES[NUM_QUERY_SIZES];
 
-    // The number of PIR servers that can collude without revealing a
-    // client's query
-    static const unsigned int PRIVACY_LEVEL = 2;
-
     // The constructor consumes the client's private key
     DP5LookupClient(const string & privkey) 
         throw (std::invalid_argument) :

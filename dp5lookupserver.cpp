@@ -237,22 +237,9 @@ void test_pirglue()
     	servers[s].init("metadata.out", "data.out");
     }
 
-    DP5LookupClient::Metadata meta;
-    meta.version = 1;
-    meta.epoch = epoch;
-    memmove(meta.prfkey, servers[0]._metadatafilecontents,
-	    servers[0].PRFKEY_BYTES);
-    meta.num_buckets = servers[0]._num_buckets;
-    meta.bucket_size = servers[0]._bucket_size;
-
-    cerr << meta.num_buckets << " buckets\n";
-    cerr << meta.bucket_size << " records per bucket\n";
-    cerr << meta.bucket_size * (params.HASHKEY_BYTES +
-	    params.DATAENC_BYTES) << " bytes per bucket\n\n";
-
     DP5LookupClient::Request req;
     const vector<DP5LookupClient::Request::Friend_state> fs;
-    req.init(num_servers, DP5LookupClient::PRIVACY_LEVEL, meta, fs, true);
+    req.init(num_servers, 2, servers[0], fs, true);
 
     vector<unsigned int> bucketnums;
     bucketnums.push_back(3);
@@ -332,32 +319,22 @@ void test_pirgluemt()
     unsigned int qperthread = 3;
     bool multithread = true;
 
-    // The current epoch
-    unsigned int epoch = params.current_epoch();
-
     // Use a single server.  NOTE: You must have run test_rsreg prior to
     // this to create the metadata.out and data.out files.
-    server = new DP5LookupServer(epoch, "metadata.out", "data.out");
+    server = new DP5LookupServer("metadata.out", "data.out");
 
-    DP5LookupClient::Metadata meta;
-    meta.version = 1;
-    meta.epoch = epoch;
-    memmove(meta.prfkey, server->_metadatafilecontents, server->PRFKEY_BYTES);
-    meta.num_buckets = server->_num_buckets;
-    meta.bucket_size = server->_bucket_size;
-
-    DP5Params::PRF prf(meta.prfkey, meta.num_buckets);
+    DP5Params::PRF prf((const unsigned char*) server->prfkey, server->num_buckets);
 
     // A vector of question/answer pairs
     vector< pair<string,string> > qas;
 
-    unsigned char hashkey[server->HASHKEY_BYTES];
-    memset(hashkey, '\0', server->HASHKEY_BYTES);
+    unsigned char hashkey[params.HASHKEY_BYTES];
+    memset(hashkey, '\0', params.HASHKEY_BYTES);
     unsigned int iter = 0;
 
     DP5LookupClient::Request req;
     const vector<DP5LookupClient::Request::Friend_state> fs;
-    req.init(params.NUM_PIRSERVERS, DP5LookupClient::PRIVACY_LEVEL, meta, fs, true);
+    req.init(5, 2, *server, fs, true);
 
     for (unsigned int i=0; i<numthreads; ++i) {
 	// Generate a random question
