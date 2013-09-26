@@ -108,7 +108,7 @@ int DP5LookupClient::Request::pir_response(vector<string> &buckets,
 }
 
 void DP5LookupClient::metadata_request(string &msgtosend, unsigned int epoch){
-    char metadata_request_message[1+EPOCH_BYTES];
+    unsigned char metadata_request_message[1+EPOCH_BYTES];
     metadata_request_message[0] = 0xff;
     epoch_num_to_bytes(metadata_request_message+1, epoch);
 
@@ -249,7 +249,7 @@ vector<string> DP5LookupClient::Request::get_msgs(){
     for(unsigned int j = buckets.size(); j < buckets_to_query; j++)
         buckets.push_back(0);
 
-    char request_header[1+EPOCH_BYTES];
+    unsigned char request_header[1+EPOCH_BYTES];
     if (_do_PIR) { request_header[0] = 0xfe; }
            else { request_header[0] = 0xfd; }
     epoch_num_to_bytes(request_header+1, _metadata_current.epoch);
