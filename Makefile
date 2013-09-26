@@ -131,10 +131,6 @@ dp5lookupclient_unittest.o: dp5lookupclient_unittest.cpp dp5lookupclient.h dp5pa
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c dp5lookupclient_unittest.cpp
 dp5lookupclient_unittest: dp5lookupclient_unittest.o dp5lookupclient.o dp5params.o curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
-dp5params_unittest.o: dp5params_unittest.cpp dp5params.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c dp5params_unittest.cpp
-dp5params_unittest: dp5params_unittest.o dp5params.o curve25519-donna.o gtest_main.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
 dp5metadata_unittest.o: dp5metadata_unittest.cpp dp5metadata.h dp5params.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c dp5metadata_unittest.cpp
 dp5metadata_unittest: dp5metadata_unittest.o dp5params.o dp5metadata.o curve25519-donna.o gtest_main.a
