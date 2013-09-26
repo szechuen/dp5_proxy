@@ -72,19 +72,16 @@ int Metadata::fromStream(istream & is) {
         if (version != METADATA_VERSION) {
             return 0x01;
         }
-        /*
         unsigned int x = is.get();
         if (x == 0) {
-            usePairings = false;
+            combined = false;
         } else if (x == 1) {
-            usePairings = true;
+            combined = true;
         } else {
             // we are not being liberal in what we accept
             // since any other value is almost certainly an error
-            cerr << "Unexpected value for usePairings: " << x << endl;
             return 0x02;
         }
-        */
         // Read in rest of parameters
         epoch = read_epoch(is);
         dataenc_bytes = read_uint(is);
@@ -123,6 +120,7 @@ unsigned int uint_bytes_to_num(const unsigned char uint_bytes[UINT_BYTES]) {
 
 void Metadata::toStream(ostream & os) const {
     os.put(METADATA_VERSION);
+    os.put(combined);
     write_epoch(os, epoch);
     write_uint(os, dataenc_bytes);
     write_uint(os, epoch_len);

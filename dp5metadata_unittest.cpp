@@ -13,16 +13,19 @@ TEST(TestConfig, DefaultConstructor) {
     DP5Config dp5;
     EXPECT_EQ(dp5.epoch_len, 0u);
     EXPECT_EQ(dp5.dataenc_bytes, 0u);
+    EXPECT_EQ(dp5.combined, false);
 }
 
 TEST(TestConfig, CopyConstructor) {
     DP5Config dp5;
     dp5.epoch_len = 1234;
     dp5.dataenc_bytes = 5678;
+    dp5.combined = true;
 
     DP5Config copy(dp5);
     EXPECT_EQ(dp5.epoch_len, copy.epoch_len);
     EXPECT_EQ(dp5.dataenc_bytes, copy.dataenc_bytes);
+    EXPECT_EQ(dp5.combined, copy.combined);
 }
 
 TEST(TestConfig, Valid) {
@@ -102,10 +105,11 @@ protected:
     string valid_metadata;
 
     virtual void SetUp(void) {
-        int len = 1 + PRFKEY_BYTES + UINT_BYTES*4 + EPOCH_BYTES;
         valid_metadata.push_back(METADATA_VERSION);
-        for (int i = 1; i < len; i++) {
-            valid_metadata.push_back(i);
+        valid_metadata.push_back(0x01);
+        for (unsigned int i = 0; i < PRFKEY_BYTES + UINT_BYTES*4 + EPOCH_BYTES;
+            i++) {
+            valid_metadata.push_back(i+0x10);
         }
     }
 };
