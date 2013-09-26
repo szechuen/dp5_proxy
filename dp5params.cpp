@@ -27,6 +27,16 @@ namespace dp5 {
 
 using namespace dp5::internal;
 
+// Retrieve the current epoch number
+unsigned int DP5Config::current_epoch()
+{
+    if (!valid()) {
+        throw runtime_error("Invalid configuration!");
+    }
+    return time(NULL)/epoch_len;
+}
+
+
 // Generate a public/private keypair
 void genkeypair(PubKey pubkey, PrivKey privkey)
 {

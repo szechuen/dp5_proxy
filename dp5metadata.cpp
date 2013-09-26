@@ -22,15 +22,6 @@ using namespace std;
 
 namespace dp5 {
 
-// Retrieve the current epoch number
-unsigned int DP5Config::current_epoch()
-{
-    if (!valid()) {
-        throw runtime_error("Invalid configuration!");
-    }
-    return time(NULL)/epoch_len;
-}
-
 namespace internal {
 
 Metadata::Metadata() : epoch(0), num_buckets(0), bucket_size (0) {
