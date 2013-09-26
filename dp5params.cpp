@@ -27,7 +27,7 @@ DP5Metadata::DP5Metadata() {
     dataenc_bytes = 0;
     epoch = 0;
     epoch_len = 0;
-    usePairing = false;
+    usePairings = false;
     num_buckets = 0;
     bucket_size = 0;
 }
@@ -69,14 +69,14 @@ void DP5Metadata::readFromStream(istream & is) {
     }
     unsigned int x = is.get();
     if (x == 0) {
-        usePairing = false;
+        usePairings = false;
     } else if (x == 1) {
-        usePairing = true;
+        usePairings = true;
     } else {
         // we are not being liberal in what we accept
         // since any other value is almost certainly an error
         stringstream error;
-        error << "Unexpected value for usePairing: " << x;
+        error << "Unexpected value for usePairings: " << x;
         throw runtime_error(error.str());
     }
     // Read in rest of parameters
@@ -99,7 +99,7 @@ void DP5Metadata::fromString(const string & str) {
 
 void DP5Metadata::writeToStream(ostream & os) const {
     os.put(METADATA_VERSION);
-    os.put(usePairing);
+    os.put(usePairings);
     write_epoch(os, epoch);
     write_uint(os, dataenc_bytes);
     write_uint(os, epoch_len);
@@ -188,7 +188,7 @@ void DP5Params::diffie_hellman(unsigned char dh_output[PUBKEY_BYTES],
 // same input and produces a hash value of size DATAKEY_BYTES bytes.
 void DP5Params::H1H2(unsigned char H1_out[SHAREDKEY_BYTES],
     unsigned char H2_out[DATAKEY_BYTES],
-    const unsigned char E[EPOCH_BYTES],
+    Epoch epoch,
     const unsigned char pubkey[PUBKEY_BYTES],
     const unsigned char dhout[PUBKEY_BYTES])
 {
@@ -196,7 +196,9 @@ void DP5Params::H1H2(unsigned char H1_out[SHAREDKEY_BYTES],
     SHA256_CTX hash;
     SHA256_Init(&hash);
     SHA256_Update(&hash, "\x00", 1);
-    SHA256_Update(&hash, E, EPOCH_BYTES);
+    WireEpoch wire_epoch;
+    epoch_num_to_bytes(wire_epoch, epoch);
+    SHA256_Update(&hash, wire_epoch, EPOCH_BYTES);
     SHA256_Update(&hash, pubkey, PUBKEY_BYTES);
     SHA256_Update(&hash, dhout, PUBKEY_BYTES);
     SHA256_Final(shaout, &hash);
@@ -209,14 +211,16 @@ void DP5Params::H1H2(unsigned char H1_out[SHAREDKEY_BYTES],
 // and an output of H1 (of size SHAREDKEY_BYTES bytes), and produces
 // a hash value of size HASHKEY_BYTES bytes.
 void DP5Params::H3(unsigned char H3_out[HASHKEY_BYTES],
-    const unsigned char E[EPOCH_BYTES],
+    Epoch epoch,
     const unsigned char H1_out[SHAREDKEY_BYTES])
 {
     unsigned char shaout[SHA256_DIGEST_LENGTH];
     SHA256_CTX hash;
     SHA256_Init(&hash);
     SHA256_Update(&hash, "\x01", 1);
-    SHA256_Update(&hash, E, EPOCH_BYTES);
+    WireEpoch wire_epoch;
+    epoch_num_to_bytes(wire_epoch, epoch);
+    SHA256_Update(&hash, wire_epoch, EPOCH_BYTES);
     SHA256_Update(&hash, H1_out, SHAREDKEY_BYTES);
     SHA256_Final(shaout, &hash);
     memmove(H3_out, shaout, HASHKEY_BYTES);
@@ -258,48 +262,61 @@ unsigned int DP5Params::PRF::M(const unsigned char x[HASHKEY_BYTES])
 // Encrypt using a key of size DATAKEY_BYTES bytes a plaintext of size
 // DATAPLAIN_BYTES bytes to yield a ciphertext of size DATAENC_BYTES
 // bytes.
-void DP5Params::Enc(unsigned char ciphertext[DATAENC_BYTES],
+string DP5Params::Enc(
     const unsigned char enckey[DATAKEY_BYTES],
-    const unsigned char plaintext[DATAPLAIN_BYTES])
+    const string & plaintext)
 {
     AES_KEY aeskey;
     AES_set_encrypt_key(enckey, 8*DATAKEY_BYTES, &aeskey);
-    AES_encrypt(plaintext, ciphertext, &aeskey);
+    if (plaintext.size() != 16) {
+        throw runtime_error("Only 128-bit plaintext currently supported");
+    }
+    unsigned char ciphertext[16];
+    AES_encrypt((const unsigned char *) plaintext.data(), ciphertext, &aeskey);
+
+    return string((char *)ciphertext, 16);
 }
 
 // Decrypt using a key of size DATAKEY_BYTES bytes a ciphertext of
 // size DATAENC_BYTES bytes to yield a plaintext of size
 // DATAPLAIN_BYTES.  Return 0 if the decryption was successful, -1
 // otherwise.
-int DP5Params::Dec(unsigned char plaintext[DATAPLAIN_BYTES],
+int DP5Params::Dec(string & plaintext,
     const unsigned char enckey[DATAKEY_BYTES],
-    const unsigned char ciphertext[DATAENC_BYTES])
+    const string & ciphertext)
 {
     AES_KEY aeskey;
+    if (ciphertext.size() != 16) {
+        throw runtime_error("Only 128-bit ciphertext currently supported");
+    }
+    unsigned char plaintext_bytes[16];
     AES_set_decrypt_key(enckey, 8*DATAKEY_BYTES, &aeskey);
-    AES_decrypt(ciphertext, plaintext, &aeskey);
+    AES_decrypt((const unsigned char*) ciphertext.data(), plaintext_bytes, &aeskey);
+    plaintext.assign((char *) plaintext_bytes, 16);
     return 0;
 }
 
 // Retrieve the current epoch number
-unsigned int DP5Params::current_epoch()
+unsigned int DP5Metadata::current_epoch()
 {
-    return time(NULL)/EPOCH_LEN;
+    if (epoch_len == 0) {
+        throw runtime_error("Zero epoch length!");
+    }
+    return time(NULL)/epoch_len;
 }
 
 // Convert an epoch number to an epoch byte array
-void DP5Metadata::epoch_num_to_bytes(char epoch_bytes[EPOCH_BYTES],
+void DP5Params::epoch_num_to_bytes(WireEpoch  wire_epoch,
     unsigned int epoch_num)
 {
     unsigned int big_endian_epoch_num = htonl(epoch_num);
-    memmove(epoch_bytes, &big_endian_epoch_num, EPOCH_BYTES);
+    memmove(wire_epoch, &big_endian_epoch_num, EPOCH_BYTES);
 }
 
 // Convert an epoch byte array to an epoch number
-unsigned int DP5Metadata::epoch_bytes_to_num(
-    const char epoch_bytes[EPOCH_BYTES])
+unsigned int DP5Params::epoch_bytes_to_num(const WireEpoch wire_epoch)
 {
-    return ntohl(*(unsigned int*)epoch_bytes);
+    return ntohl(*(unsigned int*)wire_epoch);
 }
 
 // Convert an uint number to an uint byte array in network order

@@ -5,90 +5,14 @@
 #include <string>
 #include <sstream>
 
-static const unsigned int PRFKEY_BYTES = 8;
-typedef char PRFKey[PRFKEY_BYTES];
 
-
-
-// Contains configurable parameters
-// for a given database
-struct _DP5MetadataStruct {
-public:
-    bool usePairing;
-    PRFKey prfkey;
-    unsigned int dataenc_bytes;
-    unsigned int epoch;
-    unsigned int epoch_len;
-    unsigned int num_buckets;
-    unsigned int bucket_size;
-
-    // Number of bytes in an unsigned int representing a size sent
-    // over the network. 
-    static const unsigned int UINT_BYTES = 4;
-
-    // The version number of the metadata file
-    static const unsigned int METADATA_VERSION = 0x01;
-
-    // The length of a byte-array version of an epoch number
-    static const unsigned int EPOCH_BYTES = 4;  // epochs are 32 bit
-};
-
-///
-/// This class contains the configurable variables
-/// for a database
-///
-class DP5Metadata : public _DP5MetadataStruct {
-public:
-    /// Initialize from input stream
-    DP5Metadata(std::istream & is) {
-        readFromStream(is);
-    }
-
-    DP5Metadata(const std::string & metadata) {
-        fromString(metadata);
-    }
-
-    DP5Metadata();  // Sets default values
-
-    // use copy constructor from the struct
-    DP5Metadata(const DP5Metadata & other) :
-        _DP5MetadataStruct(other) {}
-
-    void readFromStream(std::istream & is);
-    void writeToStream(std::ostream & os) const;
-    std::string toString(void) const;
-    void fromString(const std::string & str);
-
-    static unsigned int read_uint(std::istream & is);
-    static void write_uint(std::ostream & os, unsigned int n);
-    static unsigned int read_epoch(std::istream & is);
-    static void write_epoch(std::ostream & os, unsigned int epoch);
-
-    // Convert an epoch number to an epoch byte array
-    static void epoch_num_to_bytes(char epoch_bytes[EPOCH_BYTES],
-       unsigned int epoch_num);
-
-    // Convert an epoch byte array to an epoch number
-    static unsigned int epoch_bytes_to_num(
-       const char epoch_bytes[EPOCH_BYTES]);
-
-    // Convert an uint number to an uint byte array in network order
-    static void uint_num_to_bytes(char uint_bytes[UINT_BYTES],
-           unsigned int uint_num);
-
-    // Convert an uint byte array in networkorder to an uint number
-    static unsigned int uint_bytes_to_num(
-           const char uint_bytes[UINT_BYTES]);
-
-
-};
 
 ///
 /// This class contains static (compile-time defined)
-/// parameters used in DP5. 
+/// parameters used in DP5.
 ///
 
-class DP5Params : public DP5Metadata {
+class DP5Params {
 public:
     // The maximum number of clients
     static const unsigned int MAX_CLIENTS = 1000;
@@ -102,21 +26,12 @@ public:
     // Number of bytes in a public key
     static const unsigned int PUBKEY_BYTES = 32;
 
-    // The length of an epoch (in seconds)
-    static const unsigned int EPOCH_LEN = 1800; // 30 minutes
-
     // Number of bytes in a shared key
     static const unsigned int SHAREDKEY_BYTES = 10;
 
     // Number of bytes in a hashed shared key
     static const unsigned int HASHKEY_BYTES = 10;
 
-    // Number of bytes in associated data (plaintext)
-    static const unsigned int DATAPLAIN_BYTES = 16;
-
-    // Number of bytes in encrypted associated data (ciphertext)
-    static const unsigned int DATAENC_BYTES = 16;
-    
     // Number of bytes in the key that encrypts the associated data
     static const unsigned int DATAKEY_BYTES = 16;
 
@@ -126,19 +41,16 @@ public:
 
     // Number of bytes in a key for the pseudorandom function family
     static const unsigned int PRFKEY_BYTES = 8;
-
-    // Number of bytes in an unsigned int representing a size sent
-    // over the network
-    static const unsigned int UINT_BYTES = 2;
-
-    // The version number of the metadata file
-    static const unsigned int METADATA_VERSION = 0x01;
+    typedef char PRFKey[PRFKEY_BYTES];
 
     // The length of a byte-array version of an epoch number
-    static const unsigned int EPOCH_BYTES = 4;
+    static const unsigned int EPOCH_BYTES = 4;  // epochs are 32 bit
+    typedef unsigned int Epoch;
+    typedef char WireEpoch[EPOCH_BYTES];
 
     // Constructor, which may do things like seed the PRNG
     DP5Params();
+
 
     // Place num_bytes random bytes into buf.  This is not static, so that
     // the PRNG can keep state if necessary
@@ -164,7 +76,7 @@ public:
     // same input and produces a hash value of size DATAKEY_BYTES bytes.
     static void H1H2(unsigned char H1_out[SHAREDKEY_BYTES],
 	unsigned char H2_out[DATAKEY_BYTES],
-	const unsigned char E[EPOCH_BYTES],
+	Epoch epoch,
     const unsigned char pubkey[PUBKEY_BYTES],
 	const unsigned char dhout[PUBKEY_BYTES]);
 
@@ -172,8 +84,8 @@ public:
     // and an output of H1 (of size SHAREDKEY_BYTES bytes), and produces
     // a hash value of size HASHKEY_BYTES bytes.
     static void H3(unsigned char H3_out[HASHKEY_BYTES],
-	const unsigned char E[EPOCH_BYTES],
-	const unsigned char H1_out[SHAREDKEY_BYTES]);
+    	Epoch epoch,
+    	const unsigned char H1_out[SHAREDKEY_BYTES]);
 
     // Pseudorandom functions
     class PRF {
@@ -206,24 +118,96 @@ public:
     // Encrypt using a key of size DATAKEY_BYTES bytes a plaintext of size
     // DATAPLAIN_BYTES bytes to yield a ciphertext of size DATAENC_BYTES
     // bytes.
-    static void Enc(unsigned char ciphertext[DATAENC_BYTES],
-	const unsigned char enckey[DATAKEY_BYTES],
-	const unsigned char plaintext[DATAPLAIN_BYTES]);
+    static string Enc(const unsigned char enckey[DATAKEY_BYTES],
+	   const string & plaintext);
 
     // Decrypt using a key of size DATAKEY_BYTES bytes a ciphertext of
     // size DATAENC_BYTES bytes to yield a plaintext of size
     // DATAPLAIN_BYTES.  Return 0 if the decryption was successful, -1
     // otherwise.
-    static int Dec(unsigned char plaintext[DATAPLAIN_BYTES],
+    static int Dec(string & plaintext,
 	const unsigned char enckey[DATAKEY_BYTES],
-	const unsigned char ciphertext[DATAENC_BYTES]);
+	const string & ciphertext);
 
-    // Retrieve the current epoch number
-    static unsigned int current_epoch();
+
+    // Convert an epoch number to an epoch byte array
+    static void epoch_num_to_bytes(WireEpoch result,
+       unsigned int epoch_num);
+
+    // Convert an epoch byte array to an epoch number
+    static unsigned int epoch_bytes_to_num(
+       const WireEpoch wire_epoch);
+
 
 
     // Destructor, if necessary
     ~DP5Params();
 };
+
+
+// Contains configurable parameters
+// for a given database
+struct _DP5MetadataStruct : public DP5Params {
+public:
+    PRFKey prfkey;
+    unsigned int dataenc_bytes;
+    unsigned int epoch;
+    unsigned int epoch_len;
+    unsigned int num_buckets;
+    unsigned int bucket_size;
+    bool usePairings;
+};
+
+///
+/// This class contains the configurable variables
+/// for a database
+///
+class DP5Metadata : public _DP5MetadataStruct {
+public:
+    // Number of bytes in an unsigned int representing a size sent
+    // over the network. Note that this needs to be > 2 bytes
+    // if we want to support an epoch length of 86400s
+    static const unsigned int UINT_BYTES = 4;
+
+    // The version number of the metadata file
+    static const unsigned int METADATA_VERSION = 0x01;
+
+    /// Initialize from input stream
+    DP5Metadata(std::istream & is) {
+        readFromStream(is);
+    }
+
+    DP5Metadata(const std::string & metadata) {
+        fromString(metadata);
+    }
+
+    DP5Metadata();  // Sets default values
+
+    // use copy constructor from the struct
+    DP5Metadata(const DP5Metadata & other) :
+        _DP5MetadataStruct(other) {}
+
+    void readFromStream(std::istream & is);
+    void writeToStream(std::ostream & os) const;
+    std::string toString(void) const;
+    void fromString(const std::string & str);
+
+    static unsigned int read_uint(std::istream & is);
+    static void write_uint(std::ostream & os, unsigned int n);
+    static unsigned int read_epoch(std::istream & is);
+    static void write_epoch(std::ostream & os, unsigned int epoch);
+
+    // Convert an uint number to an uint byte array in network order
+    static void uint_num_to_bytes(char uint_bytes[UINT_BYTES],
+           unsigned int uint_num);
+
+    // Convert an uint byte array in networkorder to an uint number
+    static unsigned int uint_bytes_to_num(
+           const char uint_bytes[UINT_BYTES]);
+
+    // Retrieve the current epoch number
+    unsigned int current_epoch();
+};
+
 
 #endif
