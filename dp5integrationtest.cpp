@@ -19,10 +19,12 @@
 #include <fstream>
 
 using namespace std;
+using namespace dp5;
+using namespace dp5::internal;
 
 struct dp5TestClient {
-    unsigned char privkey[DP5Params::PRIVKEY_BYTES];
-    unsigned char pubkey[DP5Params::PUBKEY_BYTES];
+    unsigned char privkey[PRIVKEY_BYTES];
+    unsigned char pubkey[PUBKEY_BYTES];
     DP5RegClient * reg;
     DP5LookupClient * cli;
     std::set<unsigned int> friends;
@@ -30,11 +32,10 @@ struct dp5TestClient {
 };
 
 int main(int argc, char **argv){
-    DP5Metadata dp5;
+    DP5Config dp5;
     dp5.epoch_len = 1800;
     dp5.dataenc_bytes = 16;
-    dp5.usePairings = false;
-    dp5.epoch = dp5.current_epoch();
+    Epoch epoch = dp5.current_epoch();
     unsigned int NUMBEROFCLIENTS = 1000;
     unsigned int NUMBEROFFRIENDS = 2;
 
@@ -53,7 +54,7 @@ int main(int argc, char **argv){
         dp5TestClient person;
         person.online = false;
         if (f % 2 == 0) person.online = true;
-        dp5.genkeypair(person.pubkey, person.privkey);
+        genkeypair(person.pubkey, person.privkey);
         tcs.push_back(person);
     }
 
@@ -64,8 +65,8 @@ int main(int argc, char **argv){
         {
             unsigned int f2 = rand() % NUMBEROFCLIENTS;
 
-            if (tcs[f].friends.size() < DP5Params::MAX_BUDDIES &&
-                tcs[f2].friends.size() < DP5Params::MAX_BUDDIES){
+            if (tcs[f].friends.size() < MAX_BUDDIES &&
+                tcs[f2].friends.size() < MAX_BUDDIES){
                     tcs[f].friends.insert(f2);
                     tcs[f2].friends.insert(f);
                 }
@@ -73,23 +74,23 @@ int main(int argc, char **argv){
     }
 
     // Make a registration server
-    DP5RegServer * rs = 
-        new DP5RegServer(dp5, "regdir", "datadir");
+    DP5RegServer * rs =
+        new DP5RegServer(dp5, epoch, "regdir", "datadir");
 
     // Now register buddies for all on-line clients
     for (unsigned int f = 0; f < NUMBEROFCLIENTS; f++)
     {
-        tcs[f].cli = new DP5LookupClient(string((char *) tcs[f].privkey, DP5Params::PRIVKEY_BYTES));
+        tcs[f].cli = new DP5LookupClient(string((char *) tcs[f].privkey, PRIVKEY_BYTES));
         if (tcs[f].online == false) continue;
         tcs[f].reg = new DP5RegClient(dp5, tcs[f].privkey);
-        
+
 
         vector<BuddyInfo> buds;
         for(std::set<unsigned int>::iterator ix = tcs[f].friends.begin();
             ix!=tcs[f].friends.end(); ++ix){
             unsigned int f2 = *ix;
             BuddyInfo b;
-            memmove(b.pubkey, tcs[f2].pubkey, DP5Params::PUBKEY_BYTES);
+            memmove(b.pubkey, tcs[f2].pubkey, PUBKEY_BYTES);
             b.data.push_back(0x99);
             b.data.append((char *) &f, sizeof(f));
             b.data.append((char *) &f2, sizeof(f2));
@@ -101,7 +102,7 @@ int main(int argc, char **argv){
 
         // Run the registration process with the server
         string msgCtoS;
-        unsigned int next_epoch = dp5.epoch + 1;
+        unsigned int next_epoch = epoch + 1;
         int err1 = tcs[f].reg->start_reg(msgCtoS, next_epoch, buds);
         printf("Result 1 ok: %s\n", (err1==0x00)?("True"):("False"));
 
@@ -110,23 +111,23 @@ int main(int argc, char **argv){
 
         int err2 = tcs[f].reg->complete_reg(msgStoC, next_epoch);
         printf("Result 2 ok: %s\n", (err2==0x00)?("True"):("False"));
-        
+
     }
 
-    // Signal the end of an epoch, when the registration file is 
+    // Signal the end of an epoch, when the registration file is
     // transfered to the PIR servers,
     ofstream md("integrated_metadata.out");
     ofstream d("integrated_data.out");
     rs->epoch_change(md, d);
     d.close();
-    md.close(); 
+    md.close();
 
     // And now we are going to build a number of lookup servers
-    const unsigned int epoch = dp5.current_epoch() + 1;
+    epoch = epoch + 1;
     const unsigned int num_servers = 5;
 
-    // FIXME: Assumes library is initialized later. 
-    //         This is rather opaque to the user 
+    // FIXME: Assumes library is initialized later.
+    //         This is rather opaque to the user
     //         (and segfaults if it is not).
     ZZ_p::init(to_ZZ(256));
 
@@ -160,10 +161,10 @@ int main(int argc, char **argv){
             ix!=tcs[f].friends.end(); ++ix){
             unsigned int f2 = *ix;
             BuddyKey b;
-            b.pubkey.assign((char *) tcs[f2].pubkey, DP5Params::PUBKEY_BYTES);
+            b.pubkey.assign((char *) tcs[f2].pubkey, PUBKEY_BYTES);
             buds.push_back(b);
         }
-        
+
         // Build a requesr object
         DP5LookupClient::Request req;
         tcs[f].cli->lookup_request(req, buds, num_servers, num_servers-1);
@@ -193,13 +194,13 @@ int main(int argc, char **argv){
         printf("Len 1 ok: %s (%lu?=%lu)\n", (len_ok)?("True"):("False"),(unsigned long)(presence.size()),(unsigned long)(tcs[f].friends.size()));
 
         // Check the presence resutls are correct
-        unsigned int idx = 0;       
+        unsigned int idx = 0;
 
         for(std::set<unsigned int>::iterator ix = tcs[f].friends.begin();
             ix!=tcs[f].friends.end(); ++ix){
             unsigned int f2 = *ix;
-            bool mem_ok = (memcmp(presence[idx].pubkey.c_str(), 
-                tcs[f2].pubkey, DP5Params::PUBKEY_BYTES) == 0);
+            bool mem_ok = (memcmp(presence[idx].pubkey.c_str(),
+                tcs[f2].pubkey, PUBKEY_BYTES) == 0);
             bool online_ok = (tcs[f2].online == presence[idx].is_online);
 
             bool data_ok = true;
@@ -208,17 +209,17 @@ int main(int argc, char **argv){
             unsigned char data[dp5.dataenc_bytes];
             memset(data, 0, dp5.dataenc_bytes);
             data[0] = 0x99; // Just a random marker
-            memmove(data +1, 
+            memmove(data +1,
                 (const char *) &f2, sizeof(unsigned int));
-            memmove(data +1 + sizeof(unsigned int), 
+            memmove(data +1 + sizeof(unsigned int),
                 (const char *) &f, sizeof(unsigned int));
 
             data_ok = (memcmp(data, presence[idx].data.data(), dp5.dataenc_bytes) == 0);
             }
 
             bool all_ok = mem_ok && online_ok && data_ok;
-            
-            
+
+
             if (!all_ok){
                 printf("Presence 2 ok: %s\n", all_ok?("True"):("False"));
                 printf("    pubkey ok: %s\n", mem_ok?("True"):("False"));
@@ -230,6 +231,6 @@ int main(int argc, char **argv){
             idx++;
         }
     }
-    
+
 
 }

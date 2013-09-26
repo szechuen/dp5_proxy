@@ -3,7 +3,10 @@
 
 #include "gtest/gtest.h"
 
-class LookupClientTest : public ::testing::Test, public DP5Params {
+using namespace dp5;
+using namespace dp5::internal;
+
+class LookupClientTest : public ::testing::Test {
 protected:
 	string metadata;
 	string privkey;
@@ -12,9 +15,9 @@ protected:
 	vector<BuddyKey> randomPK;
 
 	virtual void SetUp() {
-		unsigned int len = 2 + EPOCH_BYTES + PRFKEY_BYTES + 4 * DP5Metadata::UINT_BYTES;
+		unsigned int len = 2 + EPOCH_BYTES + PRFKEY_BYTES + 4 * UINT_BYTES;
 		metadata.assign(len, 0x01);
-		char epoch_bytes[EPOCH_BYTES];
+		unsigned char epoch_bytes[EPOCH_BYTES];
 		epoch = 0x2323;
 		epoch_num_to_bytes(epoch_bytes, epoch);
 		metadata.replace(2, 4, (char *) epoch_bytes, 4);

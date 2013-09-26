@@ -2,12 +2,19 @@
 #include <stdio.h>
 #include <stdexcept>
 
+#include "dp5params.h"
+#include "dp5metadata.h"
 #include "dp5lookupclient.h"
 #include "percyclient.h"
 
+using namespace std;
+
+namespace dp5 {
 // The array of valid numbers of buddies a client can send at lookup time
-unsigned int DP5LookupClient::QUERY_SIZES[] =
-    { 1, DP5LookupClient::MAX_BUDDIES };
+unsigned int QUERY_SIZES[] =
+    { 1, MAX_BUDDIES };
+
+using namespace internal;
 
 
 // The glue API to the PIR layer.  Pass a vector of the bucket
@@ -101,7 +108,7 @@ int DP5LookupClient::Request::pir_response(vector<string> &buckets,
 }
 
 void DP5LookupClient::metadata_request(string &msgtosend, unsigned int epoch){
-    char metadata_request_message[1+EPOCH_BYTES];
+    unsigned char metadata_request_message[1+EPOCH_BYTES];
     metadata_request_message[0] = 0xff;
     epoch_num_to_bytes(metadata_request_message+1, epoch);
 
@@ -109,28 +116,32 @@ void DP5LookupClient::metadata_request(string &msgtosend, unsigned int epoch){
     _metadata_request_epoch = epoch;
 
     // Output this message
-    msgtosend.assign(metadata_request_message, 1+EPOCH_BYTES);
+    msgtosend.assign((char *)metadata_request_message, 1+EPOCH_BYTES);
 }
 
 // Consume the reply to a metadata request.  Return 0 on success,
 // non-0 on failure.
 int DP5LookupClient::metadata_reply(const string &metadata){
+    // were we expecting a response at all?
+    if (_metadata_request_epoch == 0) return 0x04;
+
     const unsigned char* msgdata = (const unsigned char*) metadata.data();
+
 
     // Check input: The server returned an error.
     if (msgdata[0] == 0x00) return 0x01;
 
-    try {
-        fromString(metadata);
-    } catch (exception e) {
+    if (_metadata.fromString(metadata) != 0) {
         return 0x02; // malformed message
     }
+    if (!_metadata.valid()) {
+        return 0x03;
+    }
 
-    if (_metadata_request_epoch == 0) return 0x04;
 
     // Check epoch: not the epoch we expected strangely
     // TODO: should we somehow tell the client that they need to sync?
-    if (epoch != _metadata_request_epoch) return 0x05;
+    if (_metadata.epoch != _metadata_request_epoch) return 0x05;
 
     // Reset the state
     _metadata_request_epoch = 0;
@@ -155,13 +166,13 @@ int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies
     if (buddies.size() > MAX_BUDDIES)
         return 0x01; // Number of buddies exceeds maximum.
 
-    if (epoch == 0)
+    if (!_metadata.valid())
         return 0x02; // No up to date metadata!.
 
     // Placeholder for the output message
     vector<string> labels;
 
-    PRF bucket_mapping((const unsigned char*)prfkey, num_buckets);
+    PRF bucket_mapping(_metadata.prfkey, _metadata.num_buckets);
     std::set<unsigned int> BIs;
 
     vector<Request::Friend_state> friends;
@@ -183,11 +194,12 @@ int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies
                 (const unsigned char *) friend_rec.pubkey.c_str());
 
         // Derive the epoch keys
-        H1H2(friend_rec.shared_key, friend_rec.data_key, epoch,
-                (const unsigned char *) buddies[i].pubkey.c_str(), shared_dh_secret);
+        H1H2(friend_rec.shared_key, friend_rec.data_key, _metadata.epoch,
+                (const unsigned char *) buddies[i].pubkey.c_str(),
+                shared_dh_secret);
 
         // Produce HKi
-        H3(friend_rec.HKi, epoch, friend_rec.shared_key);
+        H3(friend_rec.HKi, _metadata.epoch, friend_rec.shared_key);
 
         // Produce Bi
         friend_rec.bucket = bucket_mapping.M(friend_rec.HKi);
@@ -196,11 +208,16 @@ int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies
         friends.push_back(friend_rec);
     }
 
+    // FIXME: this should check the valid queries variable
     unsigned int buckets_to_query = MAX_BUDDIES;
     if (BIs.size() <= 1) buckets_to_query = 1;
 
-    unsigned int pir_bytes = num_servers * ( (num_buckets / PIR_WORDS_PER_BYTE) + (bucket_size * (HASHKEY_BYTES + dataenc_bytes)) ) * buckets_to_query;
-    unsigned int download_bytes = num_buckets * bucket_size * (HASHKEY_BYTES + dataenc_bytes);
+    unsigned int pir_bytes = num_servers * (
+        (_metadata.num_buckets / PIR_WORDS_PER_BYTE) +
+        (_metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes)))
+        * buckets_to_query;
+    unsigned int download_bytes = _metadata.num_buckets *
+        _metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes);
 
     // Decide if PIR is worth it
     bool do_PIR = pir_bytes < download_bytes;
@@ -208,7 +225,7 @@ int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies
 
     // Seed the request with all necessary keys and information to determine
     // the messages to be sent.
-    req.init(num_servers, privacy_level, *this, friends, do_PIR);
+    req.init(num_servers, privacy_level, _metadata, friends, do_PIR);
     return 0x00;
 }
 
@@ -232,11 +249,11 @@ vector<string> DP5LookupClient::Request::get_msgs(){
     for(unsigned int j = buckets.size(); j < buckets_to_query; j++)
         buckets.push_back(0);
 
-    char request_header[1+EPOCH_BYTES];
+    unsigned char request_header[1+EPOCH_BYTES];
     if (_do_PIR) { request_header[0] = 0xfe; }
            else { request_header[0] = 0xfd; }
     epoch_num_to_bytes(request_header+1, _metadata_current.epoch);
-    string header(request_header, 1+EPOCH_BYTES);
+    string header((char *) request_header, 1+EPOCH_BYTES);
 
     // Build the request depending on whether we do PIR or not
     vector<string> requests;
@@ -253,9 +270,8 @@ vector<string> DP5LookupClient::Request::get_msgs(){
     else {
 
         // Asign the trivial download to a PIR server at random
-        DP5Params local_prng;
         unsigned int rand;
-        local_prng.random_bytes((unsigned char *) &rand, 4);
+        random_bytes((unsigned char *) &rand, sizeof(rand));
 
         for (unsigned int j = 0; j < _num_servers; j++){
             if (rand % _num_servers == j){
@@ -309,8 +325,8 @@ int DP5LookupClient::Request::lookup_reply(
             // Expected a PIR request but got a download.
             if (status != 0x81) return 0x03;
 
-            unsigned int server_epoch =
-                epoch_bytes_to_num(replies[s].data() + 1);
+            unsigned int server_epoch = epoch_bytes_to_num(
+                (const unsigned char *) replies[s].data() + 1);
             // Expect to get a reply for the current epoch
             if (server_epoch != _metadata_current.epoch) return 0x04;
 
@@ -343,8 +359,8 @@ int DP5LookupClient::Request::lookup_reply(
                 // printf("Status %X\n", status);
                 if (status != 0x82) return 0x13;
 
-                unsigned int server_epoch =
-                    epoch_bytes_to_num(replies[s].data() + 1);
+                unsigned int server_epoch = epoch_bytes_to_num(
+                    (const unsigned char *) replies[s].data() + 1);
                 // Expect to get a reply for the current epoch
                 if (server_epoch != _metadata_current.epoch) return 0x14;
 
@@ -422,17 +438,24 @@ int DP5LookupClient::Request::lookup_reply(
 
 }
 
+}
+
 #ifdef TEST_REQCD
+
+using namespace dp5;
+using namespace dp5::internal;
 
 // Test the constructor, copy constructor, assignment operator,
 // destructor
+
+namespace dp5 {
 void test_reqcd(DP5LookupClient::Request &a)
 {
-    DP5Metadata meta;
+    Metadata meta;
 
     meta.epoch_len = 1800;
     meta.epoch = meta.current_epoch();
-    meta.random_bytes((unsigned char*) meta.prfkey, meta.PRFKEY_BYTES);
+    random_bytes((unsigned char*) meta.prfkey, PRFKEY_BYTES);
     meta.num_buckets = 1000;
     meta.bucket_size = 50;
 
@@ -445,7 +468,7 @@ void test_reqcd(DP5LookupClient::Request &a)
     DP5LookupClient::Request e;
     e = d;
 }
-
+}
 int main(int argc, char **argv)
 {
     DP5LookupClient::Request a;
