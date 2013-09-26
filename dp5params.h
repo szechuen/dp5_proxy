@@ -9,11 +9,11 @@ namespace dp5 {
 
     // Number of bytes in a private key
     static const unsigned int PRIVKEY_BYTES = 32;
-    typedef char PrivKey[PRIVKEY_BYTES];
+    typedef unsigned char PrivKey[PRIVKEY_BYTES];
 
     // Number of bytes in a public key
     static const unsigned int PUBKEY_BYTES = 32;
-    typedef char PubKey[PUBKEY_BYTES];
+    typedef unsigned char PubKey[PUBKEY_BYTES];
 
     ///
     /// Generate a public-private keypair
@@ -33,16 +33,16 @@ namespace dp5 {
     namespace internal {
         // Number of bytes in a shared key
         static const unsigned int SHAREDKEY_BYTES = 10;
-        typedef char SharedKey[SHAREDKEY_BYTES];
+        typedef unsigned char SharedKey[SHAREDKEY_BYTES];
 
         // Number of bytes in a hashed shared key
         static const unsigned int HASHKEY_BYTES = 10;
-        typedef char HashKey[HASHKEY_BYTES];
+        typedef unsigned char HashKey[HASHKEY_BYTES];
         // FIXME: this could be configurable?
 
         // Number of bytes in the key that encrypts the associated data
         static const unsigned int DATAKEY_BYTES = 16;
-        typedef char DataKey[DATAKEY_BYTES];
+        typedef unsigned char DataKey[DATAKEY_BYTES];
 
         // The number of PIR words per byte.  This is 8 for Chor et al.'s
         // super-simple PIR scheme, and 1 for Goldberg's scheme over GF(2^8)
@@ -50,17 +50,17 @@ namespace dp5 {
 
         // Number of bytes in a key for the pseudorandom function family
         static const unsigned int PRFKEY_BYTES = 8;
-        typedef char PRFKey[PRFKEY_BYTES];
+        typedef unsigned char PRFKey[PRFKEY_BYTES];
 
         // The length of a byte-array version of an epoch number
         static const unsigned int EPOCH_BYTES = 4;  // epochs are 32 bit
-        typedef char WireEpoch[EPOCH_BYTES];
+        typedef unsigned char WireEpoch[EPOCH_BYTES];
 
         // Place num_bytes random bytes into buf.  This is not static, so that
         // the PRNG can keep state if necessary
         void random_bytes(unsigned char *buf, unsigned int num_bytes);
 
-        typedef char DHOutput[PUBKEY_BYTES];
+        typedef unsigned char DHOutput[PUBKEY_BYTES];
 
         // Compute the Diffie-Hellman output for a given (buddy's) public
         // key and (your own) private key
@@ -72,12 +72,12 @@ namespace dp5 {
         // a hash value of size SHAREDKEY_BYTES bytes.  H_2 consumes the
         // same input and produces a hash value of size DATAKEY_BYTES bytes.
         void H1H2(SharedKey H1_out, DataKey H2_out, Epoch epoch,
-            PubKey pubkey, DHOutput dh_output);
+            const PubKey pubkey, const DHOutput dh_output);
 
         // Hash function H_3 consumes an epoch (of size EPOCH_BYTES bytes)
         // and an output of H1 (of size SHAREDKEY_BYTES bytes), and produces
         // a hash value of size HASHKEY_BYTES bytes.
-        void H3(HashKey H3_out, Epoch epoch, SharedKey H1_out);
+        void H3(HashKey H3_out, Epoch epoch, const SharedKey H1_out);
 
         // Pseudorandom functions
         class PRF {
