@@ -41,7 +41,7 @@ TEST_F(MetadataTest, CopyConstructor) {
 	EXPECT_EQ(md1.epoch_len, md2.epoch_len);
 	EXPECT_EQ(md1.usePairings, md2.usePairings);
 	EXPECT_EQ(md1.num_buckets, md2.num_buckets);
-	EXPECT_EQ(md1.bucket_size, md2.bucket_size);	
+	EXPECT_EQ(md1.bucket_size, md2.bucket_size);
 }
 
 TEST_F(MetadataTest, StringConstructorInvalidInput) {
@@ -62,7 +62,7 @@ TEST_F(MetadataTest, ConsistentInOut) {
 	DP5Metadata md(valid_metadata);
 
 	string s = md.toString();
-	EXPECT_EQ(s, valid_metadata);	
+	EXPECT_EQ(s, valid_metadata);
 }
 
 

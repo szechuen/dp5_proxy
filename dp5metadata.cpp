@@ -74,8 +74,6 @@ int Metadata::fromStream(istream & is) {
     try {
         unsigned int version = is.get();
         if (version != METADATA_VERSION) {
-            cerr << "Metadata version mismatch: expected " <<
-                METADATA_VERSION << ", got " << version << endl;
             return 0x01;
         }
         /*
@@ -100,10 +98,15 @@ int Metadata::fromStream(istream & is) {
         is.read((char *) prfkey, sizeof(prfkey));
         is.exceptions(exceptions);
     } catch (ios::failure f) {
-        cerr << "Error reading metadata: " << f.what() << endl;
         return 0x03;
     }
     return 0;
+}
+
+int Metadata::fromString(const string & s) {
+    stringstream stream(s);
+
+    return fromStream(stream);
 }
 
 // Convert an uint number to an uint byte array in network order
@@ -632,6 +635,7 @@ int main(int argc, char **argv)
     if (res != 0x5678){
     printf("UINT conversion failed\n");
 	return 1;
+
     }
 
 
