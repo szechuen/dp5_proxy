@@ -15,12 +15,13 @@ protected:
 	vector<BuddyKey> randomPK;
 
 	virtual void SetUp() {
-		unsigned int len = 2 + EPOCH_BYTES + PRFKEY_BYTES + 4 * UINT_BYTES;
+		unsigned int len = 1 + EPOCH_BYTES + PRFKEY_BYTES + 4 * UINT_BYTES;
 		metadata.assign(len, 0x01);
+		metadata[0] = METADATA_VERSION;
 		unsigned char epoch_bytes[EPOCH_BYTES];
 		epoch = 0x2323;
 		epoch_num_to_bytes(epoch_bytes, epoch);
-		metadata.replace(2, 4, (char *) epoch_bytes, 4);
+		metadata.replace(1, 4, (char *) epoch_bytes, 4);
 		privkey.assign(PRIVKEY_BYTES, 0x45);
 
 		unsigned char pubkey[PUBKEY_BYTES];
