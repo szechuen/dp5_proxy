@@ -6,3 +6,6 @@ build
 *.cfg
 regdir
 datadir
+*_unittest
+pairing_integrationtest
+*.a
