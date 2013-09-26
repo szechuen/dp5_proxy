@@ -15,6 +15,18 @@ namespace dp5 {
     static const unsigned int PUBKEY_BYTES = 32;
     typedef unsigned char PubKey[PUBKEY_BYTES];
 
+    // Number of bytes in a BLS private key
+    // (element of Zr)
+    static const unsigned int BLS_PRIV_BYTES = 32;
+
+    // Number of bytes in a BLS public key
+    // (element of G1)
+    static const unsigned int BLS_PUB_BYTES = 64; // uncompressed ATM
+
+    // Number of bytes in a key used to derive
+    // a per-epoch encryption key
+    static const unsigned int PREKEY_BYTES = 16;
+
     ///
     /// Generate a public-private keypair
     ///
@@ -72,6 +84,12 @@ namespace dp5 {
         static const unsigned int EPOCH_BYTES = 4;  // epochs are 32 bit
         typedef unsigned char WireEpoch[EPOCH_BYTES];
 
+        // Element of G2
+        static const unsigned int EPOCH_SIG_BYTES = 128; // uncompressed
+
+        // Element of GT
+        static const unsigned int SIG_VERIFY_BYTES = 384;
+
         // Place num_bytes random bytes into buf.  This is not static, so that
         // the PRNG can keep state if necessary
         void random_bytes(unsigned char *buf, unsigned int num_bytes);
@@ -94,6 +112,22 @@ namespace dp5 {
         // and an output of H1 (of size SHAREDKEY_BYTES bytes), and produces
         // a hash value of size HASHKEY_BYTES bytes.
         void H3(HashKey H3_out, Epoch epoch, const SharedKey H1_out);
+
+
+        void H4(unsigned char H4_out[HASHKEY_BYTES],
+            const unsigned char verifybytes[SIG_VERIFY_BYTES]);
+
+        void H5(unsigned char H5_out[DATAKEY_BYTES],
+            Epoch epoch,
+            const unsigned char blspub[PREKEY_BYTES]);
+
+        int hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
+            const unsigned char signature[EPOCH_SIG_BYTES]);
+
+        int hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
+            const unsigned char publickey[BLS_PUB_BYTES],
+            unsigned int epoch);
+
 
         // Pseudorandom functions
         class PRF {

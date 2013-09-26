@@ -145,8 +145,8 @@ void H3(HashKey H3_out, Epoch epoch, const SharedKey H1_out)
     SHA256_Final(shaout, &hash);
     memmove(H3_out, shaout, HASHKEY_BYTES);
 }
-       
-void DP5Params::H4(unsigned char H4_out[HASHKEY_BYTES],
+
+void H4(unsigned char H4_out[HASHKEY_BYTES],
     const unsigned char verifybytes[SIG_VERIFY_BYTES])
 {
     unsigned char shaout[SHA256_DIGEST_LENGTH];
@@ -156,11 +156,11 @@ void DP5Params::H4(unsigned char H4_out[HASHKEY_BYTES],
     SHA256_Update(&hash, verifybytes, SIG_VERIFY_BYTES);
     SHA256_Final(shaout, &hash);
     memmove(H4_out, shaout, HASHKEY_BYTES);
-}         
+}
 
-void DP5Params::H5(unsigned char H5_out[DATAKEY_BYTES],
+void H5(unsigned char H5_out[DATAKEY_BYTES],
     Epoch epoch,
-    const unsigned char prekey[PREKEY_BYTES]) 
+    const unsigned char blspub[PREKEY_BYTES])
 {
     unsigned char shaout[SHA256_DIGEST_LENGTH];
     SHA256_CTX hash;
@@ -169,10 +169,10 @@ void DP5Params::H5(unsigned char H5_out[DATAKEY_BYTES],
     WireEpoch wire_epoch;
     epoch_num_to_bytes(wire_epoch, epoch);
     SHA256_Update(&hash, wire_epoch, EPOCH_BYTES);
-    SHA256_Update(&hash, prekey, PREKEY_BYTES);
+    SHA256_Update(&hash, blspub, PREKEY_BYTES);
     SHA256_Final(shaout, &hash);
-    memmove(H5_out, shaout, DATAKEY_BYTES);      
-}  
+    memmove(H5_out, shaout, DATAKEY_BYTES);
+}
 
 
 
@@ -256,32 +256,29 @@ unsigned int epoch_bytes_to_num(const WireEpoch wire_epoch)
 }
 
 
-} // namespace internal
-} // namespace dp5
-
-int DP5Params::hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
+int hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
     const unsigned char signature[EPOCH_SIG_BYTES]) {
     Pairing pairing;
     G2 sig(pairing);
-               
+
     if (sig.fromBin(signature, EPOCH_SIG_BYTES) != 0) {
         return -1;
     }
-                       
+
     // e(g, sig)
     GT verify_token = pairing.apply(pairing.g1_get_gen(), sig);
-    
+
     unsigned char verifybytes[SIG_VERIFY_BYTES];
-    
+
     verify_token.toBin((char *) verifybytes);
-    
+
     H4(key, verifybytes);
 
     return 0;
 }
 
-int DP5Params::hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
-    const unsigned char publickey[BLS_PUB_BYTES], 
+int hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
+    const unsigned char publickey[BLS_PUB_BYTES],
     unsigned int epoch) {
     Pairing pairing;
     G1 pubkey;
@@ -289,9 +286,9 @@ int DP5Params::hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
         return -1; // Invalid key
     }
 
-    char E[EPOCH_BYTES];
+    unsigned char E[EPOCH_BYTES];
     epoch_num_to_bytes(E, epoch);
-    G2 epoch_hash(pairing, E, DP5Params::EPOCH_BYTES);
+    G2 epoch_hash(pairing, E, EPOCH_BYTES);
 
     GT verify_token = pairing.apply(pubkey, epoch_hash);
 
@@ -300,9 +297,12 @@ int DP5Params::hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
 
     H4(key, verifybytes);
 
-    return 0; 
+    return 0;
 }
-        
+
+
+} // namespace internal
+} // namespace dp5
 
 
 
