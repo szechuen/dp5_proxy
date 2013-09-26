@@ -47,9 +47,10 @@ namespace dp5 {
             Metadata(const DP5Config & config);
 
             int fromStream(std::istream & is);
-            int toStream(std::ostream & os) const;
-            std::string toString(void) const;
             int fromString(const std::string & str);
+
+            void toStream(std::ostream & os) const;
+            std::string toString(void) const;
         };
 
         unsigned int read_uint(std::istream & is);

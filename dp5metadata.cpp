@@ -125,6 +125,31 @@ unsigned int uint_bytes_to_num(const unsigned char uint_bytes[UINT_BYTES]) {
     return res;
 }
 
+void Metadata::toStream(ostream & os) const {
+    os.put(METADATA_VERSION);
+    write_epoch(os, epoch);
+    write_uint(os, dataenc_bytes);
+    write_uint(os, epoch_len);
+    write_uint(os, num_buckets);
+    write_uint(os, bucket_size);
+    os.write((char *) prfkey, sizeof(prfkey));
+}
+
+string Metadata::toString() const {
+    stringstream stream;
+    toStream(stream);
+    return stream.str();
+}
+
+Metadata::Metadata(istream & is) {
+    if (fromStream(is) != 0)
+        throw runtime_error("Error constructing Metadata from stream");
+}
+
+Metadata::Metadata(const string & s) {
+    if (fromString(s) != 0)
+        throw runtime_error("Error constructing Metadata from string");
+}
 
 } // namespace dp5::internal
 
