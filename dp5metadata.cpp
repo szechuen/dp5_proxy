@@ -8,55 +8,126 @@
 #include <arpa/inet.h>
 
 #include <stdexcept>
+#include <iostream>
+#include <sstream>
 
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <openssl/aes.h>
 
 #include "dp5params.h"
-
-extern "C" {
-    int curve25519_donna(unsigned char *mypublic,
-	const unsigned char *secret,
-	const unsigned char *basepoint);
-}
+#include "dp5metadata.h"
 
 using namespace std;
 
-// default constructor
-DP5Metadata::DP5Metadata() {
-    memset(prfkey, 0, sizeof(prfkey));
-    dataenc_bytes = 0;
-    epoch = 0;
-    epoch_len = 0;
-    usePairings = false;
-    num_buckets = 0;
-    bucket_size = 0;
+namespace dp5 {
+
+// Retrieve the current epoch number
+unsigned int DP5Config::current_epoch()
+{
+    if (!valid()) {
+        throw runtime_error("Invalid configuration!");
+    }
+    return time(NULL)/epoch_len;
 }
 
-unsigned int DP5Metadata::read_uint(istream & is) {
-    char data[UINT_BYTES];
-    is.read(data, UINT_BYTES);
+namespace internal {
+
+Metadata::Metadata() : epoch(0), num_buckets(0), bucket_size (0) {
+    memset(prfkey, 0, sizeof(prfkey));
+}
+
+Metadata::Metadata(const Metadata & other) :
+    DP5Config(other), epoch(other.epoch), num_buckets(other.num_buckets),
+    bucket_size(other.bucket_size)
+{
+    memcpy(prfkey, other.prfkey, sizeof(prfkey));
+}
+
+unsigned int read_uint(istream & is) {
+    unsigned char data[UINT_BYTES];
+    is.read((char *) data, UINT_BYTES);
     return uint_bytes_to_num(data);
 }
 
-void DP5Metadata::write_uint(ostream & os, unsigned int n) {
-    char data[UINT_BYTES];
+void write_uint(ostream & os, unsigned int n) {
+    unsigned char data[UINT_BYTES];
     uint_num_to_bytes(data, n);
-    os.write(data, UINT_BYTES);
+    os.write((char *) data, UINT_BYTES);
 }
 
-unsigned int DP5Metadata::read_epoch(istream & is) {
-    char data[EPOCH_BYTES];
-    is.read(data, EPOCH_BYTES);
+unsigned int read_epoch(istream & is) {
+    unsigned char data[EPOCH_BYTES];
+    is.read((char *) data, EPOCH_BYTES);
     return epoch_bytes_to_num(data);
 }
 
-void DP5Metadata::write_epoch(ostream & os, unsigned int epoch) {
-    char data[EPOCH_BYTES];
+void write_epoch(ostream & os, unsigned int epoch) {
+    unsigned char data[EPOCH_BYTES];
     uint_num_to_bytes(data, epoch);
-    os.write(data, EPOCH_BYTES);
+    os.write((char *) data, EPOCH_BYTES);
 }
+
+int Metadata::fromStream(istream & is) {
+    ios::iostate exceptions = is.exceptions();
+    is.exceptions(ios::eofbit | ios::failbit | ios::badbit);
+    try {
+        unsigned int version = is.get();
+        if (version != METADATA_VERSION) {
+            cerr << "Metadata version mismatch: expected " <<
+                METADATA_VERSION << ", got " << version << endl;
+            return 0x01;
+        }
+        /*
+        unsigned int x = is.get();
+        if (x == 0) {
+            usePairings = false;
+        } else if (x == 1) {
+            usePairings = true;
+        } else {
+            // we are not being liberal in what we accept
+            // since any other value is almost certainly an error
+            cerr << "Unexpected value for usePairings: " << x << endl;
+            return 0x02;
+        }
+        */
+        // Read in rest of parameters
+        epoch = read_epoch(is);
+        dataenc_bytes = read_uint(is);
+        epoch_len = read_uint(is);
+        num_buckets = read_uint(is);
+        bucket_size = read_uint(is);
+        is.read((char *) prfkey, sizeof(prfkey));
+        is.exceptions(exceptions);
+    } catch (ios::failure f) {
+        cerr << "Error reading metadata: " << f.what() << endl;
+        return 0x03;
+    }
+    return 0;
+}
+
+// Convert an uint number to an uint byte array in network order
+void uint_num_to_bytes(unsigned char uint_bytes[UINT_BYTES], unsigned int uint_num) {
+    unsigned int num_netorder = htonl(uint_num);
+    memcpy((char *) uint_bytes, ((const char *)&num_netorder)
+        +sizeof(unsigned int)-UINT_BYTES, UINT_BYTES);
+}
+
+// Convert an uint byte array in networkorder to an uint number
+unsigned int uint_bytes_to_num(const unsigned char uint_bytes[UINT_BYTES]) {
+    unsigned int res = 0;
+    memcpy(((char *)&res) +sizeof(unsigned int)-UINT_BYTES,
+        (const char *) uint_bytes, UINT_BYTES);
+    res = ntohl(res);
+    return res;
+}
+
+
+} // namespace dp5::internal
+
+} // namespace dp5
+
+/*
 
 void DP5Metadata::readFromStream(istream & is) {
     unsigned int version = is.get();
@@ -298,14 +369,6 @@ int DP5Params::Dec(string & plaintext,
     return 0;
 }
 
-// Retrieve the current epoch number
-unsigned int DP5Metadata::current_epoch()
-{
-    if (epoch_len == 0) {
-        throw runtime_error("Zero epoch length!");
-    }
-    return time(NULL)/epoch_len;
-}
 
 // Convert an epoch number to an epoch byte array
 void DP5Params::epoch_num_to_bytes(WireEpoch  wire_epoch,
@@ -321,23 +384,6 @@ unsigned int DP5Params::epoch_bytes_to_num(const WireEpoch wire_epoch)
     return ntohl(*(unsigned int*)wire_epoch);
 }
 
-// Convert an uint number to an uint byte array in network order
-void DP5Metadata::uint_num_to_bytes(char uint_bytes[UINT_BYTES],
-	unsigned int uint_num){
-    unsigned int num_netorder = htonl(uint_num);
-    memcpy((char *) uint_bytes, ((const char *)&num_netorder)
-	    +sizeof(unsigned int)-UINT_BYTES, UINT_BYTES);
-}
-
-// Convert an uint byte array in networkorder to an uint number
-unsigned int DP5Metadata::uint_bytes_to_num(
-	const char uint_bytes[UINT_BYTES]){
-    unsigned int res = 0;
-    memcpy(((char *)&res) +sizeof(unsigned int)-UINT_BYTES,
-        (const char *) uint_bytes, UINT_BYTES);
-    res = ntohl(res);
-    return res;
-}
 
 
 #ifdef TEST_DH
@@ -594,3 +640,4 @@ int main(int argc, char **argv)
     return 0;
 }
 #endif // TEST_EPOCH
+*/
