@@ -17,8 +17,15 @@
 #include <set>
 
 #include "dp5regserver.h"
+#include "dp5metadata.h"
 
 using namespace std;
+
+namespace dp5 {
+
+using namespace dp5::internal;
+
+static const unsigned int NUM_PRF_ITERS = 10;
 
 // Allocate a filename given the desired directory, the epoch number,
 // and the filename extension.  The caller must free() the result when
@@ -53,8 +60,9 @@ void DP5RegServer::create_nextreg_file(unsigned int useepoch)
 // in which to store the incoming registrations for the current
 // epoch, and the directory in which to store the metadata and data
 // files.
-DP5RegServer::DP5RegServer(const DP5Metadata & metadata, const char *regdir,
-    const char *datadir) : DP5Metadata(metadata)
+DP5RegServer::DP5RegServer(const DP5Config & config, Epoch epoch,
+    const char *regdir, const char *datadir) :
+    _config(config), _epoch(epoch)
 {
     _regdir = strdup(regdir);
     _datadir = strdup(datadir);
@@ -65,7 +73,7 @@ DP5RegServer::DP5RegServer(const DP5Metadata & metadata, const char *regdir,
 
 // Copy constructor
 DP5RegServer::DP5RegServer(const DP5RegServer &other)
-        : DP5Metadata(other)
+        : _config(other._config), _epoch(other._epoch)
 {
     _regdir = strdup(other._regdir);
     _datadir = strdup(other._datadir);
@@ -83,7 +91,8 @@ DP5RegServer& DP5RegServer::operator=(DP5RegServer other)
     other._datadir = _datadir;
     _datadir = tmp;
 
-    DP5Metadata::operator=(other);
+    _config = other._config;
+    _epoch = other._epoch;
 
     return *this;
 }
@@ -107,8 +116,8 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     const unsigned char *allindata = (const unsigned char *)regmsg.data();
     // C++ is very particular about how const members without separate definition can be used, hence the '+'
     // (see http://stackoverflow.com/questions/3025997/c-defining-static-const-integer-members-in-class-definition)
-    const unsigned int inrecord_size = SHAREDKEY_BYTES + dataenc_bytes;
-    const unsigned int outrecord_size = HASHKEY_BYTES + dataenc_bytes;
+    const unsigned int inrecord_size = SHAREDKEY_BYTES + _config.dataenc_bytes;
+    const unsigned int outrecord_size = HASHKEY_BYTES + _config.dataenc_bytes;
 
     unsigned int numrecords;
     const unsigned char *indata;
@@ -122,7 +131,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     // at that point.
     int lockedfd = -1;
     do {
-	unsigned int my_next_epoch = epoch + 1;
+	unsigned int my_next_epoch = _epoch + 1;
 	char *fname = construct_fname(_regdir, my_next_epoch, "reg");
 	if (lockedfd >= 0) {
 	    close(lockedfd);
@@ -156,7 +165,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     // Now we are sure the data is long enough to parse a client epoch.
     indata = allindata + EPOCH_BYTES;
     regmsglen = regmsg.length() - EPOCH_BYTES;
-    client_next_epoch = epoch_bytes_to_num((const char *) allindata);
+    client_next_epoch = epoch_bytes_to_num(allindata);
 
     if (client_next_epoch != next_epoch) {
         err = 0x02; // Epochs of client and server not in sync.
@@ -176,7 +185,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
 	    // Hash the key, copy the data
 	    H3(outrecord, next_epoch, indata);
     	memmove(outrecord + HASHKEY_BYTES, indata + SHAREDKEY_BYTES,
-    		dataenc_bytes);
+    		_config.dataenc_bytes);
 
 	// Append the record to the registration file
 	write(lockedfd, outrecord, outrecord_size);
@@ -195,10 +204,10 @@ client_reg_return:
     close(lockedfd);
 
     // Return the response to the client
-    char resp[1+EPOCH_BYTES];
+    unsigned char resp[1+EPOCH_BYTES];
     resp[0] = err;
     epoch_num_to_bytes(resp+1, next_epoch);
-    msgtoreply.assign(resp, 1+EPOCH_BYTES);
+    msgtoreply.assign((char *) resp, 1+EPOCH_BYTES);
 }
 
 
@@ -214,7 +223,7 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     char *oldfname = NULL;
     while (1) {
 	free(oldfname);
-	oldfname = construct_fname(_regdir, epoch + 1, "reg");
+	oldfname = construct_fname(_regdir, _epoch + 1, "reg");
 	if (lockedfd >= 0) {
 	    close(lockedfd);
 	}
@@ -231,21 +240,21 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     // Now we have the lock
 
     // Rename the old file
-    char *newfname = construct_fname(_regdir, epoch + 1, "sreg");
+    char *newfname = construct_fname(_regdir, _epoch + 1, "sreg");
     rename(oldfname, newfname);
     free(oldfname);
 
-    // Increment the epoch and create the new reg file
-    unsigned int workingepoch = epoch+1;
+    // Increment the _epoch and create the new reg file
+    unsigned int workingepoch = _epoch+1;
     create_nextreg_file(workingepoch+1);
-    epoch = workingepoch;
+    _epoch = workingepoch;
 
     // TODO: Deleteme. We can release the lock now
     printf("Unlocking %d\n", lockedfd);
     flock(lockedfd, LOCK_UN);
 
     // Process the registration file from lockedfd
-    unsigned int recordsize = HASHKEY_BYTES + dataenc_bytes;
+    unsigned int recordsize = HASHKEY_BYTES + _config.dataenc_bytes;
 
     struct stat regst;
     int res = fstat(lockedfd, &regst);
@@ -288,21 +297,24 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
 	ostensible_numkeys = 1;
     }
     uint64_t datasize = ostensible_numkeys *
-			(HASHKEY_BYTES + dataenc_bytes) *
+			(HASHKEY_BYTES + _config.dataenc_bytes) *
 			PIR_WORDS_PER_BYTE;
-    num_buckets = (unsigned int)ceil(sqrt((double)datasize));
+
+    Metadata md(_config);
+    md.epoch = _epoch;
+    md.num_buckets = (unsigned int)ceil(sqrt((double)datasize));
 
     // Try NUM_PRF_ITERS random PRF keys and see which one results in
     // the smallest largest bucket.
     PRFKey best_prfkey;
     unsigned int best_size = regdata.size()+1;
     for (unsigned int iter=0; iter<NUM_PRF_ITERS; ++iter) {
-	unsigned long count[num_buckets];
+	unsigned long count[md.num_buckets];
 	memset(count, 0, sizeof(count));
 	unsigned long largest_bucket_size = 0;
-        PRFKey cur_prfkey;
+    PRFKey cur_prfkey;
 	random_bytes((unsigned char *)cur_prfkey, sizeof(cur_prfkey));
-	PRF prf((const unsigned char *) cur_prfkey, num_buckets);
+	PRF prf((const unsigned char *) cur_prfkey, md.num_buckets);
         for (set<string>::const_iterator k = regdata.begin();
                 k != regdata.end() && largest_bucket_size < best_size; k++) {
 	    unsigned int bucket = prf.M((const unsigned char*) (*k).data());
@@ -317,21 +329,21 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
 	    best_size = largest_bucket_size;
 	}
     }
-    memcpy(prfkey, best_prfkey, sizeof(prfkey));
-    bucket_size = best_size;
+    memcpy(md.prfkey, best_prfkey, sizeof(md.prfkey));
+    md.bucket_size = best_size;
 
-    cerr << num_buckets << " " << best_size << "*" << (HASHKEY_BYTES + dataenc_bytes) << "=" << (best_size*(HASHKEY_BYTES + dataenc_bytes)) << "\n";
+    cerr << md.num_buckets << " " << best_size << "*" << (HASHKEY_BYTES + _config.dataenc_bytes) << "=" << (best_size*(HASHKEY_BYTES + _config.dataenc_bytes)) << "\n";
 
     unsigned char *datafile =
-	new unsigned char[num_buckets*best_size*(HASHKEY_BYTES+dataenc_bytes)];
+	new unsigned char[md.num_buckets*best_size*(HASHKEY_BYTES+_config.dataenc_bytes)];
     if (!datafile) {
 	throw runtime_error("Out of memory allocating data file");
     }
     memset(datafile, 0x00,
-	num_buckets*best_size*(HASHKEY_BYTES+dataenc_bytes));
-    unsigned long count[num_buckets];
+	md.num_buckets*best_size*(HASHKEY_BYTES+_config.dataenc_bytes));
+    unsigned long count[md.num_buckets];
     memset(count, 0, sizeof(count));
-    PRF prf((const unsigned char *) prfkey, num_buckets);
+    PRF prf(md.prfkey, md.num_buckets);
 
     for (set<string>::const_iterator k = regdata.begin(); k != regdata.end(); k++) {
 	unsigned int bucket = prf.M((const unsigned char *) k->data());
@@ -340,24 +352,27 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
 	    cerr << bucket << " " << count[bucket] << " " << best_size << "\n";
 	    throw runtime_error("Inconsistency creating buckets");
 	}
-	memmove(datafile+bucket*(best_size*(HASHKEY_BYTES+dataenc_bytes))
-		+ (best_size-count[bucket]-1)*(HASHKEY_BYTES+dataenc_bytes),
-		k->data(), HASHKEY_BYTES+dataenc_bytes);
+	memmove(datafile+bucket*(best_size*(HASHKEY_BYTES+_config.dataenc_bytes))
+		+ (best_size-count[bucket]-1)*(HASHKEY_BYTES+_config.dataenc_bytes),
+		k->data(), HASHKEY_BYTES+_config.dataenc_bytes);
 	count[bucket] += 1;
     }
 
-    writeToStream(metadataos);
+    md.toStream(metadataos);
     metadataos.flush();
 
     dataos.write((const char *)datafile,
-	    num_buckets*best_size*(HASHKEY_BYTES+dataenc_bytes));
+	    md.num_buckets*best_size*(HASHKEY_BYTES+_config.dataenc_bytes));
     dataos.flush();
 
     delete[] datafile;
     return workingepoch;
 }
+}
 
 #ifdef TEST_RSCONST
+
+using namespace dp5;
 // Test the copy constructor and assignment operator (use valgrind to
 // check)
 int main(int argc, char **argv)
@@ -365,13 +380,11 @@ int main(int argc, char **argv)
     // Ensure the directories exist
     mkdir("regdir", 0700);
     mkdir("datadir", 0700);
-    DP5Metadata md;
-    md.usePairings = false;
-    md.dataenc_bytes = 16;
-    md.epoch_len = 1800;
-    md.epoch = md.current_epoch();
+    DP5Config config;
+    config.dataenc_bytes = 16;
+    config.epoch_len = 1800;
 
-    DP5RegServer s(md, "regdir", "datadir");
+    DP5RegServer s(config, config.current_epoch(), "regdir", "datadir");
 
     DP5RegServer t(s);
 
@@ -387,6 +400,8 @@ int main(int argc, char **argv)
 #include <vector>
 
 // Test client registration, especially the thread safety
+using namespace dp5;
+using namespace dp5::internal;
 
 static DP5RegServer *rs = NULL;
 
@@ -414,82 +429,81 @@ static void *epoch_change_thread(void *none)
 int main(int argc, char **argv)
 {
     int num_clients = (argc > 1 ? atoi(argv[1]) : 10);
-    int num_buddies = (argc > 2 ? atoi(argv[2]) : DP5Params::MAX_BUDDIES);
+    int num_buddies = (argc > 2 ? atoi(argv[2]) : MAX_BUDDIES);
     int multithread = 1;
 
     // Ensure the directories exist
     mkdir("regdir", 0700);
     mkdir("datadir", 0700);
 
-    DP5Metadata md;
-    md.epoch_len = 1800;
-    md.dataenc_bytes = 16;
-    md.epoch = md.current_epoch();
-    rs = new DP5RegServer(md, "regdir", "datadir");
+    DP5Config config;
+    config.epoch_len = 1800;
+    config.dataenc_bytes = 16;
+    Epoch epoch = config.current_epoch();
+    rs = new DP5RegServer(config, epoch, "regdir", "datadir");
 
     // Create the blocks of data to submit
     vector<string> submits[2];
 
     for (int subflag=0; subflag<2; ++subflag) {
-	for (int i=0; i<num_clients; ++i) {
-		size_t datasize = md.EPOCH_BYTES;
-		datasize += num_buddies * (md.SHAREDKEY_BYTES + md.dataenc_bytes);
+    	for (int i=0; i<num_clients; ++i) {
+    		size_t datasize = EPOCH_BYTES;
+    		datasize += num_buddies * (SHAREDKEY_BYTES + config.dataenc_bytes);
 
-	    unsigned char data[datasize];
-	    unsigned char *thisdata = data;
+    	    unsigned char data[datasize];
+    	    unsigned char *thisdata = data;
 
-	    md.epoch_num_to_bytes((char *) thisdata,md.epoch+1+subflag);
-	    thisdata += md.EPOCH_BYTES;
+    	    epoch_num_to_bytes(thisdata,epoch+1+subflag);
+    	    thisdata += EPOCH_BYTES;
 
-	    for (int j=0; j<num_buddies; ++j) {
-			md.random_bytes(thisdata, md.SHAREDKEY_BYTES);
-			thisdata += md.SHAREDKEY_BYTES;
-		// Identifiable data
-        thisdata += md.SHAREDKEY_BYTES;
-		thisdata[0] = '[';
-		thisdata[1] = 'P'+subflag;
-		thisdata[2] = '0'+i;
-		int bytesout;
-		sprintf((char *)thisdata+3, "%u%n",
-		    j, &bytesout);
-		memset(thisdata+3+bytesout,
-			' ', md.dataenc_bytes-4-bytesout);
-		thisdata[md.dataenc_bytes-1]
-		    = ']';
+    	    for (int j=0; j<num_buddies; ++j) {
+    			random_bytes(thisdata, SHAREDKEY_BYTES);
+        		// Identifiable data
+                thisdata += SHAREDKEY_BYTES;
+        		thisdata[0] = '[';
+        		thisdata[1] = 'P'+subflag;
+        		thisdata[2] = '0'+i;
+        		int bytesout;
+        		sprintf((char *)thisdata+3, "%u%n",
+        		    j, &bytesout);
+        		memset(thisdata+3+bytesout,
+        			' ', config.dataenc_bytes-4-bytesout);
+        		thisdata[config.dataenc_bytes-1]
+        		    = ']';
 
-		thisdata += md.dataenc_bytes;
-	    }
-	    submits[subflag].push_back(string((char *)data, datasize));
-	}
+        		thisdata += config.dataenc_bytes;
+    	    }
+    	    submits[subflag].push_back(string((char *)data, datasize));
+    	}
     }
 
     vector<pthread_t> children;
 
     for (int subflag=0; subflag<2; ++subflag) {
-	for (int i=0; i<num_clients; ++i) {
-	    if (multithread) {
-		pthread_t thr;
-		pthread_create(&thr, NULL, client_reg_thread,
-				&submits[subflag][i]);
-		children.push_back(thr);
-	    } else {
-		client_reg_thread(&submits[subflag][i]);
-	    }
-	}
-	if (subflag == 0) {
-	    if (multithread) {
-		pthread_t thr;
-		pthread_create(&thr, NULL, epoch_change_thread, NULL);
-		children.push_back(thr);
-	    } else {
-		epoch_change_thread(NULL);
-	    }
-	}
+    	for (int i=0; i<num_clients; ++i) {
+    	    if (multithread) {
+        		pthread_t thr;
+        		pthread_create(&thr, NULL, client_reg_thread,
+        				&submits[subflag][i]);
+        		children.push_back(thr);
+    	    } else {
+        		client_reg_thread(&submits[subflag][i]);
+    	    }
+    	}
+    	if (subflag == 0) {
+    	    if (multithread) {
+        		pthread_t thr;
+        		pthread_create(&thr, NULL, epoch_change_thread, NULL);
+        		children.push_back(thr);
+    	    } else {
+        		epoch_change_thread(NULL);
+    	    }
+    	}
     }
 
     int numchildren = children.size();
     for (int i=0; i<numchildren; ++i) {
-	pthread_join(children[i], NULL);
+    	pthread_join(children[i], NULL);
     }
 
     delete rs;

@@ -49,10 +49,10 @@ test_enc: test_enc.o curve25519-donna.o
 test_epoch: test_epoch.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-test_rsconst: test_rsconst.o dp5params.o curve25519-donna.o
+test_rsconst: test_rsconst.o dp5params.o dp5metadata.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-test_rsreg: test_rsreg.o dp5params.o curve25519-donna.o
+test_rsreg: test_rsreg.o dp5params.o dp5metadata.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread
 
 test_client: test_client.o dp5params.o curve25519-donna.o

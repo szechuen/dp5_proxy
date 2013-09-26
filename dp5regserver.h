@@ -5,16 +5,15 @@
 #include <iostream>
 #include "dp5params.h"
 
-class DP5RegServer : protected DP5Metadata {
-public:
-    // The number of iterations over the PRF bucketization
-    static const unsigned int NUM_PRF_ITERS = 10;
+namespace dp5 {
 
+class DP5RegServer {
+public:
     // The constructor consumes the current epoch number, the directory
     // in which to store the incoming registrations for the current
     // epoch, and the directory in which to store the metadata and data
     // files.
-    DP5RegServer(const DP5Metadata & metadata, const char *regdir,
+    DP5RegServer(const DP5Config & config, Epoch epoch, const char *regdir,
     	const char *datadir);
 
     // Copy constructor
@@ -48,6 +47,11 @@ protected:
 
     // Create the registration file for the given epoch.
     void create_nextreg_file(unsigned int useepoch);
+
+    DP5Config _config;
+    Epoch _epoch;
 };
+
+}
 
 #endif
