@@ -116,7 +116,8 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     const unsigned char *allindata = (const unsigned char *)regmsg.data();
     // C++ is very particular about how const members without separate definition can be used, hence the '+'
     // (see http://stackoverflow.com/questions/3025997/c-defining-static-const-integer-members-in-class-definition)
-    const unsigned int inrecord_size = SHAREDKEY_BYTES + _config.dataenc_bytes;
+    const unsigned int inrecord_size = (_config.combined ? +EPOCH_SIG_BYTES :
+        +SHAREDKEY_BYTES)  + _config.dataenc_bytes;
     const unsigned int outrecord_size = HASHKEY_BYTES + _config.dataenc_bytes;
 
     unsigned int numrecords;
@@ -131,7 +132,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     // at that point.
     int lockedfd = -1;
     do {
-	unsigned int my_next_epoch = epoch + 1;
+	unsigned int my_next_epoch = _epoch + 1;
 	char *fname = construct_fname(_regdir, my_next_epoch, "reg");
 	if (lockedfd >= 0) {
 	    close(lockedfd);
@@ -165,7 +166,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     // Now we are sure the data is long enough to parse a client epoch.
     indata = allindata + EPOCH_BYTES;
     regmsglen = regmsg.length() - EPOCH_BYTES;
-    client_next_epoch = epoch_bytes_to_num((const char *) allindata);
+    client_next_epoch = epoch_bytes_to_num(allindata);
 
     if (client_next_epoch != next_epoch) {
         err = 0x02; // Epochs of client and server not in sync.
@@ -182,15 +183,20 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     unsigned char outrecord[outrecord_size];
 
     for (unsigned int i=0; i<numrecords; ++i) {
-	    // Hash the key, copy the data
-	    H3(outrecord, next_epoch, indata);
-    	memmove(outrecord + HASHKEY_BYTES, indata + SHAREDKEY_BYTES,
-    		_config.dataenc_bytes);
+        if (_config.combined) {
+            hash_key_from_sig(outrecord, indata);
+        } else {
+    	    // Hash the key, copy the data
+    	    H3(outrecord, next_epoch, indata);
+        }
+    	memmove(outrecord + HASHKEY_BYTES,
+            indata + inrecord_size - _config.dataenc_bytes,
+            _config.dataenc_bytes);
 
-	// Append the record to the registration file
-	write(lockedfd, outrecord, outrecord_size);
+    	// Append the record to the registration file
+    	write(lockedfd, outrecord, outrecord_size);
 
-	indata += inrecord_size;
+    	indata += inrecord_size;
     }
 
     // We're done.  Indicate success.
@@ -204,7 +210,7 @@ client_reg_return:
     close(lockedfd);
 
     // Return the response to the client
-    char resp[1+EPOCH_BYTES];
+    unsigned char resp[1+EPOCH_BYTES];
     resp[0] = err;
     epoch_num_to_bytes(resp+1, next_epoch);
     msgtoreply.assign((char *) resp, 1+EPOCH_BYTES);
@@ -223,7 +229,7 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     char *oldfname = NULL;
     while (1) {
 	free(oldfname);
-	oldfname = construct_fname(_regdir, epoch + 1, "reg");
+	oldfname = construct_fname(_regdir, _epoch + 1, "reg");
 	if (lockedfd >= 0) {
 	    close(lockedfd);
 	}
@@ -240,14 +246,14 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     // Now we have the lock
 
     // Rename the old file
-    char *newfname = construct_fname(_regdir, epoch + 1, "sreg");
+    char *newfname = construct_fname(_regdir, _epoch + 1, "sreg");
     rename(oldfname, newfname);
     free(oldfname);
 
     // Increment the _epoch and create the new reg file
     unsigned int workingepoch = _epoch+1;
     create_nextreg_file(workingepoch+1);
-    epoch = workingepoch;
+    _epoch = workingepoch;
 
     // TODO: Deleteme. We can release the lock now
     printf("Unlocking %d\n", lockedfd);
@@ -431,6 +437,10 @@ int main(int argc, char **argv)
     int num_clients = (argc > 1 ? atoi(argv[1]) : 10);
     int num_buddies = (argc > 2 ? atoi(argv[2]) : MAX_BUDDIES);
     int multithread = 1;
+    bool combined = (num_buddies == 0);
+    if (combined)
+        num_buddies = 1;
+
 
     // Ensure the directories exist
     mkdir("regdir", 0700);
@@ -439,6 +449,7 @@ int main(int argc, char **argv)
     DP5Config config;
     config.epoch_len = 1800;
     config.dataenc_bytes = 16;
+    config.combined = combined;
     Epoch epoch = config.current_epoch();
     rs = new DP5RegServer(config, epoch, "regdir", "datadir");
 
@@ -448,7 +459,13 @@ int main(int argc, char **argv)
     for (int subflag=0; subflag<2; ++subflag) {
     	for (int i=0; i<num_clients; ++i) {
     		size_t datasize = EPOCH_BYTES;
-    		datasize += num_buddies * (SHAREDKEY_BYTES + config.dataenc_bytes);
+            if (combined) {
+        		datasize += num_buddies * (EPOCH_SIG_BYTES +
+                    config.dataenc_bytes);
+            } else {
+                datasize += num_buddies * (SHAREDKEY_BYTES +
+                    config.dataenc_bytes);
+            }
 
     	    unsigned char data[datasize];
     	    unsigned char *thisdata = data;
@@ -457,9 +474,15 @@ int main(int argc, char **argv)
     	    thisdata += EPOCH_BYTES;
 
     	    for (int j=0; j<num_buddies; ++j) {
-    			random_bytes(thisdata, SHAREDKEY_BYTES);
+                if (combined) {
+                       G2 g2(false); // initialized to random
+                       g2.toBin((char *) thisdata);
+                       thisdata += EPOCH_SIG_BYTES;
+                } else {
+        			random_bytes(thisdata, SHAREDKEY_BYTES);
+                    thisdata += SHAREDKEY_BYTES;
+                }
         		// Identifiable data
-                thisdata += SHAREDKEY_BYTES;
         		thisdata[0] = '[';
         		thisdata[1] = 'P'+subflag;
         		thisdata[2] = '0'+i;

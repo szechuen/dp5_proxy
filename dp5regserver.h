@@ -3,7 +3,9 @@
 
 #include <string>
 #include <iostream>
-#include "dp5params.h"  
+#include "dp5params.h"
+
+#include <Pairing.h>
 
 namespace dp5 {
 
@@ -43,7 +45,7 @@ protected:
     char *_regdir;
 
     // The directory in which to store metadata and data files
-    char *_datadir;      
+    char *_datadir;
 
     const Pairing _pairing;
 
