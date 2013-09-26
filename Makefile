@@ -10,9 +10,9 @@ RELICWRAPLIB = relicwrapper/
 LINKRELIC = -L$(RELICLIB) -lrelic_s -lgmp -L$(RELICWRAPLIB) -lrelicwrapper
 CC = gcc
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC -I$(RELICWRAPINC) -I$(RELICINC) -I$(PERCYINC) -I$(NTLINC)
+CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC -I$(PERCYINC) -I$(NTLINC)
 CFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
-LDLIBS = -lcrypto $(LINKRELIC)
+LDLIBS = -lcrypto
 GTEST_DIR = ../gtest-1.7.0
 
 BINS = libdp5
@@ -21,10 +21,6 @@ TESTS = test_dh test_hashes test_prf test_enc test_epoch \
 	test_lscd test_pirglue test_pirgluemt test_integrate
 UNITTESTS:=$(patsubst %.cpp,%,$(wildcard *_unittest.cpp))
 
-
-GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
-                $(GTEST_DIR)/include/gtest/internal/*.h
-GTEST_SRCS_ = $(GTEST_DIR)/src/*.cc $(GTEST_DIR)/src/*.h $(GTEST_HEADERS)
 
 UNAME = $(shell uname -s)
 ifeq ($(UNAME),Darwin)
@@ -75,29 +71,29 @@ test_enc: test_enc.o curve25519-donna.o
 test_epoch: test_epoch.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-test_rsconst: test_rsconst.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(RELICWRAPLIB) -lrelicwrapper -L$(RELICLIB) -lrelic_s -lgmp
+test_rsconst: test_rsconst.o dp5params.o dp5metadata.o curve25519-donna.o
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-test_rsreg: test_rsreg.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(RELICWRAPLIB) -lrelicwrapper -L$(RELICLIB) -lrelic_s -lgmp -lpthread
+test_rsreg: test_rsreg.o dp5params.o dp5metadata.o curve25519-donna.o
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread
 
 test_client: test_client.o dp5params.o curve25519-donna.o 
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread $(LINKRELIC)
 
-test_reqcd: test_reqcd.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -L$(NTLLIB) -lntl -lgmp $(LINKRELIC)
+test_reqcd: test_reqcd.o dp5params.o dp5metadata.o curve25519-donna.o
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -L$(NTLLIB) -lntl -lgmp
 
-test_lscd: test_lscd.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyserver -L$(NTLLIB) -lntl -lgmp $(LINKRELIC)
+test_lscd: test_lscd.o dp5params.o dp5metadata.o curve25519-donna.o
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyserver -L$(NTLLIB) -lntl -lgmp
 
-test_pirglue: test_pirglue.o dp5lookupclient.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp $(LINKRELIC)
+test_pirglue: test_pirglue.o dp5lookupclient.o dp5params.o dp5metadata.o curve25519-donna.o
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp
 
-test_pirgluemt: test_pirgluemt.o dp5lookupclient.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp -lpthread $(LINKRELIC)
+test_pirgluemt: test_pirgluemt.o dp5lookupclient.o dp5params.o dp5metadata.o curve25519-donna.o
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp -lpthread
 
-test_integrate: test_integrate.o dp5lookupclient.o dp5lookupserver.o dp5regserver.o dp5regclient.o dp5params.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp $(LINKRELIC)
+test_integrate: test_integrate.o dp5lookupclient.o dp5lookupserver.o dp5regserver.o dp5regclient.o dp5params.o dp5metadata.o curve25519-donna.o
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lpercyserver -L$(NTLLIB) -lntl -lgmp
 
 test_dh.o: dp5params.cpp dp5params.h
 	g++ $(CXXFLAGS) -DTEST_DH -c $< -o $@
@@ -177,9 +173,18 @@ dp5params_unittest.o: dp5params_unittest.cpp dp5params.h $(GTEST_HEADERS)
 dp5params_unittest: dp5params_unittest.o dp5params.o curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
 
+dp5lookupclient_unittest.o: dp5lookupclient_unittest.cpp dp5lookupclient.h dp5params.h dp5metadata.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c dp5lookupclient_unittest.cpp
+dp5lookupclient_unittest: dp5lookupclient_unittest.o dp5lookupclient.o dp5params.o dp5metadata.o curve25519-donna.o gtest_main.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
+dp5metadata_unittest.o: dp5metadata_unittest.cpp dp5metadata.h dp5params.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c dp5metadata_unittest.cpp
+dp5metadata_unittest: dp5metadata_unittest.o dp5params.o dp5metadata.o curve25519-donna.o gtest_main.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -lpthread -o $@
+
 clean:
 	rm -f *.o
-	rm -f dp5.so 
+	rm -f dp5.so
 	rm -rf build
 
 pairing.o: pairing.cpp

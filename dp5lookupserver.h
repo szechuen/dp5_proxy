@@ -3,9 +3,12 @@
 
 #include <string>
 #include "dp5params.h"
+#include "dp5metadata.h"
 #include "percyserver.h"
 
-class DP5LookupServer : protected DP5Metadata {
+namespace dp5 {
+
+class DP5LookupServer {
 public:
     // The constructor consumes the current epoch number, and the
     // filenames of the current metadata and data files.
@@ -33,13 +36,13 @@ public:
     // Process a received request from a lookup client.  This may be
     // either a metadata or a data request.  Set reply to the reply to
     // return to the client.
-    void process_request(string &reply, const string &request);
+    void process_request(std::string &reply, const std::string &request);
 
 private:
     // The glue API to the PIR layer.  Pass a request string as produced
     // by pir_query.  reponse is filled in with the reponse; pass it to
     // pir_response.  Return 0 on success, non-0 on failure.
-    int pir_process(string &response, const string &request);
+    int pir_process(std::string &response, const std::string &request);
 
 
     // The metadata filename
@@ -57,6 +60,8 @@ private:
     // The PercyServer used to serve requests
     PercyServer *_pirserver;
 
+    internal::Metadata _metadata;
+
 #ifdef TEST_PIRGLUE
     friend void test_pirglue();
 #endif // TEST_PIRGLUE
@@ -67,4 +72,5 @@ private:
 
 };
 
+}
 #endif

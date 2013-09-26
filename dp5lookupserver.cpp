@@ -13,6 +13,12 @@
 
 #include "dp5lookupserver.h"
 
+using namespace std;
+
+namespace dp5 {
+
+using namespace dp5::internal;
+
 // The constructor consumes the current epoch number, and the
 // filenames of the current metadata and data files.
 DP5LookupServer::DP5LookupServer(const char *metadatafilename, const char *datafilename)
@@ -27,15 +33,18 @@ void DP5LookupServer::init(const char *metadatafilename,
     _metadatafilename = strdup(metadatafilename);
     _datafilename = strdup(datafilename);
 
-    ifstream metadatafile(metadatafilename); 
+    ifstream metadatafile(metadatafilename);
     if (!metadatafile) {
         throw runtime_error("Cannot open metadata file");
     }
-    readFromStream(metadatafile);
+    if (_metadata.fromStream(metadatafile) != 0) {
+        throw runtime_error("Cannot parse metadata file");
+    }
 
     _pirserverparams = new PercyServerParams(
-	bucket_size * (HASHKEY_BYTES + dataenc_bytes), num_buckets,
-	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0, 0);
+	   _metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes),
+        _metadata.num_buckets,
+    	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0, 0);
 
     _datastore = new FileDataStore(_datafilename, *_pirserverparams);
 
@@ -75,7 +84,7 @@ DP5LookupServer& DP5LookupServer::operator=(DP5LookupServer other)
     _pirserver = tmpps;
 
     // copy metadata
-    DP5Metadata::operator=(other);
+    _metadata = other._metadata;
 
     return *this;
 }
@@ -125,8 +134,8 @@ void DP5LookupServer::process_request(string &reply, const string &request)
     // Check for a well-formed command
     if (reqlen < 5 ||
 	    (reqdata[0] != 0xff && reqdata[0] != 0xfe && reqdata[0] != 0xfd)
-	    || epoch_bytes_to_num((const char *) reqdata+1) != epoch) {
-	char errmsg[5];
+	    || epoch_bytes_to_num(reqdata+1) != _metadata.epoch) {
+	unsigned char errmsg[5];
 	if (reqlen > 0 && reqdata[0] == 0xfe) {
 	    errmsg[0] = 0x80;
 	} else if (reqlen > 0 && reqdata[1] == 0xfd) {
@@ -134,15 +143,15 @@ void DP5LookupServer::process_request(string &reply, const string &request)
 	} else {
 	    errmsg[0] = 0x00;
 	}
-	epoch_num_to_bytes(errmsg+1, epoch);
-	reply.assign(errmsg, 5);
+	epoch_num_to_bytes(errmsg+1, _metadata.epoch);
+	reply.assign((char *) errmsg, 5);
 	return;
     }
 
     // At this point, we have a well-formed 5-byte command header with
     // the correct epoch in it.
     if (reqdata[0] == 0xff) {
-        reply = toString();
+        reply = _metadata.toString();
     	return;
     }
 
@@ -155,14 +164,14 @@ void DP5LookupServer::process_request(string &reply, const string &request)
 	    // Error occurred
 	    char errmsg[5];
 	    errmsg[0] = 0x80;
-	    epoch_num_to_bytes(errmsg+1, epoch);
-	    reply.assign(errmsg, 5);
+	    epoch_num_to_bytes(errmsg+1, _metadata.epoch);
+	    reply.assign((char *) errmsg, 5);
 	    return;
 	}
 	char repmsg[5];
 	repmsg[0] = 0x81;
-	epoch_num_to_bytes(repmsg+1, epoch);
-	reply.assign(repmsg, 5);
+	epoch_num_to_bytes(repmsg+1, _metadata.epoch);
+	reply.assign((char *) repmsg, 5);
 	reply.append(pirresp);
 	return;
     }
@@ -171,11 +180,11 @@ void DP5LookupServer::process_request(string &reply, const string &request)
 	// Request for the whole data file
 	char repmsg[5];
 	repmsg[0] = 0x82;
-	epoch_num_to_bytes(repmsg+1, epoch);
-	reply.assign(repmsg, 5);
+	epoch_num_to_bytes(repmsg+1, _metadata.epoch);
+	reply.assign((char *) repmsg, 5);
 	reply.append((const char *)(_datastore->get_data()),
-	    num_buckets * bucket_size *
-	    (HASHKEY_BYTES + dataenc_bytes));
+	    _metadata.num_buckets * _metadata.bucket_size *
+	    (HASHKEY_BYTES + _metadata.dataenc_bytes));
 	return;
     }
 
@@ -183,14 +192,14 @@ void DP5LookupServer::process_request(string &reply, const string &request)
     throw runtime_error("Unhandled request");
 }
 
+} // namespace dp5
 #ifdef TEST_LSCD
 
 // Test the constructor, copy constructor, assignment operator,
 // destructor
+using namespace dp5;
 void test_lscd()
 {
-    DP5Params p;
-
     DP5LookupServer a("metadata.out", "data.out");
     DP5LookupServer b;
     b = a;
@@ -224,6 +233,7 @@ int main(int argc, char **argv)
 
 // Run as: ./test_pirglue | hexdump -e '10/1 "%02x" " " 1/16 "%s" "\n"'
 
+namespace dp5 {
 void test_pirglue()
 {
     unsigned int num_servers = 5;
@@ -239,7 +249,7 @@ void test_pirglue()
 
     DP5LookupClient::Request req;
     const vector<DP5LookupClient::Request::Friend_state> fs;
-    req.init(num_servers, 2, servers[0], fs, true);
+    req.init(num_servers, 2, servers[0]._metadata, fs, true);
 
     vector<unsigned int> bucketnums;
     bucketnums.push_back(3);
@@ -282,11 +292,12 @@ void test_pirglue()
 
     delete[] servers;
 }
+}
 
 int main(int argc, char **argv)
 {
     ZZ_p::init(to_ZZ(256));
-    test_pirglue();
+    dp5::test_pirglue();
 
     return 0;
 }
@@ -298,6 +309,7 @@ int main(int argc, char **argv)
 
 #include "dp5lookupclient.h"
 
+namespace dp5 {
 DP5LookupServer *server = NULL;
 
 void* test_pirgluemt_single(void *d)
@@ -311,10 +323,9 @@ void* test_pirgluemt_single(void *d)
     return NULL;
 }
 
+using namespace dp5::internal;
 void test_pirgluemt()
 {
-    DP5Params params;
-
     unsigned int numthreads = 100;
     unsigned int qperthread = 3;
     bool multithread = true;
@@ -323,18 +334,19 @@ void test_pirgluemt()
     // this to create the metadata.out and data.out files.
     server = new DP5LookupServer("metadata.out", "data.out");
 
-    DP5Params::PRF prf((const unsigned char*) server->prfkey, server->num_buckets);
+    PRF prf((const unsigned char*) server->_metadata.prfkey,
+        server->_metadata.num_buckets);
 
     // A vector of question/answer pairs
     vector< pair<string,string> > qas;
 
-    unsigned char hashkey[params.HASHKEY_BYTES];
-    memset(hashkey, '\0', params.HASHKEY_BYTES);
+    unsigned char hashkey[HASHKEY_BYTES];
+    memset(hashkey, '\0', HASHKEY_BYTES);
     unsigned int iter = 0;
 
     DP5LookupClient::Request req;
     const vector<DP5LookupClient::Request::Friend_state> fs;
-    req.init(5, 2, *server, fs, true);
+    req.init(5, 2, server->_metadata, fs, true);
 
     for (unsigned int i=0; i<numthreads; ++i) {
 	// Generate a random question
@@ -375,11 +387,11 @@ void test_pirgluemt()
 
     delete server;
 }
-
+}
 int main(int argc, char **argv)
 {
     ZZ_p::init(to_ZZ(256));
-    test_pirgluemt();
+    dp5::test_pirgluemt();
 
     return 0;
 }
