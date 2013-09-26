@@ -161,9 +161,9 @@ dp5combregclient_unittest.o: dp5combregclient_unittest.cpp dp5combregclient.h dp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c dp5combregclient_unittest.cpp
 dp5combregclient_unittest: dp5combregclient_unittest.o dp5combregclient.o dp5params.o curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICWRAPLIB) -L$(RELICLIB) -lrelicwrapper -lrelic_s -lgmp -lpthread -o $@
-pairing_integrationtest.o: pairing_integrationtest.cpp dp5combregclient.h dp5regserver.h dp5params.h $(GTEST_HEADERS)
+pairing_integrationtest.o: pairing_integrationtest.cpp dp5combregclient.h dp5regserver.h dp5params.h dp5metadata.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c pairing_integrationtest.cpp
-pairing_integrationtest: pairing_integrationtest.o dp5combregclient.o dp5regserver.o dp5params.o curve25519-donna.o gtest_main.a
+pairing_integrationtest: pairing_integrationtest.o dp5combregclient.o dp5regserver.o dp5params.o dp5metadata.o  curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICWRAPLIB) -L$(RELICLIB) -lrelicwrapper -lrelic_s -lgmp -lpthread -o $@
 
 dp5lookupclient_unittest.o: dp5lookupclient_unittest.cpp dp5lookupclient.h dp5params.h dp5metadata.h $(GTEST_HEADERS)
@@ -174,6 +174,7 @@ dp5metadata_unittest.o: dp5metadata_unittest.cpp dp5metadata.h dp5params.h $(GTE
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c dp5metadata_unittest.cpp
 dp5metadata_unittest: dp5metadata_unittest.o dp5params.o dp5metadata.o curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -lpthread -o $@
+
 
 clean:
 	rm -f *.o
