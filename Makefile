@@ -1,7 +1,7 @@
 PERCYINC = ../percy
 PERCYLIB = ../percy
 NTLINC = /usr/local/include/NTL
-NTLLIB = /usr/local/lib 
+NTLLIB = /usr/local/lib
 RELICDIR = ../relic
 RELICINC = $(RELICDIR)/include
 RELICWRAPINC = relicwrapper/
@@ -57,10 +57,10 @@ libdp5: dp5lookupserver.o dp5regserver.o dp5regclient.o dp5lookupclient.o dp5par
 	ar rcs $@.a $^
 
 test_dh: test_dh.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) 
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 test_hashes: test_hashes.o curve25519-donna.o
-	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) 
+	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 test_prf: test_prf.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS)
@@ -77,7 +77,7 @@ test_rsconst: test_rsconst.o dp5params.o dp5metadata.o curve25519-donna.o
 test_rsreg: test_rsreg.o dp5params.o dp5metadata.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread
 
-test_client: test_client.o dp5params.o curve25519-donna.o 
+test_client: test_client.o dp5params.o curve25519-donna.o
 	g++ -g $^ -o $@ $(LDFLAGS) $(LDLIBS) -lpthread $(LINKRELIC)
 
 test_reqcd: test_reqcd.o dp5params.o dp5metadata.o curve25519-donna.o
@@ -135,7 +135,7 @@ dp5regserver.o: dp5regserver.cpp dp5regserver.h dp5params.h
 	g++ $(CXXFLAGS) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
 
 dp5regclient.o: dp5regclient.cpp dp5regclient.h dp5params.h
-	g++ $(CXXFLAGS) -c $< -o $@       
+	g++ $(CXXFLAGS) -c $< -o $@
 
 dp5combregclient.o: dp5combregclient.cpp dp5combregclient.h dp5params.h
 	g++ $(CXXFLAGS) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
@@ -164,14 +164,6 @@ pairing_integrationtest.o: pairing_integrationtest.cpp dp5combregclient.h dp5reg
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c pairing_integrationtest.cpp
 pairing_integrationtest: pairing_integrationtest.o dp5combregclient.o dp5regserver.o dp5params.o curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICWRAPLIB) -L$(RELICLIB) -lrelicwrapper -lrelic_s -lgmp -lpthread -o $@
-dp5lookupclient_unittest.o: dp5lookupclient_unittest.cpp dp5lookupclient.h dp5params.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c dp5lookupclient_unittest.cpp
-dp5lookupclient_unittest: dp5lookupclient_unittest.o dp5lookupclient.o dp5params.o curve25519-donna.o gtest_main.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
-dp5params_unittest.o: dp5params_unittest.cpp dp5params.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -I$(RELICWRAPINC) -I$(RELICINC) -c dp5params_unittest.cpp
-dp5params_unittest: dp5params_unittest.o dp5params.o curve25519-donna.o gtest_main.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
 
 dp5lookupclient_unittest.o: dp5lookupclient_unittest.cpp dp5lookupclient.h dp5params.h dp5metadata.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c dp5lookupclient_unittest.cpp
