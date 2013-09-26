@@ -8,22 +8,6 @@
 
 namespace dp5 {
 
-    // Runtime configurable variables
-    struct DP5Config {
-        unsigned int epoch_len;
-        unsigned int dataenc_bytes;
-        DP5Config() : epoch_len(0), dataenc_bytes(0) {}
-        DP5Config(const DP5Config & other)
-            : epoch_len(other.epoch_len), dataenc_bytes(other.dataenc_bytes)
-            {}
-
-        bool valid() {
-            return epoch_len != 0;
-        }
-
-        unsigned int current_epoch();
-    };
-
     namespace internal {
         // Metadata for a given database
 

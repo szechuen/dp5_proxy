@@ -26,6 +26,22 @@ namespace dp5 {
     // Epoch representation
     typedef unsigned int Epoch;
 
+    // Runtime configurable variables
+    struct DP5Config {
+        unsigned int epoch_len;
+        unsigned int dataenc_bytes;
+        DP5Config() : epoch_len(0), dataenc_bytes(0) {}
+        DP5Config(const DP5Config & other)
+            : epoch_len(other.epoch_len), dataenc_bytes(other.dataenc_bytes)
+            {}
+
+        bool valid() {
+            return epoch_len != 0;
+        }
+
+        Epoch current_epoch();
+    };
+
 
 
     // these constants should not be necessary for
