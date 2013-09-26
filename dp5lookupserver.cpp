@@ -53,7 +53,6 @@ void DP5LookupServer::init(const char *metadatafilename,
 
 // Copy constructor
 DP5LookupServer::DP5LookupServer(const DP5LookupServer &other)
-    : DP5Metadata(other)
 {
     init(other._metadatafilename, other._datafilename);
 }
@@ -162,13 +161,13 @@ void DP5LookupServer::process_request(string &reply, const string &request)
 	int ret = pir_process(pirresp, pirquery);
 	if (ret) {
 	    // Error occurred
-	    char errmsg[5];
+	    unsigned char errmsg[5];
 	    errmsg[0] = 0x80;
 	    epoch_num_to_bytes(errmsg+1, _metadata.epoch);
 	    reply.assign((char *) errmsg, 5);
 	    return;
 	}
-	char repmsg[5];
+	unsigned char repmsg[5];
 	repmsg[0] = 0x81;
 	epoch_num_to_bytes(repmsg+1, _metadata.epoch);
 	reply.assign((char *) repmsg, 5);
@@ -178,7 +177,7 @@ void DP5LookupServer::process_request(string &reply, const string &request)
 
     if (reqdata[0] == 0xfd) {
 	// Request for the whole data file
-	char repmsg[5];
+	unsigned char repmsg[5];
 	repmsg[0] = 0x82;
 	epoch_num_to_bytes(repmsg+1, _metadata.epoch);
 	reply.assign((char *) repmsg, 5);
