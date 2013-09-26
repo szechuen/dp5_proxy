@@ -12,12 +12,12 @@ protected:
 	vector<BuddyKey> randomPK;
 
 	virtual void SetUp() {
-		unsigned int len = 1 + EPOCH_BYTES + PRFKEY_BYTES + 2 * UINT_BYTES;
+		unsigned int len = 2 + EPOCH_BYTES + PRFKEY_BYTES + 4 * DP5Metadata::UINT_BYTES;
 		metadata.assign(len, 0x01);
-		unsigned char epoch_bytes[EPOCH_BYTES];
+		char epoch_bytes[EPOCH_BYTES];
 		epoch = 0x2323;
 		epoch_num_to_bytes(epoch_bytes, epoch);
-		metadata.replace(1, 4, (char *) epoch_bytes, 4);
+		metadata.replace(2, 4, (char *) epoch_bytes, 4);
 		privkey.assign(PRIVKEY_BYTES, 0x45);
 
 		unsigned char pubkey[PUBKEY_BYTES];
@@ -36,13 +36,13 @@ protected:
 	}
 };
 TEST_F(LookupClientTest, InvalidPrivateKey) {
-	EXPECT_THROW({ DP5LookupClient("", false); }, std::invalid_argument);
-	EXPECT_THROW({ DP5LookupClient("asdfasdf", false); }, 
+	EXPECT_THROW({ DP5LookupClient(""); }, std::invalid_argument);
+	EXPECT_THROW({ DP5LookupClient("asdfasdf"); },
 		std::invalid_argument);
 }
 
 TEST_F(LookupClientTest, ValidMetadata) {
-	DP5LookupClient client(privkey, false);
+	DP5LookupClient client(privkey);
 	string metadata_request;
 
 	// prime the client
@@ -52,7 +52,7 @@ TEST_F(LookupClientTest, ValidMetadata) {
 }
 
 TEST_F(LookupClientTest, InvalidBuddyPK) {
-	DP5LookupClient client(privkey, false);
+	DP5LookupClient client(privkey);
 	string metadata_request;
 
 	client.metadata_request(metadata_request, epoch);
