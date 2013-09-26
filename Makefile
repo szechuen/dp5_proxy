@@ -10,9 +10,10 @@ RELICWRAPLIB = relicwrapper/
 LINKRELIC = -L$(RELICLIB) -lrelic_s -lgmp -L$(RELICWRAPLIB) -lrelicwrapper
 CC = gcc
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC -I$(PERCYINC) -I$(NTLINC)
+CXXFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC \
+	-I$(RELICWRAPINC) -I$(RELICINC) -I$(PERCYINC) -I$(NTLINC)
 CFLAGS = -O0 -g -Wall -Werror -Wno-deprecated-declarations -fPIC
-LDLIBS = -lcrypto
+LDLIBS = -lcrypto $(LINKRELIC)
 GTEST_DIR = ../gtest-1.7.0
 
 BINS = libdp5
