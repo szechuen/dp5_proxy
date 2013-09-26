@@ -42,9 +42,11 @@ namespace dp5 {
     struct DP5Config {
         unsigned int epoch_len;
         unsigned int dataenc_bytes;
-        DP5Config() : epoch_len(0), dataenc_bytes(0) {}
+        bool combined;
+        DP5Config() : epoch_len(0), dataenc_bytes(0), combined(false) {}
         DP5Config(const DP5Config & other)
-            : epoch_len(other.epoch_len), dataenc_bytes(other.dataenc_bytes)
+            : epoch_len(other.epoch_len), dataenc_bytes(other.dataenc_bytes),
+            combined(other.combined)
             {}
 
         bool valid() {
