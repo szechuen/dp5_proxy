@@ -37,6 +37,11 @@ Metadata::Metadata() : epoch(0), num_buckets(0), bucket_size (0) {
     memset(prfkey, 0, sizeof(prfkey));
 }
 
+Metadata::Metadata(const DP5Config & config) : DP5Config(config),
+    epoch(0), num_buckets(0), bucket_size(0) {
+    memset(prfkey, 0, sizeof(prfkey));
+}
+
 Metadata::Metadata(const Metadata & other) :
     DP5Config(other), epoch(other.epoch), num_buckets(other.num_buckets),
     bucket_size(other.bucket_size)
