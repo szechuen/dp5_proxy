@@ -90,15 +90,10 @@ int main(int argc, char **argv){
             unsigned int f2 = *ix;
             BuddyInfo b;
             memmove(b.pubkey, tcs[f2].pubkey, DP5Params::PUBKEY_BYTES);
-            char data[dp5.dataenc_bytes];
-            memset(data, 0, dp5.dataenc_bytes);
-            data[0] = 0x99; // Just a random marker
-
-            memmove(data +1, 
-                (const char *) &f, sizeof(unsigned int));
-            memmove(data +1 + sizeof(unsigned int), 
-                (const char *) &f2, sizeof(unsigned int));
-            b.data.assign(data, dp5.dataenc_bytes);
+            b.data.push_back(0x99);
+            b.data.append((char *) &f, sizeof(f));
+            b.data.append((char *) &f2, sizeof(f2));
+            b.data.append(dp5.dataenc_bytes - 2*sizeof(unsigned int) - 1, 0);
             buds.push_back(b);
         }
 
