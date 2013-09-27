@@ -179,7 +179,7 @@ void H4(unsigned char H4_out[HASHKEY_BYTES],
 
 void H5(unsigned char H5_out[DATAKEY_BYTES],
     Epoch epoch,
-    const unsigned char blspub[PREKEY_BYTES])
+    const BLSPubKey & pubkey)
 {
     unsigned char shaout[SHA256_DIGEST_LENGTH];
     SHA256_CTX hash;
@@ -188,7 +188,7 @@ void H5(unsigned char H5_out[DATAKEY_BYTES],
     WireEpoch wire_epoch;
     epoch_num_to_bytes(wire_epoch, epoch);
     SHA256_Update(&hash, wire_epoch, EPOCH_BYTES);
-    SHA256_Update(&hash, blspub, PREKEY_BYTES);
+    SHA256_Update(&hash, pubkey, pubkey.size);
     SHA256_Final(shaout, &hash);
     memmove(H5_out, shaout, DATAKEY_BYTES);
 }
@@ -297,11 +297,11 @@ int hash_key_from_sig(unsigned char key[HASHKEY_BYTES],
 }
 
 int hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
-    const unsigned char publickey[BLS_PUB_BYTES],
+    const BLSPubKey & pubkey,
     unsigned int epoch) {
     Pairing pairing;
-    G1 pubkey;
-    if (pubkey.fromBin(publickey, BLS_PUB_BYTES) != 0) {
+    G1 pubkey_g1;
+    if (pubkey_g1.fromBin(pubkey, pubkey.size) != 0) {
         return -1; // Invalid key
     }
 
@@ -309,7 +309,7 @@ int hash_key_from_pk(unsigned char key[HASHKEY_BYTES],
     epoch_num_to_bytes(E, epoch);
     G2 epoch_hash(pairing, E, EPOCH_BYTES);
 
-    GT verify_token = pairing.apply(pubkey, epoch_hash);
+    GT verify_token = pairing.apply(pubkey_g1, epoch_hash);
 
     unsigned char verifybytes[SIG_VERIFY_BYTES];
     verify_token.toBin((char *) verifybytes);
