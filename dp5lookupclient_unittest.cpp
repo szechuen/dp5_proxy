@@ -6,6 +6,8 @@
 using namespace dp5;
 using namespace dp5::internal;
 
+typedef PubKey BuddyKey;
+
 class LookupClientTest : public ::testing::Test {
 protected:
 	string metadata;
@@ -28,22 +30,15 @@ protected:
 		PrivKey privkey;
 
 		genkeypair(pubkey, privkey);
-		BuddyKey buddy;
-		buddy.pubkey = pubkey;
-		validbuddy.push_back(buddy);
+		validbuddy.push_back(pubkey);
 
 		ZZ_p::init(to_ZZ(256));
 
-		BuddyKey buddy2;
-		buddy2.pubkey.assign(PUBKEY_BYTES, 0x55);
+		string buddy2;
+		buddy2.assign(PUBKEY_BYTES, 0x55);
 		randomPK.push_back(buddy2);
 	}
 };
-TEST_F(LookupClientTest, InvalidPrivateKey) {
-	EXPECT_THROW({ DP5LookupClient(""); }, std::invalid_argument);
-	EXPECT_THROW({ DP5LookupClient("asdfasdf"); },
-		std::invalid_argument);
-}
 
 TEST_F(LookupClientTest, ValidMetadata) {
 	DP5LookupClient client(privkey);
@@ -55,21 +50,16 @@ TEST_F(LookupClientTest, ValidMetadata) {
 	EXPECT_EQ(client.metadata_reply(metadata), 0);
 }
 
-TEST_F(LookupClientTest, InvalidBuddyPK) {
+TEST_F(LookupClientTest, LookupRequest) {
 	DP5LookupClient client(privkey);
 	string metadata_request;
 
 	client.metadata_request(metadata_request, epoch);
 	ASSERT_EQ(client.metadata_reply(metadata), 0);
 
-	BuddyKey bk;	/* empty string */
-	vector<BuddyKey> keys;
-	keys.push_back(bk);
 	DP5LookupClient::Request request;
 
-	ASSERT_NE(client.lookup_request(request, keys, 2, 1), 0);
-
-	// valid publiec key
+	// valid public key
 	ASSERT_EQ(client.lookup_request(request, validbuddy, 2, 1), 0);
 
 	ASSERT_EQ(client.lookup_request(request, randomPK, 2, 1), 0);

@@ -40,12 +40,12 @@ python: libdp5 dp5py.cpp setup.py
 	cp `find build -name dp5.so` dp5.so
 
 gtest-all.o : $(GTEST_SRCS_)
-	$(CXX)  -I$(GTEST_DIR) -I$(GTEST_DIR)/include $(CXXFLAGS) -pthread -c \
+	$(CXX)  -I$(GTEST_DIR) -I$(GTEST_DIR)/include $(CXXFLAGS) -Wno-error -pthread -c \
             $(GTEST_DIR)/src/gtest-all.cc
 
 
 gtest_main.o : $(GTEST_SRCS_)
-	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR) $(CXXFLAGS) -pthread -c \
+	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR) $(CXXFLAGS) -Wno-error -pthread -c \
             $(GTEST_DIR)/src/gtest_main.cc
 
 gtest.a : gtest-all.o

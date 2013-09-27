@@ -249,7 +249,7 @@ void test_pirglue()
 
     PIRRequest req;
     req.init(num_servers, 2, servers[0].getMetadata(),
-        servers[0].getConfig().dataenc_bytes + HASHKEY_BYTES, true);
+        servers[0].getConfig().dataenc_bytes + HASHKEY_BYTES);
 
     vector<unsigned int> bucketnums;
     bucketnums.push_back(3);
@@ -311,7 +311,6 @@ int main()
 
 namespace dp5 {
 DP5LookupServer *server = NULL;
-namespace internal {
 void* test_pirgluemt_single(void *d)
 {
     pair<string,string> *p = (pair<string,string> *)d;
@@ -343,9 +342,9 @@ void test_pirgluemt()
     memset(hashkey, '\0', HASHKEY_BYTES);
     unsigned int iter = 0;
 
-    DP5LookupClient::Request req;
-    const vector<DP5LookupClient::Request::Friend_state> fs;
-    req.init(5, 2, server->_metadata, fs, true);
+    PIRRequest req;
+    req.init(5, 2, server->_metadata, HASHKEY_BYTES +
+        server->_metadata.dataenc_bytes);
 
     for (unsigned int i=0; i<numthreads; ++i) {
 	// Generate a random question
@@ -385,7 +384,6 @@ void test_pirgluemt()
     }
 
     delete server;
-}
 }
 }
 int main()

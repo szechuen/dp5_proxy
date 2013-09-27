@@ -140,6 +140,9 @@ namespace dp5 {
             };
 
             friend class GenericLookupClient<BuddyKey,MyPrivKey>;
+#ifdef TEST_REQCD
+            friend void test_reqcd(LookupRequest &a);
+#endif // TEST_REQCD
 
             vector<BuddyState> _buddy_states;
 
@@ -390,9 +393,6 @@ namespace dp5 {
 #ifdef TEST_PIRGLUEMT
             friend void test_pirgluemt();
 #endif // TEST_PIRGLUEMT
-#ifdef TEST_REQCD
-            friend void test_reqcd(Request &a);
-#endif // TEST_REQCD
 
         };
 

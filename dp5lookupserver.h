@@ -69,7 +69,10 @@ private:
 #ifdef TEST_PIRGLUE
     friend void test_pirglue();
 #endif
-
+#ifdef TEST_PIRGLUEMT
+    friend void test_pirgluemt();
+    friend void *test_pirgluemt_single(void *);
+#endif
 };
 
 }

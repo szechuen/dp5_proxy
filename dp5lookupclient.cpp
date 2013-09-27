@@ -474,8 +474,9 @@ void test_reqcd(DP5LookupClient::Request &a)
     meta.bucket_size = 50;
 
     DP5LookupClient::Request b;
-    vector<DP5LookupClient::Request::Friend_state> fs;
-    a.init(5, 2, meta, fs, true);
+    PrivKey key;
+    vector<DP5LookupClient::Request::BuddyState> fs;
+    a.init(5, 2, meta, fs, true, key);
     b = a;
     DP5LookupClient::Request c(b);
     DP5LookupClient::Request d = c;
@@ -484,7 +485,7 @@ void test_reqcd(DP5LookupClient::Request &a)
 
     vector<unsigned int> buckets;
     vector<string> requests;
-    b.pir_query(requests, buckets);
+    b.pir_request.pir_query(requests, buckets);
 }
 }
 }
