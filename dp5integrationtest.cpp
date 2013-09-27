@@ -23,8 +23,8 @@ using namespace dp5;
 using namespace dp5::internal;
 
 struct dp5TestClient {
-    unsigned char privkey[PRIVKEY_BYTES];
-    unsigned char pubkey[PUBKEY_BYTES];
+    PrivKey privkey;
+    PubKey pubkey;
     DP5RegClient * reg;
     DP5LookupClient * cli;
     std::set<unsigned int> friends;
@@ -80,7 +80,7 @@ int main(int argc, char **argv){
     // Now register buddies for all on-line clients
     for (unsigned int f = 0; f < NUMBEROFCLIENTS; f++)
     {
-        tcs[f].cli = new DP5LookupClient(string((char *) tcs[f].privkey, PRIVKEY_BYTES));
+        tcs[f].cli = new DP5LookupClient(tcs[f].privkey);
         if (tcs[f].online == false) continue;
         tcs[f].reg = new DP5RegClient(dp5, tcs[f].privkey);
 
@@ -90,7 +90,7 @@ int main(int argc, char **argv){
             ix!=tcs[f].friends.end(); ++ix){
             unsigned int f2 = *ix;
             BuddyInfo b;
-            memmove(b.pubkey, tcs[f2].pubkey, PUBKEY_BYTES);
+            b.pubkey = tcs[f2].pubkey;
             b.data.push_back(0x99);
             b.data.append((char *) &f, sizeof(f));
             b.data.append((char *) &f2, sizeof(f2));
@@ -161,7 +161,7 @@ int main(int argc, char **argv){
             ix!=tcs[f].friends.end(); ++ix){
             unsigned int f2 = *ix;
             BuddyKey b;
-            b.pubkey.assign((char *) tcs[f2].pubkey, PUBKEY_BYTES);
+            b.pubkey = tcs[f2].pubkey;
             buds.push_back(b);
         }
 

@@ -381,7 +381,7 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
 using namespace dp5;
 // Test the copy constructor and assignment operator (use valgrind to
 // check)
-int main(int argc, char **argv)
+int main()
 {
     // Ensure the directories exist
     mkdir("regdir", 0700);
@@ -423,6 +423,7 @@ static void *client_reg_thread(void *strp)
 
 static void *epoch_change_thread(void *none)
 {
+    (void)(none);// turn off compiler warning
     ofstream md("metadata.out");
     ofstream d("data.out");
     rs->epoch_change(md, d);

@@ -10,12 +10,12 @@ RELICWRAPLIB = relicwrapper/
 LINKRELIC = -L$(RELICLIB) -lrelic_s -lgmp -L$(RELICWRAPLIB) -lrelicwrapper
 CC = gcc
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -Wextra -Weffc++ -Werror -Wno-deprecated-declarations -fPIC \
+CXXFLAGS = -O0 -g -Wall -Wextra -Werror -Wno-deprecated-declarations -fPIC \
 	-I$(RELICWRAPINC) -I$(RELICINC) -I$(PERCYINC) -I$(NTLINC)
 CFLAGS = -O0 -g -Wall -Wextra -Werror -Wno-deprecated-declarations -fPIC
 LDLIBS = -lcrypto $(LINKRELIC)
 GTEST_DIR = ../gtest-1.7.0
-CPPFLAGS += -isystem $(GTEST_DIR)/include
+CXXFLAGS += -isystem $(PERCYINC) -isystem $(RELICWRAPINC) -isystem $(GTEST_DIR)/include
 
 BINS = libdp5
 TESTS = test_dh test_hashes test_prf test_enc test_epoch \
@@ -149,7 +149,7 @@ dp5lookupserver.o: dp5lookupserver.cpp dp5lookupserver.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -c $< -o $@
 
 dp5params.o: dp5params.cpp dp5params.h
-	g++ $(CXXFLAGS) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
+	g++ $(CPPFLAGS) $(CXXFLAGS) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
 
 test_integrate.o: dp5integrationtest.cpp dp5lookupclient.h dp5lookupserver.h dp5regserver.h dp5regclient.h dp5params.h
 	g++ $(CXXFLAGS) -I$(PERCYINC) -I$(NTLINC) -I$(RELICWRAPINC) -I$(RELICINC) -c $< -o $@
@@ -172,7 +172,7 @@ dp5lookupclient_unittest.o: dp5lookupclient_unittest.cpp dp5lookupclient.h dp5pa
 dp5lookupclient_unittest: dp5lookupclient_unittest.o dp5lookupclient.o dp5params.o dp5metadata.o curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(PERCYLIB) -lpercyclient -lntl -lgmp -lpthread -o $@
 dp5metadata_unittest.o: dp5metadata_unittest.cpp dp5metadata.h dp5params.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(GTEST_DIR)/include -c dp5metadata_unittest.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wno-error -I$(GTEST_DIR)/include -c dp5metadata_unittest.cpp
 dp5metadata_unittest: dp5metadata_unittest.o dp5params.o dp5metadata.o curve25519-donna.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -lpthread -o $@
 

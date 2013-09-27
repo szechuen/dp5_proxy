@@ -17,8 +17,7 @@ using namespace dp5::internal;
 
 // Initialize the client by storing its private key
 DP5RegClient::DP5RegClient(const DP5Config & config, const PrivKey privkey)
-    : _config(config) {
-    memmove(this->_privkey,privkey, PRIVKEY_BYTES);
+    : _config(config), _privkey(privkey) {
 }
 
 int DP5RegClient::start_reg(string &msgtosend, Epoch next_epoch,
@@ -28,7 +27,7 @@ int DP5RegClient::start_reg(string &msgtosend, Epoch next_epoch,
     if (buddies.size() > MAX_BUDDIES)
         return 0x01; // Number of buddies exceeds maximum.
 
-    unsigned char mypub[PUBKEY_BYTES];
+    PubKey mypub;
     getpubkey(mypub, _privkey);
 
     // Determine the target epoch for the registration
@@ -122,13 +121,13 @@ static void dump(const char *prefix, const unsigned char *data,
     printf("\n");
 }
 
-int main(int argc, char **argv)
+int main()
 {
     DP5Config dp5;
 
     // Make up a client
-    unsigned char client_privkey[PRIVKEY_BYTES];
-    unsigned char client_pubkey[PUBKEY_BYTES];
+    PrivKey client_privkey;
+    PubKey client_pubkey;
     genkeypair(client_pubkey, client_privkey);
     dp5.dataenc_bytes = 16;
     dp5.epoch_len = 1800;
@@ -139,8 +138,8 @@ int main(int argc, char **argv)
     vector<BuddyInfo> buddies(10);
 
     for(unsigned int i = 0; i < 10; i++){
-        unsigned char bud_privkey[PRIVKEY_BYTES];
-        unsigned char* bud_pubkey = buddies[i].pubkey;
+        PrivKey bud_privkey;
+        PubKey & bud_pubkey = buddies[i].pubkey;
         genkeypair(bud_pubkey, bud_privkey);
 
         for (unsigned int j=0; j<dp5.dataenc_bytes; ++j) {

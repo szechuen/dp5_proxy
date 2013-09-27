@@ -41,29 +41,27 @@ unsigned int DP5Config::current_epoch()
 
 
 // Generate a public/private keypair
-void genkeypair(PubKey pubkey, PrivKey privkey)
+void genkeypair(PubKey & pubkey, PrivKey & privkey)
 {
-    // The generator
-    static const unsigned char generator[32] = {9};
-
     // Generate a private key
-    random_bytes(privkey, PRIVKEY_BYTES);
+    privkey.random();
     privkey[0] &= 248;
     privkey[31] &= 127;
     privkey[31] |= 64;
-
-    // Generate the public key
-    curve25519_donna(pubkey, privkey, generator);
+    getpubkey(pubkey, privkey);
 }
 
 // Get public key from private key
-void getpubkey(PubKey pubkey, const PrivKey privkey)
+void getpubkey(PubKey & pubkey, const PrivKey & privkey)
 {
     // The generator
     static const unsigned char generator[32] = {9};
 
+    byte pubkey_buf[pubkey.size];
+
     // Generate the public key
-    curve25519_donna(pubkey, privkey, generator);
+    curve25519_donna(pubkey_buf, privkey, generator);
+    pubkey.assign(pubkey_buf, pubkey.size);
 }
 
 namespace internal {
@@ -91,18 +89,39 @@ public:
 
 // Place num_bytes random bytes into buf.  This is not static, so that
 // the PRNG can keep state if necessary
-void random_bytes(unsigned char *buf, unsigned int num_bytes)
+void init_seed() {
+    static RandSeeder seeder;
+}
+
+void random_bytes(byte *buf, unsigned int num_bytes)
 {
     // Will be constructed on first call to this function
     // FIXME: not thread-safe
-    static RandSeeder seeder;
+    init_seed();
     RAND_bytes(buf, num_bytes);
+}
+
+
+template<unsigned int N>
+void random_bytes(ByteArray<N> &array, unsigned int num_bytes)
+{
+    if (num_bytes != N) {
+        throw runtime_error("Invalid call to random_bytes");
+    }
+    array.random();
+}
+
+
+template<size_t N>
+void ByteArray<N>::random() {
+    init_seed();
+    RAND_bytes(data, N);
 }
 
 // Compute the Diffie-Hellman output for a given (buddy's) public
 // key and (your own) private key
-void diffie_hellman(DHOutput dh_output, const PrivKey my_privkey,
-    const PubKey their_pubkey)
+void diffie_hellman(DHOutput dh_output, const PrivKey & my_privkey,
+    const PubKey & their_pubkey)
 {
     curve25519_donna(dh_output, my_privkey, their_pubkey);
 }
@@ -112,7 +131,7 @@ void diffie_hellman(DHOutput dh_output, const PrivKey my_privkey,
 // a hash value of size SHAREDKEY_BYTES bytes.  H_2 consumes the
 // same input and produces a hash value of size DATAKEY_BYTES bytes.
 void H1H2(SharedKey H1_out, DataKey H2_out, Epoch epoch,
-    const PubKey pubkey, const DHOutput dhout)
+    const PubKey & pubkey, const DHOutput dhout)
 {
     unsigned char shaout[SHA256_DIGEST_LENGTH];
     SHA256_CTX hash;
@@ -181,9 +200,9 @@ void H5(unsigned char H5_out[DATAKEY_BYTES],
 // The constuctor consumes a key of size PRFKEY_BYTES bytes and
 // a number of buckets (the size of the codomain of the function)
 PRF::PRF(const PRFKey prfkey, unsigned int num_buckets)
+    : _num_buckets(num_buckets)
 {
     memmove(_prfkey, prfkey, PRFKEY_BYTES);
-    _num_buckets = num_buckets;
     if (_num_buckets < 1) {
     	_num_buckets = 1;
     }
@@ -325,13 +344,13 @@ static void dump(const char *prefix, const unsigned char *data,
     printf("\n");
 }
 
-int main(int argc, char **argv)
+int main()
 {
-    unsigned char alice_privkey[PRIVKEY_BYTES];
-    unsigned char alice_pubkey[PUBKEY_BYTES];
+    PrivKey alice_privkey;
+    PubKey alice_pubkey;
     unsigned char alice_dh[PUBKEY_BYTES];
-    unsigned char bob_privkey[PRIVKEY_BYTES];
-    unsigned char bob_pubkey[PUBKEY_BYTES];
+    PrivKey bob_privkey;
+    PubKey bob_pubkey;
     unsigned char bob_dh[PUBKEY_BYTES];
 
     genkeypair(alice_pubkey, alice_privkey);
@@ -373,13 +392,11 @@ static void dump(const char *prefix, const unsigned char *data,
     printf("\n");
 }
 
-int main(int argc, char **argv)
+int main()
 {
-    unsigned char alice_privkey[PRIVKEY_BYTES];
-    unsigned char alice_pubkey[PUBKEY_BYTES];
+    PrivKey alice_privkey, bob_privkey;
+    PubKey alice_pubkey, bob_pubkey;
     unsigned char alice_dh[PUBKEY_BYTES];
-    unsigned char bob_privkey[PRIVKEY_BYTES];
-    unsigned char bob_pubkey[PUBKEY_BYTES];
     unsigned char bob_dh[PUBKEY_BYTES];
     unsigned char H1[SHAREDKEY_BYTES];
     unsigned char H2[DATAKEY_BYTES];
@@ -459,7 +476,7 @@ static void dump(const char *prefix, const unsigned char *data,
     printf("\n");
 }
 
-int main(int argc, char **argv)
+int main()
 {
     const unsigned int DATAPLAIN_BYTES = 16;
     const unsigned int DATAENC_BYTES = 16;
@@ -522,7 +539,7 @@ static void dump(const char *prefix, const unsigned char *data,
     printf("\n");
 }
 
-int main(int argc, char **argv)
+int main()
 {
     Epoch epoch = 12345678;
     printf("Epoch = %u\n", epoch);

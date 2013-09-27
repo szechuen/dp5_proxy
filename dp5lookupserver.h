@@ -18,7 +18,7 @@ public:
     // Default constructor
     DP5LookupServer() : _metadatafilename(NULL),
 	    _datafilename(NULL), _pirserverparams(NULL),
-	    _datastore(NULL), _pirserver(NULL) {}
+	    _datastore(NULL), _pirserver(NULL), _metadata() {}
 
     // Copy constructor
     DP5LookupServer(const DP5LookupServer &other);

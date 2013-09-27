@@ -208,7 +208,7 @@ void test_lscd()
     e = d;
 }
 
-int main(int argc, char **argv)
+int main()
 {
     ZZ_p::init(to_ZZ(256));
 
@@ -293,7 +293,7 @@ void test_pirglue()
 }
 }
 
-int main(int argc, char **argv)
+int main()
 {
     ZZ_p::init(to_ZZ(256));
     dp5::test_pirglue();
@@ -387,7 +387,7 @@ void test_pirgluemt()
     delete server;
 }
 }
-int main(int argc, char **argv)
+int main()
 {
     ZZ_p::init(to_ZZ(256));
     dp5::test_pirgluemt();

@@ -190,12 +190,12 @@ int DP5LookupClient::lookup_request(Request &req, const vector<BuddyKey> buddies
 
         // Get the long terms shared DH key
         unsigned char shared_dh_secret[PUBKEY_BYTES];
-        diffie_hellman(shared_dh_secret, (const unsigned char *) _privkey.c_str(),
-                (const unsigned char *) friend_rec.pubkey.c_str());
+        diffie_hellman(shared_dh_secret, _privkey,
+                friend_rec.pubkey);
 
         // Derive the epoch keys
         H1H2(friend_rec.shared_key, friend_rec.data_key, _metadata.epoch,
-                (const unsigned char *) buddies[i].pubkey.c_str(),
+                buddies[i].pubkey,
                 shared_dh_secret);
 
         // Produce HKi
@@ -469,7 +469,7 @@ void test_reqcd(DP5LookupClient::Request &a)
     e = d;
 }
 }
-int main(int argc, char **argv)
+int main()
 {
     DP5LookupClient::Request a;
     ZZ_p::init(to_ZZ(256));

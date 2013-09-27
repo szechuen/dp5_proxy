@@ -35,8 +35,8 @@ public:
 
 private:
     // Save a copy of the private key
-    PrivKey _privkey;
     DP5Config _config;
+    PrivKey _privkey;
 };
 
 }

@@ -24,12 +24,12 @@ protected:
 		metadata.replace(2, 4, (char *) epoch_bytes, 4);
 		privkey.assign(PRIVKEY_BYTES, 0x45);
 
-		unsigned char pubkey[PUBKEY_BYTES];
-		unsigned char privkey[PRIVKEY_BYTES];
+		PubKey pubkey;
+		PrivKey privkey;
 
 		genkeypair(pubkey, privkey);
 		BuddyKey buddy;
-		buddy.pubkey.assign((char *) pubkey, PUBKEY_BYTES);
+		buddy.pubkey = pubkey;
 		validbuddy.push_back(buddy);
 
 		ZZ_p::init(to_ZZ(256));

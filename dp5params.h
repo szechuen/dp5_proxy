@@ -2,6 +2,7 @@
 #define __DP5PARAMS_H__
 
 #include <string>
+#include "dp5util.h"
 
 namespace dp5 {
     // The mamimum number of buddies per client
@@ -9,11 +10,11 @@ namespace dp5 {
 
     // Number of bytes in a private key
     static const unsigned int PRIVKEY_BYTES = 32;
-    typedef unsigned char PrivKey[PRIVKEY_BYTES];
+    typedef internal::ByteArray<PRIVKEY_BYTES> PrivKey;
 
     // Number of bytes in a public key
     static const unsigned int PUBKEY_BYTES = 32;
-    typedef unsigned char PubKey[PUBKEY_BYTES];
+    typedef internal::ByteArray<PUBKEY_BYTES> PubKey;
 
     // Number of bytes in a BLS private key
     // (element of Zr)
@@ -30,10 +31,10 @@ namespace dp5 {
     ///
     /// Generate a public-private keypair
     ///
-    void genkeypair(PubKey pubkey, PrivKey privkey);
+    void genkeypair(PubKey & pubkey, PrivKey & privkey);
 
     // Compute a public key from a private key
-    void getpubkey(PubKey pubkey, const PrivKey privkey);
+    void getpubkey(PubKey & pubkey, const PrivKey & privkey);
 
     // Epoch representation
     typedef unsigned int Epoch;
@@ -94,21 +95,24 @@ namespace dp5 {
 
         // Place num_bytes random bytes into buf.  This is not static, so that
         // the PRNG can keep state if necessary
-        void random_bytes(unsigned char *buf, unsigned int num_bytes);
+        void random_bytes(byte *, unsigned int num_bytes);
+
+        template<unsigned int N>
+        void random_bytes(ByteArray<N> &, unsigned int num_bytes);
 
         typedef unsigned char DHOutput[PUBKEY_BYTES];
 
         // Compute the Diffie-Hellman output for a given (buddy's) public
         // key and (your own) private key
-        void diffie_hellman(DHOutput dh_output, const PrivKey my_privkey,
-        	const PubKey their_pubkey);
+        void diffie_hellman(DHOutput dh_output, const PrivKey & my_privkey,
+        	const PubKey & their_pubkey);
 
         // Hash function H_1 consumes an epoch (of size EPOCH_BYTES bytes)
         // and a Diffie-Hellman output (of size PUBKEY_BYTES) and produces
         // a hash value of size SHAREDKEY_BYTES bytes.  H_2 consumes the
         // same input and produces a hash value of size DATAKEY_BYTES bytes.
         void H1H2(SharedKey H1_out, DataKey H2_out, Epoch epoch,
-            const PubKey pubkey, const DHOutput dh_output);
+            const PubKey & pubkey, const DHOutput dh_output);
 
         // Hash function H_3 consumes an epoch (of size EPOCH_BYTES bytes)
         // and an output of H1 (of size SHAREDKEY_BYTES bytes), and produces

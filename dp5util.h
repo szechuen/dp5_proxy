@@ -50,6 +50,16 @@ namespace dp5 {
             }
 
             static const std::size_t size = N;
+
+            // initialize to random
+            void random();
+
+            void assign(const byte * input, std::size_t len) {
+                if (len != N) {
+                    throw std::domain_error("Assigning from wrong-size string");
+                }
+                memmove(data, input, N);
+            }
         };
     }
 }
