@@ -174,6 +174,12 @@ int GenericLookupClient<PubKey,PrivKey>::buddy_hash_key(HashKey hashkey,
     return 0;
 }
 
+template<>
+int GenericLookupClient<BLSPubKey,Empty>::buddy_hash_key(HashKey hashkey,
+    const BLSPubKey & pubkey) {
+    return hash_key_from_pk(hashkey, pubkey, _metadata.epoch);
+}
+
 // Look up some number of buddies.  Pass in the vector of buddies'
 // public keys, the number of lookup servers there are, and the
 // privacy level to use (the privacy level is the maximum number of
@@ -446,9 +452,19 @@ int LookupRequest<PubKey,PrivKey>::get_data(string & data,
     return Dec(data, data_key, ciphertext);
 }
 
+template<>
+int LookupRequest<BLSPubKey,Empty>::get_data(string & data,
+    const LookupRequest<BLSPubKey,Empty>::BuddyState & buddy,
+    const string & ciphertext) {
+    DataKey data_key;
+    H5(data_key, _metadata.epoch, buddy.pubkey);
+    return Dec(data, data_key, ciphertext);
+}
 
 template class LookupRequest<PubKey,PrivKey>;
 template class GenericLookupClient<PubKey,PrivKey>;
+template class LookupRequest<BLSPubKey,Empty>;
+template class GenericLookupClient<BLSPubKey,Empty>;
 
 } // namespace internal
 } // namespace DP5

@@ -236,13 +236,21 @@ namespace dp5 {
 
         };
 
-
+        // placeholder for private key
+        struct Empty {
+        };
 
     }   // namespace dp5::internal
 
     typedef internal::GenericLookupClient<PubKey,PrivKey> DP5LookupClient;
 
+    class DP5CombinedLookupClient : public internal::GenericLookupClient<BLSPubKey,internal::Empty> {
+    public:
+        DP5CombinedLookupClient() : internal::GenericLookupClient<BLSPubKey,internal::Empty>(internal::Empty())
+            {}
     };
+
+}
 
 #endif
 /*
