@@ -156,13 +156,10 @@ int main(int argc, char **argv){
         printf("Metadata 1 ok: %s\n", (err3==0x00)?("True"):("False"));
 
         // Make a list of friends
-        vector<BuddyKey> buds;
+        vector<PubKey> buds;
         for(std::set<unsigned int>::iterator ix = tcs[f].friends.begin();
             ix!=tcs[f].friends.end(); ++ix){
-            unsigned int f2 = *ix;
-            BuddyKey b;
-            b.pubkey = tcs[f2].pubkey;
-            buds.push_back(b);
+            buds.push_back(tcs[*ix].pubkey);
         }
 
         // Build a requesr object
@@ -185,7 +182,7 @@ int main(int argc, char **argv){
         }
 
         // Process the PIR responses from servers
-        vector<BuddyPresence> presence;
+        vector<DP5LookupClient::Presence> presence;
         int err4 = req.lookup_reply(presence, msgStoCpir);
         printf("Presence 1 ok (%X): %s\n",  err4, (err4==0x00)?("True"):("False"));
 
@@ -199,8 +196,7 @@ int main(int argc, char **argv){
         for(std::set<unsigned int>::iterator ix = tcs[f].friends.begin();
             ix!=tcs[f].friends.end(); ++ix){
             unsigned int f2 = *ix;
-            bool mem_ok = (memcmp(presence[idx].pubkey.c_str(),
-                tcs[f2].pubkey, PUBKEY_BYTES) == 0);
+            bool mem_ok = (tcs[f2].pubkey == presence[idx].pubkey);
             bool online_ok = (tcs[f2].online == presence[idx].is_online);
 
             bool data_ok = true;

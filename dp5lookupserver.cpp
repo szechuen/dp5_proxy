@@ -233,6 +233,7 @@ int main()
 // Run as: ./test_pirglue | hexdump -e '10/1 "%02x" " " 1/16 "%s" "\n"'
 
 namespace dp5 {
+    using namespace dp5::internal;
 void test_pirglue()
 {
     unsigned int num_servers = 5;
@@ -246,9 +247,9 @@ void test_pirglue()
     	servers[s].init("metadata.out", "data.out");
     }
 
-    DP5LookupClient::Request req;
-    const vector<DP5LookupClient::Request::Friend_state> fs;
-    req.init(num_servers, 2, servers[0]._metadata, fs, true);
+    PIRRequest req;
+    req.init(num_servers, 2, servers[0].getMetadata(),
+        servers[0].getConfig().dataenc_bytes + HASHKEY_BYTES, true);
 
     vector<unsigned int> bucketnums;
     bucketnums.push_back(3);
@@ -259,7 +260,7 @@ void test_pirglue()
 
     int res = req.pir_query(requests, bucketnums);
     if (res) {
-	throw runtime_error("Calling pir_query");
+    	throw runtime_error("Calling pir_query");
     }
 
     vector<string> responses;
@@ -310,7 +311,7 @@ int main()
 
 namespace dp5 {
 DP5LookupServer *server = NULL;
-
+namespace internal {
 void* test_pirgluemt_single(void *d)
 {
     pair<string,string> *p = (pair<string,string> *)d;
@@ -322,7 +323,6 @@ void* test_pirgluemt_single(void *d)
     return NULL;
 }
 
-using namespace dp5::internal;
 void test_pirgluemt()
 {
     unsigned int numthreads = 100;
@@ -385,6 +385,7 @@ void test_pirgluemt()
     }
 
     delete server;
+}
 }
 }
 int main()

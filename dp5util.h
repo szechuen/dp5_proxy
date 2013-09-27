@@ -41,6 +41,10 @@ namespace dp5 {
                 return data[i];
             }
 
+            bool operator==(const ByteArray<N> & other) const {
+                return (memcmp(data, other.data, N) == 0);
+            }
+
             // FIXME: these should eventually be explicit
             operator std::string() const {
                 return std::string((char *) data, N);

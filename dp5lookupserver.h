@@ -38,6 +38,10 @@ public:
     // return to the client.
     void process_request(std::string &reply, const std::string &request);
 
+    const internal::Metadata & getMetadata() { return _metadata; }
+
+    const DP5Config & getConfig() { return _metadata; }
+
 private:
     // The glue API to the PIR layer.  Pass a request string as produced
     // by pir_query.  reponse is filled in with the reponse; pass it to
@@ -64,11 +68,7 @@ private:
 
 #ifdef TEST_PIRGLUE
     friend void test_pirglue();
-#endif // TEST_PIRGLUE
-#ifdef TEST_PIRGLUEMT
-    friend void test_pirgluemt();
-    friend void* test_pirgluemt_single(void *);
-#endif // TEST_PIRGLUEMT
+#endif
 
 };
 

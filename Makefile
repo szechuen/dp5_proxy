@@ -10,7 +10,7 @@ RELICWRAPLIB = relicwrapper/
 LINKRELIC = -L$(RELICLIB) -lrelic_s -lgmp -L$(RELICWRAPLIB) -lrelicwrapper
 CC = gcc
 CXX = g++
-CXXFLAGS = -O0 -g -Wall -Wextra -Werror -Wno-deprecated-declarations -fPIC \
+CXXFLAGS = -O0 -g -Wall -Wextra -Werror -Wno-deprecated-declarations -Wno-non-template-friend -fPIC \
 	-I$(RELICWRAPINC) -I$(RELICINC) -I$(PERCYINC) -I$(NTLINC)
 CFLAGS = -O0 -g -Wall -Wextra -Werror -Wno-deprecated-declarations -fPIC
 LDLIBS = -lcrypto $(LINKRELIC)
