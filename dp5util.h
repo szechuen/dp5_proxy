@@ -10,7 +10,7 @@ namespace dp5 {
     namespace internal {
         typedef unsigned char byte;
 
-        template<int N>
+        template<std::size_t N>
         class ByteArray {
         private:
             byte data[N];
@@ -20,13 +20,14 @@ namespace dp5 {
                 memset(data, 0, sizeof(data));
             }
             ByteArray(const ByteArray<N> & other) {
-                memcpy(data, other.data, sizeof(data));
+                memmove(data, other.data, sizeof(data));
             }
+            // FIXME: this should eventually be explicit
             ByteArray(const std::string & str) {
                 if (str.length() != N) {
                     throw std::domain_error("Constructing ByteArray from wrong-size string");
                 }
-                memcpy(data, str.data(), N);
+                memmove(data, str.data(), N);
             }
 
             byte & operator[](std::size_t i) {
@@ -40,12 +41,15 @@ namespace dp5 {
                 return data[i];
             }
 
+            // FIXME: these should eventually be explicit
             operator std::string() const {
                 return std::string((char *) data, N);
             }
-            operator const char *() const {
-                return (const char *) data;
+            operator const byte *() const {
+                return (const byte *) data;
             }
+
+            static const std::size_t size = N;
         };
     }
 }
