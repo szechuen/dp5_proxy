@@ -12,8 +12,7 @@ namespace dp5 {
 class DP5CombinedRegClient {
 public:
     // The constructor consumes the client's BLS private key
-    DP5CombinedRegClient(const unsigned char bls_privkey[BLS_PRIV_BYTES],
-        const unsigned char prekey[PREKEY_BYTES]);
+    DP5CombinedRegClient(BLSPrivKey privkey);
 
     // Register yourself as visible. Return 0 on success, in which case msgtosend will be
     // filled with the message to send to the registration server.
@@ -29,7 +28,6 @@ public:
 
 private:
     Zr _bls_privkey;
-    unsigned char _prekey[PREKEY_BYTES];
     const Pairing _pairing;   // FIXME: should be static, no?
 };
 

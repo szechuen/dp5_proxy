@@ -15,10 +15,9 @@ using namespace dp5::internal;
 
 // Initialize the client by storing its private key
 DP5CombinedRegClient::DP5CombinedRegClient(
-        const unsigned char bls_privkey[PRIVKEY_BYTES],
-        const unsigned char prekey[PREKEY_BYTES]) {
-    _bls_privkey.fromBin((const char *)bls_privkey);
-    memmove(this->_prekey,prekey, PREKEY_BYTES);
+        BLSPrivKey privkey)
+{
+    _bls_privkey.fromBin((const char *) (const byte *)privkey);
 }
 
 int DP5CombinedRegClient::start_reg(string &msgtosend, unsigned int next_epoch,
@@ -41,9 +40,16 @@ int DP5CombinedRegClient::start_reg(string &msgtosend, unsigned int next_epoch,
 
     msgtosend.append(epoch_sig_bytes, EPOCH_SIG_BYTES);
 
+    G1 pubkey = _pairing.g1_get_gen() ^ _bls_privkey;
+    byte pubkey_bytes[BLS_PUB_BYTES];
+    pubkey.toBin((char *) pubkey_bytes);
+
+    BLSPubKey blspk;
+    blspk.assign(pubkey_bytes, sizeof(pubkey_bytes));
+
     // Generate the encryption key
     unsigned char data_key[DATAKEY_BYTES];
-    H5(data_key, next_epoch, _prekey);
+    H5(data_key, next_epoch, blspk);
 
     // Encrypt associated data
     msgtosend += Enc(data_key, data);

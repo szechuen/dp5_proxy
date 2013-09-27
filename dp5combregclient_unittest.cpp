@@ -9,21 +9,21 @@ using namespace dp5::internal;
 class CombRegClient : public ::testing::Test {
 protected:
 	Pairing pairing; // this will make sure core is initialized
-	unsigned char blskey[PRIVKEY_BYTES];
-	unsigned char prekey[PREKEY_BYTES];
+	unsigned char blskey_bytes[BLS_PRIV_BYTES];
+	BLSPrivKey blskey;
 	virtual void SetUp(void) {
 		Zr keyzr(23);
-		keyzr.toBin((char *) blskey);
-		memset(prekey, 0x23, PREKEY_BYTES);
+		keyzr.toBin((char *) blskey_bytes);
+		blskey.assign(blskey_bytes, BLS_PRIV_BYTES);
 	}
 };
 
 TEST_F(CombRegClient, Constructor) {
-	DP5CombinedRegClient client(blskey, prekey);
+	DP5CombinedRegClient client(blskey);
 }
 
 TEST_F(CombRegClient, StartReg) {
-	DP5CombinedRegClient client(blskey, prekey);
+	DP5CombinedRegClient client(blskey);
 
 	string result;
 	string data(16, 0x0);
@@ -33,7 +33,7 @@ TEST_F(CombRegClient, StartReg) {
 }
 
 TEST_F(CombRegClient, FinishReg) {
-	DP5CombinedRegClient client(blskey, prekey);
+	DP5CombinedRegClient client(blskey);
 
 	// OK response for epoch 0
 	EXPECT_EQ(client.complete_reg(string("\0\0\0\0\0", 5), 0), 0);
