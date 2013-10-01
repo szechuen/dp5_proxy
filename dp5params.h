@@ -29,10 +29,12 @@ namespace dp5 {
     ///
     /// Generate a public-private keypair
     ///
-    void genkeypair(PubKey & pubkey, PrivKey & privkey);
+    template<typename Public,typename Private>
+    void genkeypair(Public & pubkey, Private & privkey);
 
     // Compute a public key from a private key
-    void getpubkey(PubKey & pubkey, const PrivKey & privkey);
+    template<typename Public,typename Private>
+    void getpubkey(Public & pubkey, const Private & privkey);
 
     // Epoch representation
     typedef unsigned int Epoch;

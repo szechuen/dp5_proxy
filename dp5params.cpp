@@ -40,19 +40,10 @@ unsigned int DP5Config::current_epoch()
 }
 
 
-// Generate a public/private keypair
-void genkeypair(PubKey & pubkey, PrivKey & privkey)
-{
-    // Generate a private key
-    privkey.random();
-    privkey[0] &= 248;
-    privkey[31] &= 127;
-    privkey[31] |= 64;
-    getpubkey(pubkey, privkey);
-}
 
 // Get public key from private key
-void getpubkey(PubKey & pubkey, const PrivKey & privkey)
+template<>
+void getpubkey<PubKey,PrivKey>(PubKey & pubkey, const PrivKey & privkey)
 {
     // The generator
     static const unsigned char generator[32] = {9};
@@ -62,6 +53,46 @@ void getpubkey(PubKey & pubkey, const PrivKey & privkey)
     // Generate the public key
     curve25519_donna(pubkey_buf, privkey, generator);
     pubkey.assign(pubkey_buf, pubkey.size);
+}
+
+// Generate a public/private keypair
+template<>
+void genkeypair<PubKey,PrivKey>(PubKey & pubkey, PrivKey & privkey)
+{
+    // Generate a private key
+    privkey.random();
+    privkey[0] &= 248;
+    privkey[31] &= 127;
+    privkey[31] |= 64;
+    getpubkey(pubkey, privkey);
+}
+
+template<>
+void getpubkey<BLSPubKey,Zr>(BLSPubKey & pubkey, const Zr & privkey) {
+    static Pairing pairing;
+    G1 g1 = pairing.g1_get_gen() ^ privkey;
+    byte pubkey_buf[pubkey.size];
+    g1.toBin(reinterpret_cast<char *>(pubkey_buf));
+    pubkey.assign(pubkey_buf, sizeof(pubkey_buf));
+}
+
+template<>
+void genkeypair<BLSPubKey,BLSPrivKey>(BLSPubKey & pubkey, BLSPrivKey & privkey)
+{
+    Zr privzr(true);
+    byte privkey_buf[privkey.size];
+    privzr.toBin(reinterpret_cast<char *>(privkey_buf));
+    privkey.assign(privkey_buf, sizeof(privkey_buf));
+    getpubkey(pubkey, privzr);
+}
+
+
+template<>
+void getpubkey<BLSPubKey,BLSPrivKey>(BLSPubKey & pubkey,
+    const BLSPrivKey & privkey) {
+    Zr privzr;
+    privzr.fromBin(reinterpret_cast<const char*>(static_cast<const byte*>(privkey)));
+    getpubkey(pubkey, privzr);
 }
 
 namespace internal {
