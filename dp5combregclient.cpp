@@ -40,12 +40,8 @@ int DP5CombinedRegClient::start_reg(string &msgtosend, unsigned int next_epoch,
 
     msgtosend.append(epoch_sig_bytes, EPOCH_SIG_BYTES);
 
-    G1 pubkey = _pairing.g1_get_gen() ^ _bls_privkey;
-    byte pubkey_bytes[BLS_PUB_BYTES];
-    pubkey.toBin((char *) pubkey_bytes);
-
     BLSPubKey blspk;
-    blspk.assign(pubkey_bytes, sizeof(pubkey_bytes));
+    getpubkey(blspk, _bls_privkey);
 
     // Generate the encryption key
     unsigned char data_key[DATAKEY_BYTES];
