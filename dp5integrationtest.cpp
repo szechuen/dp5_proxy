@@ -7,6 +7,7 @@
 
 #include "dp5params.h"
 #include "dp5regclient.h"
+#include "dp5combregclient.h"
 #include "dp5regserver.h"
 
 #include "dp5lookupserver.h"
@@ -22,29 +23,133 @@ using namespace std;
 using namespace dp5;
 using namespace dp5::internal;
 
-struct dp5TestClient {
-    PrivKey privkey;
-    PubKey pubkey;
-    DP5RegClient * reg;
-    DP5LookupClient * cli;
-    std::set<unsigned int> friends;
+template<typename Public,typename Private, typename LookupClient>
+struct dp5TestClientTemplate {
+    Private privkey;
+    Public pubkey;
+    LookupClient * cli;
+    unsigned int index;
+    std::set<dp5TestClientTemplate<Public,Private,LookupClient> *> friends;
     bool online;
+    void keygen() {
+        genkeypair(pubkey, privkey);
+    }
+    void newLookupClient();
+    void registerClient(const DP5Config & config, Epoch epoch,
+         DP5RegServer & server);
+    dp5TestClientTemplate() : index(counter++) {}
+    bool verifyData(const DP5Config & config,
+        const dp5TestClientTemplate<Public,Private,LookupClient> * friendp,
+        const typename LookupClient::Presence & presence);
+private:
+    static unsigned int counter;
 };
 
-int main(int argc, char **argv){
+template<typename Public,typename Private, typename LookupClient>
+unsigned int dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient>::counter = 0;
+
+
+
+template<>
+void dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient>::newLookupClient() {
+    cli = new DP5LookupClient(privkey);
+}
+
+template<>
+void dp5TestClientTemplate<BLSPubKey,BLSPrivKey,DP5CombinedLookupClient>::newLookupClient() {
+    cli = new DP5CombinedLookupClient();
+}
+
+template<>
+void dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient>::registerClient(
+    const DP5Config & config, Epoch epoch, DP5RegServer & server) {
+    DP5RegClient regClient(config, privkey);
+    vector<BuddyInfo> buds;
+    for(std::set<dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient> *>::iterator ix = friends.begin();
+        ix!=friends.end(); ++ix) {
+        dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient> * f2 = *ix;
+        BuddyInfo b;
+        b.pubkey = f2->pubkey;
+        b.data.push_back(0x99);
+        b.data.append((char *) &index, sizeof(index));
+        b.data.append((char *) &f2->index, sizeof(index));
+        b.data.append(config.dataenc_bytes - 2*sizeof(index) - 1, 0);
+        buds.push_back(b);
+    }
+
+    printf("Number of friends: %lu\n", (unsigned long)(buds.size()));
+
+    // Run the registration process with the server
+    string msgCtoS;
+    unsigned int next_epoch = epoch + 1;
+    int err1 = regClient.start_reg(msgCtoS, next_epoch, buds);
+    printf("Result 1 ok: %s\n", (err1==0x00)?("True"):("False"));
+
+    string msgStoC;
+    server.client_reg(msgStoC, msgCtoS);
+
+    int err2 = regClient.complete_reg(msgStoC, next_epoch);
+    printf("Result 2 ok: %s\n", (err2==0x00)?("True"):("False"));
+}
+
+template<>
+void dp5TestClientTemplate<BLSPubKey,BLSPrivKey,DP5CombinedLookupClient>::registerClient(
+    const DP5Config & config, Epoch epoch, DP5RegServer & server) {
+    DP5CombinedRegClient regClient(privkey);
+    stringstream ss;
+    ss << index;
+    string data(ss.str());
+    data.append(config.dataenc_bytes - data.size(), (char ) 0x99);
+
+    string msgCtoS;
+    int err1 = regClient.start_reg(msgCtoS, epoch+1, data);
+    printf("Result 1 ok: %s\n", (err1==0x00)?("True"):("False"));
+
+    string msgStoC;
+    server.client_reg(msgStoC, msgCtoS);
+
+    int err2 = regClient.complete_reg(msgStoC, epoch+1);
+    printf("Result 2 ok: %s\n", (err2==0x00)?("True"):("False"));
+}
+
+
+template<>
+bool dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient>::verifyData(
+    const DP5Config & config,
+    const dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient> * friendp,
+    const DP5LookupClient::Presence & presence) {
+    unsigned char data[config.dataenc_bytes];
+    memset(data, 0, config.dataenc_bytes);
+    data[0] = 0x99; // Just a random marker
+    memmove(data +1,
+        reinterpret_cast<const char *>(&friendp->index), sizeof(unsigned int));
+    memmove(data +1 + sizeof(unsigned int),
+        reinterpret_cast<const char *>(&index), sizeof(unsigned int));
+
+    return (memcmp(data, presence.data.data(), config.dataenc_bytes) == 0);
+}
+
+template<>
+bool dp5TestClientTemplate<BLSPubKey,BLSPrivKey,DP5CombinedLookupClient>::verifyData(
+    const DP5Config & config,
+    const dp5TestClientTemplate<BLSPubKey,BLSPrivKey,DP5CombinedLookupClient> * friendp,
+    const DP5CombinedLookupClient::Presence & presence) {
+    stringstream ss;
+    ss << friendp->index;
+    string data(ss.str());
+    data.append(config.dataenc_bytes - data.size(), (char ) 0x99);
+
+    return data == presence.data;
+}
+
+template<typename Public,typename Private,typename LookupClient, bool combined>
+int mainfunc(unsigned int NUMBEROFCLIENTS, unsigned int NUMBEROFFRIENDS) {
+    typedef dp5TestClientTemplate<Public,Private,LookupClient> dp5TestClient;
     DP5Config dp5;
     dp5.epoch_len = 1800;
     dp5.dataenc_bytes = 16;
+    dp5.combined = combined;
     Epoch epoch = dp5.current_epoch();
-    unsigned int NUMBEROFCLIENTS = 1000;
-    unsigned int NUMBEROFFRIENDS = 2;
-
-    if (argc > 1) {
-        NUMBEROFCLIENTS = atoi(argv[1]);
-    }
-    if (argc > 2) {
-        NUMBEROFFRIENDS = atoi(argv[2]);
-    }
 
     vector<dp5TestClient> tcs;
 
@@ -54,7 +159,7 @@ int main(int argc, char **argv){
         dp5TestClient person;
         person.online = false;
         if (f % 2 == 0) person.online = true;
-        genkeypair(person.pubkey, person.privkey);
+        person.keygen();
         tcs.push_back(person);
     }
 
@@ -67,8 +172,8 @@ int main(int argc, char **argv){
 
             if (tcs[f].friends.size() < MAX_BUDDIES &&
                 tcs[f2].friends.size() < MAX_BUDDIES){
-                    tcs[f].friends.insert(f2);
-                    tcs[f2].friends.insert(f);
+                    tcs[f].friends.insert(&tcs[f2]);
+                    tcs[f2].friends.insert(&tcs[f]);
                 }
         }
     }
@@ -80,38 +185,9 @@ int main(int argc, char **argv){
     // Now register buddies for all on-line clients
     for (unsigned int f = 0; f < NUMBEROFCLIENTS; f++)
     {
-        tcs[f].cli = new DP5LookupClient(tcs[f].privkey);
+        tcs[f].newLookupClient();
         if (tcs[f].online == false) continue;
-        tcs[f].reg = new DP5RegClient(dp5, tcs[f].privkey);
-
-
-        vector<BuddyInfo> buds;
-        for(std::set<unsigned int>::iterator ix = tcs[f].friends.begin();
-            ix!=tcs[f].friends.end(); ++ix){
-            unsigned int f2 = *ix;
-            BuddyInfo b;
-            b.pubkey = tcs[f2].pubkey;
-            b.data.push_back(0x99);
-            b.data.append((char *) &f, sizeof(f));
-            b.data.append((char *) &f2, sizeof(f2));
-            b.data.append(dp5.dataenc_bytes - 2*sizeof(unsigned int) - 1, 0);
-            buds.push_back(b);
-        }
-
-        printf("Number of friends: %lu\n", (unsigned long)(buds.size()));
-
-        // Run the registration process with the server
-        string msgCtoS;
-        unsigned int next_epoch = epoch + 1;
-        int err1 = tcs[f].reg->start_reg(msgCtoS, next_epoch, buds);
-        printf("Result 1 ok: %s\n", (err1==0x00)?("True"):("False"));
-
-        string msgStoC;
-        rs->client_reg(msgStoC, msgCtoS);
-
-        int err2 = tcs[f].reg->complete_reg(msgStoC, next_epoch);
-        printf("Result 2 ok: %s\n", (err2==0x00)?("True"):("False"));
-
+        tcs[f].registerClient(dp5, epoch, *rs);
     }
 
     // Signal the end of an epoch, when the registration file is
@@ -156,14 +232,14 @@ int main(int argc, char **argv){
         printf("Metadata 1 ok: %s\n", (err3==0x00)?("True"):("False"));
 
         // Make a list of friends
-        vector<PubKey> buds;
-        for(std::set<unsigned int>::iterator ix = tcs[f].friends.begin();
+        vector<Public> buds;
+        for(typename std::set<dp5TestClientTemplate<Public,Private,LookupClient> *>::iterator ix = tcs[f].friends.begin();
             ix!=tcs[f].friends.end(); ++ix){
-            buds.push_back(tcs[*ix].pubkey);
+            buds.push_back((*ix)->pubkey);
         }
 
         // Build a requesr object
-        DP5LookupClient::Request req;
+        typename LookupClient::Request req;
         tcs[f].cli->lookup_request(req, buds, num_servers, num_servers-1);
 
         // Send PIR request messages to servers
@@ -182,7 +258,7 @@ int main(int argc, char **argv){
         }
 
         // Process the PIR responses from servers
-        vector<DP5LookupClient::Presence> presence;
+        vector<typename LookupClient::Presence> presence;
         int err4 = req.lookup_reply(presence, msgStoCpir);
         printf("Presence 1 ok (%X): %s\n",  err4, (err4==0x00)?("True"):("False"));
 
@@ -193,25 +269,18 @@ int main(int argc, char **argv){
         // Check the presence resutls are correct
         unsigned int idx = 0;
 
-        for(std::set<unsigned int>::iterator ix = tcs[f].friends.begin();
-            ix!=tcs[f].friends.end(); ++ix){
-            unsigned int f2 = *ix;
-            bool mem_ok = (tcs[f2].pubkey == presence[idx].pubkey);
-            bool online_ok = (tcs[f2].online == presence[idx].is_online);
 
+        for(typename std::set<dp5TestClientTemplate<Public,Private,LookupClient> *>::iterator ix = tcs[f].friends.begin();
+            ix!=tcs[f].friends.end(); ++ix){
+            dp5TestClientTemplate<Public,Private,LookupClient> * f2 = *ix;
+            bool mem_ok = (f2->pubkey == presence[idx].pubkey);
+            bool online_ok = (f2->online == presence[idx].is_online);
             bool data_ok = true;
 
-            if (tcs[f2].online){
-            unsigned char data[dp5.dataenc_bytes];
-            memset(data, 0, dp5.dataenc_bytes);
-            data[0] = 0x99; // Just a random marker
-            memmove(data +1,
-                (const char *) &f2, sizeof(unsigned int));
-            memmove(data +1 + sizeof(unsigned int),
-                (const char *) &f, sizeof(unsigned int));
-
-            data_ok = (memcmp(data, presence[idx].data.data(), dp5.dataenc_bytes) == 0);
+            if (presence[idx].is_online) {
+                data_ok = tcs[f].verifyData(dp5, f2, presence[idx]);
             }
+
 
             bool all_ok = mem_ok && online_ok && data_ok;
 
@@ -220,13 +289,31 @@ int main(int argc, char **argv){
                 printf("Presence 2 ok: %s\n", all_ok?("True"):("False"));
                 printf("    pubkey ok: %s\n", mem_ok?("True"):("False"));
                 printf("    online ok: %s\n", online_ok?("True"):("False"));
-                printf("         actual online: (%s)\n", (tcs[f2].online)?("True"):("False"));
+                printf("         actual online: (%s)\n", (f2->online)?("True"):("False"));
                 printf("    data ok: %s\n", data_ok?("True"):("False"));
             }
 
             idx++;
         }
     }
+    return 0;
 
+}
 
+int main(int argc, char **argv){
+    unsigned int NUMBEROFCLIENTS = 1000;
+    unsigned int NUMBEROFFRIENDS = 2;
+
+    if (argc > 1) {
+        NUMBEROFCLIENTS = atoi(argv[1]);
+    }
+    if (argc > 2) {
+        NUMBEROFFRIENDS = atoi(argv[2]);
+    }
+    cout << "Old school test" << endl;
+    mainfunc<PubKey,PrivKey,DP5LookupClient,false>(NUMBEROFCLIENTS,
+        NUMBEROFFRIENDS);
+    cout << "New school test" << endl;
+    return mainfunc<BLSPubKey,BLSPrivKey,DP5CombinedLookupClient,true>(
+        NUMBEROFCLIENTS, NUMBEROFFRIENDS);
 }
