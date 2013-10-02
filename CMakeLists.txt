@@ -17,6 +17,7 @@ find_library(PERCYSERVER NAMES percyserver PATHS ${PERCYDIR})
 find_library(PERCYCLIENT NAMES percyclient PATHS ${PERCYDIR})
 find_file(PERCYH NAMES percyclient.h PATHS ${PERCYDIR})
 string(REGEX REPLACE "[^/]+$" "" PERCYINCLUDE ${PERCYH})
+find_library(GMP gmp)
 
 include_directories(${PERCYINCLUDE})
 include_directories(${NTL_INCLUDE_DIR})
@@ -24,15 +25,38 @@ include_directories(${NTL_INCLUDE_DIR})
 find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
+
 add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp dp5params.cpp dp5regclient.cpp dp5regserver.cpp)
 
 add_library(curve25519-donna curve25519-donna.c)
+
+get_directory_property(INCLUDES INCLUDE_DIRECTORIES)
+#message("Include directories are ${INCLUDES}")
+get_directory_property(LIBRARIES LIBRARY_DIRECTORIES)
+#message("Library directories are ${LIBRARIES}")
+
+find_program(PYTHON python)
+if(PYTHON)
+    configure_file(${PROJECT_SOURCE_DIR}/setup.py.in ${PROJECT_BINARY_DIR}/setup.py)
+
+    set(PYTHONCMD ${PYTHON} setup.py install --install-platlib=${PROJECT_BINARY_DIR})
+    if(CMAKE_HOST_APPLE)
+        set(PYTHONCMD env "ARCHFLAGS=-arch x86_64" ${PYTHONCMD})
+    endif(CMAKE_HOST_APPLE)
+    add_custom_command(OUTPUT dp5.so
+                           COMMAND ${PYTHONCMD}
+                           DEPENDS dp5 ${PROJECT_BINARY_DIR}/setup.py)
+    add_custom_target(python ALL DEPENDS dp5.so)
+endif(PYTHON)
 
 macro(testdef TARGET SOURCES)
 	string(TOUPPER ${TARGET} TARGET_UPPER)
 	add_executable(${TARGET} ${SOURCES})
 	set_target_properties(${TARGET} PROPERTIES COMPILE_DEFINITIONS ${TARGET_UPPER})
 	target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES} curve25519-donna ${ARGN})
+    if(GMP)
+        target_link_libraries(${TARGET} ${GMP})
+    endif(GMP)
 	add_test(${TARGET} ${TARGET})
 endmacro(testdef)
 
