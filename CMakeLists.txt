@@ -6,6 +6,7 @@ set (DP5_VERSION_MAJOR 0)
 set (DP5_VERSION_MINOR 01)
 
 set (CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -fPIC")
+set (CMAKE_C_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -fPIC")
 
 set (PERCYDIR ${CMAKE_CURRENT_SOURCE_DIR}/../percy)
 
@@ -18,6 +19,7 @@ find_library(PERCYCLIENT NAMES percyclient PATHS ${PERCYDIR})
 find_file(PERCYH NAMES percyclient.h PATHS ${PERCYDIR})
 string(REGEX REPLACE "[^/]+$" "" PERCYINCLUDE ${PERCYH})
 find_library(GMP gmp)
+set(PERCY_LIBRARIES ${PERCYSERVER} ${PERCYCLIENT} ${NTL})
 
 include_directories(${PERCYINCLUDE})
 include_directories(${NTL_INCLUDE_DIR})
@@ -83,11 +85,11 @@ testdef(test_rsreg "dp5regserver.cpp;dp5params.cpp" pthread)
 testdef(test_client "dp5regclient.cpp;dp5params.cpp" pthread)
 set_tests_properties (test_client PROPERTIES FAIL_REGULAR_EXPRESSION "False")
 
-testdef(test_lscd "dp5lookupserver.cpp;dp5params.cpp" ${NTL} ${PERCYSERVER})
-testdef(test_reqcd "dp5lookupclient.cpp;dp5params.cpp" ${NTL} ${PERCYCLIENT})
-testdef(test_pirglue "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp" ${NTL} ${PERCYSERVER} ${PERCYCLIENT})
-testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp" ${NTL} ${PERCYSERVER} ${PERCYCLIENT} pthread)
+testdef(test_lscd "dp5lookupserver.cpp;dp5params.cpp" ${PERCY_LIBRARIES})
+testdef(test_reqcd "dp5lookupclient.cpp;dp5params.cpp" ${PERCY_LIBRARIES})
+testdef(test_pirglue "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp" ${PERCY_LIBRARIES})
+testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp" ${PERCY_LIBRARIES} pthread)
 
 add_executable(test_integrate dp5integrationtest.cpp)
-target_link_libraries(test_integrate dp5 curve25519-donna ${OPENSSL_LIBRARIES} ${PERCYCLIENT} ${PERCYSERVER} ${NTL})
+target_link_libraries(test_integrate dp5 curve25519-donna ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES})
 add_test(IntegrationTest test_integrate)
