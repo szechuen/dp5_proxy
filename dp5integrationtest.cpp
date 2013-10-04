@@ -46,7 +46,7 @@ private:
 };
 
 template<typename Public,typename Private, typename LookupClient>
-unsigned int dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient>::counter = 0;
+unsigned int dp5TestClientTemplate<Public,Private,LookupClient>::counter = 0;
 
 
 
