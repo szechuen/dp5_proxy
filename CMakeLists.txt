@@ -18,24 +18,32 @@ find_library(PERCYSERVER NAMES percyserver PATHS ${PERCYDIR})
 find_library(PERCYCLIENT NAMES percyclient PATHS ${PERCYDIR})
 find_file(PERCYH NAMES percyclient.h PATHS ${PERCYDIR})
 string(REGEX REPLACE "[^/]+$" "" PERCYINCLUDE ${PERCYH})
+
+# NTL might be compiled with GMP, so link with it just in case
 find_library(GMP gmp)
 set(PERCY_LIBRARIES ${PERCYSERVER} ${PERCYCLIENT} ${NTL})
+if(GMP)
+    set(PERCY_LIBRARIES ${PERCY_LIBRARIES} ${GMP})
+endif(GMP)
 
 include_directories(${PERCYINCLUDE})
 include_directories(${NTL_INCLUDE_DIR})
+get_filename_component(NTL_PARENT_DIR ${NTL_INCLUDE_DIR} PATH)
+include_directories(${NTL_PARENT_DIR})
 
 find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
 
-add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp dp5params.cpp dp5regclient.cpp dp5regserver.cpp)
+add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
+    dp5params.cpp dp5regclient.cpp dp5regserver.cpp)
 
+# Separate this library for building tests to avoid
+# rebuilding it every time
 add_library(curve25519-donna curve25519-donna.c)
 
 get_directory_property(INCLUDES INCLUDE_DIRECTORIES)
-#message("Include directories are ${INCLUDES}")
 get_directory_property(LIBRARIES LIBRARY_DIRECTORIES)
-#message("Library directories are ${LIBRARIES}")
 
 find_program(PYTHON python)
 if(PYTHON)
@@ -51,14 +59,15 @@ if(PYTHON)
     add_custom_target(python ALL DEPENDS dp5.so)
 endif(PYTHON)
 
+# Ian-style test: compile sources with -DTEST_FOO
+# Extra libraries to link can follow as additional unnamed arguments
 macro(testdef TARGET SOURCES)
 	string(TOUPPER ${TARGET} TARGET_UPPER)
 	add_executable(${TARGET} ${SOURCES})
-	set_target_properties(${TARGET} PROPERTIES COMPILE_DEFINITIONS ${TARGET_UPPER})
-	target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES} curve25519-donna ${ARGN})
-    if(GMP)
-        target_link_libraries(${TARGET} ${GMP})
-    endif(GMP)
+	set_target_properties(${TARGET} PROPERTIES
+        COMPILE_DEFINITIONS ${TARGET_UPPER})
+	target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES}
+        curve25519-donna ${ARGN})
 	add_test(${TARGET} ${TARGET})
 endmacro(testdef)
 
@@ -92,4 +101,5 @@ testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp" $
 
 add_executable(test_integrate dp5integrationtest.cpp)
 target_link_libraries(test_integrate dp5 curve25519-donna ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES})
-add_test(IntegrationTest test_integrate)
+# Don't add it as a test because it takes a long time
+#add_test(IntegrationTest test_integrate)

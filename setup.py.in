@@ -9,7 +9,7 @@ if not gmp.endswith("NOTFOUND"):
     libs.append(gmp)
 
 reallibs = ["dp5"]
-libdirs = set(['.'])
+libdirs = set(['${PROJECT_BINARY_DIR}'])
 for lib in libs:
     m = re.match(r'(.*)/lib([^.]+)\.[^.+]', lib)
     if m:
