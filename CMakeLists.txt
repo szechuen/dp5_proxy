@@ -18,6 +18,7 @@ find_library(PERCYSERVER NAMES percyserver PATHS ${PERCYDIR})
 find_library(PERCYCLIENT NAMES percyclient PATHS ${PERCYDIR})
 find_file(PERCYH NAMES percyclient.h PATHS ${PERCYDIR})
 string(REGEX REPLACE "[^/]+$" "" PERCYINCLUDE ${PERCYH})
+find_library(RELIC_LIB NAMES relic_s PATHS "../relic/lib")
 
 # NTL might be compiled with GMP, so link with it just in case
 find_library(GMP gmp)
@@ -34,9 +35,14 @@ include_directories(${NTL_PARENT_DIR})
 find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
+add_subdirectory(relicwrapper)
+
+include_directories(${DP5_SOURCE_DIR}/relicwrapper)
+# FIXME
+include_directories(${DP5_SOURCE_DIR}/../relic/include)
 
 add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
-    dp5params.cpp dp5regclient.cpp dp5regserver.cpp)
+    dp5params.cpp dp5metadata.cpp dp5combregclient.cpp dp5regclient.cpp dp5regserver.cpp)
 
 # Separate this library for building tests to avoid
 # rebuilding it every time
@@ -100,6 +106,7 @@ testdef(test_pirglue "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp" ${P
 testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp" ${PERCY_LIBRARIES} pthread)
 
 add_executable(test_integrate dp5integrationtest.cpp)
-target_link_libraries(test_integrate dp5 curve25519-donna ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES})
+target_link_libraries(test_integrate dp5 curve25519-donna ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES}
+    relicwrapper ${RELIC_LIB})
 # Don't add it as a test because it takes a long time
 #add_test(IntegrationTest test_integrate)
