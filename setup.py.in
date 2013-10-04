@@ -1,0 +1,32 @@
+from distutils.core import setup, Extension
+import re
+
+libs = ['${PERCYCLIENT}', '${PERCYSERVER}', '${NTL}']
+libs += '${OPENSSL_LIBRARIES}'.split(';')
+
+gmp = "${GMP}"
+if not gmp.endswith("NOTFOUND"):
+    libs.append(gmp)
+
+reallibs = ["dp5"]
+libdirs = set(['${PROJECT_BINARY_DIR}'])
+for lib in libs:
+    m = re.match(r'(.*)/lib([^.]+)\.[^.+]', lib)
+    if m:
+        reallibs.append(m.group(2))
+        libdirs.add(m.group(1))
+    else:
+        reallibs.append(lib)
+
+module1 = Extension('dp5',
+                    include_dirs = r"${INCLUDES}".split(';'),
+                    library_dirs = list(libdirs),
+                    libraries = reallibs,
+                    sources = ['${PROJECT_SOURCE_DIR}/dp5py.cpp'],
+		    extra_compile_args=['-O0'])
+
+setup (name = 'DP5 Private Presence Library',
+        version = '0.0.1',
+        description = 'The python bindings for the dp5 service',
+        ext_modules = [module1])
+
