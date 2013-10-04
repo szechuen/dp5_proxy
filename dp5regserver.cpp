@@ -122,6 +122,7 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
 
     unsigned int numrecords;
     const unsigned char *indata;
+    unsigned char outrecord[outrecord_size];
     size_t regmsglen;
     unsigned int client_next_epoch;
 
@@ -179,8 +180,6 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
         goto client_reg_return;
     }
     numrecords = regmsglen / inrecord_size;
-
-    unsigned char outrecord[outrecord_size];
 
     for (unsigned int i=0; i<numrecords; ++i) {
         if (_config.combined) {
