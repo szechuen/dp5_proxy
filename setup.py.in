@@ -1,15 +1,11 @@
+#!/usr/bin/python
 from distutils.core import setup, Extension
 import re
 
-libs = ['${PERCYCLIENT}', '${PERCYSERVER}', '${NTL}', \
-    '${RELIC_LIB}', 'relicwrapper']
-libs += '${OPENSSL_LIBRARIES}'.split(';')
+liblists = "${PERCY_LIBRARIES};${OPENSSL_LIBRARIES};${RELIC_LIBRARIES}"
+libs = liblists.split(';')
 
-gmp = "${GMP}"
-if not gmp.endswith("NOTFOUND"):
-    libs.append(gmp)
-
-reallibs = ["dp5"]
+reallibs = ["dp5", "relicwrapper"]
 libdirs = { '${PROJECT_BINARY_DIR}', '${RelicWrapper_BINARY_DIR}' }
 for lib in libs:
     m = re.match(r'(.*)/lib([^.]+)\.[^.+]', lib)

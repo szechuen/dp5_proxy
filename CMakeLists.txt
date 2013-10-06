@@ -18,13 +18,14 @@ find_library(PERCYSERVER NAMES percyserver PATHS ${PERCYDIR})
 find_library(PERCYCLIENT NAMES percyclient PATHS ${PERCYDIR})
 find_file(PERCYH NAMES percyclient.h PATHS ${PERCYDIR})
 string(REGEX REPLACE "[^/]+$" "" PERCYINCLUDE ${PERCYH})
-find_library(RELIC_LIB NAMES relic_s PATHS "../relic/lib")
+find_library(RELIC_LIBRARIES NAMES relic_s PATHS "../relic/lib")
 
 # NTL might be compiled with GMP, so link with it just in case
 find_library(GMP gmp)
 set(PERCY_LIBRARIES ${PERCYSERVER} ${PERCYCLIENT} ${NTL})
 if(GMP)
     set(PERCY_LIBRARIES ${PERCY_LIBRARIES} ${GMP})
+    set(RELIC_LIBRARIES ${RELIC_LIBRARIES} ${GMP})
 endif(GMP)
 
 include_directories(${PERCYINCLUDE})
@@ -73,7 +74,7 @@ macro(testdef TARGET SOURCES)
 	set_target_properties(${TARGET} PROPERTIES
         COMPILE_DEFINITIONS ${TARGET_UPPER})
 	target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES}
-        curve25519-donna ${ARGN})
+        curve25519-donna relicwrapper ${RELIC_LIBRARIES} ${ARGN})
 	add_test(${TARGET} ${TARGET})
 endmacro(testdef)
 
@@ -93,20 +94,20 @@ testdef(test_epoch dp5params.cpp)
 set_tests_properties (test_epoch PROPERTIES PASS_REGULAR_EXPRESSION "successful")
 set_tests_properties (test_epoch PROPERTIES FAIL_REGULAR_EXPRESSION "NO MATCH;failed")
 
-testdef(test_rsconst "dp5regserver.cpp;dp5params.cpp")
+testdef(test_rsconst "dp5regserver.cpp;dp5params.cpp;dp5metadata.cpp")
 
-testdef(test_rsreg "dp5regserver.cpp;dp5params.cpp" pthread)
+testdef(test_rsreg "dp5regserver.cpp;dp5params.cpp;dp5metadata.cpp" pthread)
 
 testdef(test_client "dp5regclient.cpp;dp5params.cpp" pthread)
 set_tests_properties (test_client PROPERTIES FAIL_REGULAR_EXPRESSION "False")
 
-testdef(test_lscd "dp5lookupserver.cpp;dp5params.cpp" ${PERCY_LIBRARIES})
-testdef(test_reqcd "dp5lookupclient.cpp;dp5params.cpp" ${PERCY_LIBRARIES})
-testdef(test_pirglue "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp" ${PERCY_LIBRARIES})
-testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp" ${PERCY_LIBRARIES} pthread)
+testdef(test_lscd "dp5lookupserver.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES})
+testdef(test_reqcd "dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES})
+testdef(test_pirglue "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES})
+testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES} pthread)
 
 add_executable(test_integrate dp5integrationtest.cpp)
 target_link_libraries(test_integrate dp5 curve25519-donna ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES}
-    relicwrapper ${RELIC_LIB})
+    relicwrapper ${RELIC_LIBRARIES})
 # Don't add it as a test because it takes a long time
 #add_test(IntegrationTest test_integrate)
