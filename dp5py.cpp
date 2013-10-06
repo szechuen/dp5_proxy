@@ -8,6 +8,8 @@
 #include "dp5regserver.h"
 #include "dp5lookupserver.h"
 
+#include "Pairing.h"
+
 #include <fstream>
 
 using namespace dp5;
@@ -25,8 +27,8 @@ using namespace dp5;
 extern "C" {
 
 struct s_client {
-    BLSPrivKey privkey;
-    BLSPubKey pubkey;
+    PrivKey privkey;
+    PubKey pubkey;
     DP5RegClient * reg;
     DP5LookupClient * cli;
     DP5Config config;
@@ -48,13 +50,17 @@ void config_delete(PyObject *self) {
         PyMem_Free(ptr);
 }
 
-static PyObject* make_config(PyObject* self, PyObject *args) {
+static PyObject* pymake_config(PyObject* self, PyObject *args) {
     unsigned int epoch_len;
     unsigned int dataenc_bytes;
-    int combined;
-    int ok = PyArg_ParseTuple(args, "IIp", &epoch_len, &dataenc_bytes,
+    PyObject *combined;
+    int ok = PyArg_ParseTuple(args, "IIO", &epoch_len, &dataenc_bytes,
             &combined);
     if (!ok)
+        return NULL;
+
+    int isTrue = PyObject_IsTrue(combined);
+    if (isTrue < 0)
         return NULL;
 
     DP5Config * config = static_cast<DP5Config *>
@@ -64,7 +70,7 @@ static PyObject* make_config(PyObject* self, PyObject *args) {
 
     config->epoch_len = epoch_len;
     config->dataenc_bytes = dataenc_bytes;
-    config->combined = combined;
+    config->combined = isTrue;
 
     PyObject *capsule = PyCapsule_New(static_cast<void *>(config),
         "dp5_config", &config_delete);
@@ -124,7 +130,7 @@ void client_delete(PyObject * self){
     s_client * c = (s_client *) PyCapsule_GetPointer(self, "dp5_client");
     delete c->cli;
     delete c->reg;
-    PyMem_Free(c);
+    delete c;
 }
 
 static PyObject* pygetnewclient(PyObject* self, PyObject* args){
@@ -140,7 +146,7 @@ static PyObject* pygetnewclient(PyObject* self, PyObject* args){
     if (!config)
         return NULL;
 
-    s_client * c = static_cast<s_client *>(PyMem_Malloc(sizeof(s_client)));
+    s_client * c = new s_client();
     c->privkey.assign(privkey, keysize);
     getpubkey(c->pubkey, c->privkey);
     c->config = *config;
@@ -563,6 +569,7 @@ static PyObject* pyserverprocessrequest(PyObject* self, PyObject* args){
 static PyMethodDef dp5Methods[] =
 {
      // Utilities
+     {"make_config", pymake_config, METH_VARARGS, "Create a configuration object."},
      {"genkeypair", pygenkeypair, METH_VARARGS, "Generate a key pair."},
      {"getdatasize", pygetdatasize, METH_VARARGS, "Get plaintext size."},
      {"getepoch", pygetepoch, METH_VARARGS, "Get epoch."},
@@ -595,6 +602,7 @@ initdp5(void)
      (void) Py_InitModule("dp5", dp5Methods);
      printf("ZZ init\n");
      ZZ_p::init(to_ZZ(256));
+     Pairing p; // initialize core
 }
 
 }
