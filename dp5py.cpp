@@ -10,6 +10,7 @@
 
 #include <fstream>
 
+using namespace dp5;
 // Python module compilation notes
 //
 // NTL: We need to compile NTL using Position-Independent-Code. Configure it as:
@@ -24,41 +25,96 @@
 extern "C" {
 
 struct s_client {
-    unsigned char privkey[DP5Params::PRIVKEY_BYTES];
-    unsigned char pubkey[DP5Params::PUBKEY_BYTES];
+    BLSPrivKey privkey;
+    BLSPubKey pubkey;
     DP5RegClient * reg;
     DP5LookupClient * cli;
+    DP5Config config;
     DP5LookupClient::Request req;
 };
 
 struct s_server {
     DP5RegServer * regs;
     DP5LookupServer * lookups;
+    DP5Config config;
 };
 
 
 // ------------------------- Util & Crypto interfaces ----------
 
-static PyObject* pygenkeypair(PyObject* self, PyObject* args){
+void config_delete(PyObject *self) {
+    void * ptr = PyCapsule_GetPointer(self, "dp5_config");
+    if (ptr != NULL)
+        PyMem_Free(ptr);
+}
 
-    DP5Params dp5;
-    unsigned char privkey[DP5Params::PRIVKEY_BYTES];
-    unsigned char pubkey[DP5Params::PUBKEY_BYTES];
-    dp5.genkeypair(pubkey, privkey);
+static PyObject* make_config(PyObject* self, PyObject *args) {
+    unsigned int epoch_len;
+    unsigned int dataenc_bytes;
+    int combined;
+    int ok = PyArg_ParseTuple(args, "IIp", &epoch_len, &dataenc_bytes,
+            &combined);
+    if (!ok)
+        return NULL;
+
+    DP5Config * config = static_cast<DP5Config *>
+        (PyMem_Malloc(sizeof(*config)));
+    if (!config)
+        return NULL;
+
+    config->epoch_len = epoch_len;
+    config->dataenc_bytes = dataenc_bytes;
+    config->combined = combined;
+
+    PyObject *capsule = PyCapsule_New(static_cast<void *>(config),
+        "dp5_config", &config_delete);
+    return capsule;
+}
+
+static PyObject* pygenkeypair(PyObject* self, PyObject* args){
+    PrivKey privkey;
+    PubKey pubkey;
+    genkeypair(pubkey, privkey);
 
     PyObject *ret = Py_BuildValue("(z#z#)",
-                        (char *)pubkey, DP5Params::PUBKEY_BYTES,
-                        (char *)privkey, DP5Params::PRIVKEY_BYTES );
+                        (const byte *)pubkey, pubkey.size,
+                        (const byte *)privkey, privkey.size);
 
     return ret;
 }
 
-static PyObject* pygetdatasize(PyObject* self, PyObject* args){
-    return PyInt_FromLong(DP5Params::DATAPLAIN_BYTES);
+static DP5Config * getConfig(PyObject *config_capsule) {
+    if (!PyCapsule_IsValid(config_capsule, "dp5_config"))
+        return NULL;
+
+    return static_cast<DP5Config *>(PyCapsule_GetPointer(config_capsule,
+        "dp5_config"));
+}
+
+static PyObject* pygetdatasize(PyObject* self, PyObject* args)
+{
+    PyObject *config_capsule;
+    int ok = PyArg_ParseTuple(args, "O", &config_capsule);
+    if (!ok)
+        return NULL;
+
+    DP5Config * config = getConfig(config_capsule);
+    if (!config)
+        return NULL;
+
+    return PyInt_FromLong(config->dataenc_bytes);
 }
 
 static PyObject* pygetepoch(PyObject* self, PyObject* args){
-    return PyInt_FromLong(DP5Params::current_epoch());
+    PyObject *config_capsule;
+    int ok = PyArg_ParseTuple(args, "O", &config_capsule);
+    if (!ok)
+        return NULL;
+    DP5Config * config = getConfig(config_capsule);
+    if (!config)
+        return NULL;
+
+    return PyInt_FromLong(config->current_epoch());
 }
 
 
@@ -74,24 +130,30 @@ void client_delete(PyObject * self){
 static PyObject* pygetnewclient(PyObject* self, PyObject* args){
 
     // Get a private key
-    char *privkey;
+    byte *privkey;
     Py_ssize_t keysize = 0;
-    DP5Params dp5;
+    PyObject *config_capsule;
 
-    int ok = PyArg_ParseTuple(args, "z#", &privkey, &keysize);
-    if (!ok || keysize != 32) return NULL;
+    int ok = PyArg_ParseTuple(args, "Oz#", &config_capsule, &privkey, &keysize);
+    if (!ok || keysize != PrivKey::size) return NULL;
+    DP5Config *config = getConfig(config_capsule);
+    if (!config)
+        return NULL;
 
-    s_client * c = (s_client *) PyMem_Malloc(sizeof(s_client));
-    memcpy(c->privkey, privkey, keysize);
-    dp5.getpubkey(c->pubkey, c->privkey);
-    c->cli = new DP5LookupClient(string((char *) c->privkey, DP5Params::PRIVKEY_BYTES));
-    c->reg = new DP5RegClient(c->privkey);
+    s_client * c = static_cast<s_client *>(PyMem_Malloc(sizeof(s_client)));
+    c->privkey.assign(privkey, keysize);
+    getpubkey(c->pubkey, c->privkey);
+    c->config = *config;
+    c->cli = new DP5LookupClient(c->privkey);
+    c->reg = new DP5RegClient(c->config, c->privkey);
 
+/*
     // Allocate a request in place
     // DP5LookupClient::Request * temp =
     new (&(c->req)) DP5LookupClient::Request();
+*/
 
-    PyObject * cap = PyCapsule_New((void *) c, "dp5_client",
+    PyObject * cap = PyCapsule_New(static_cast<void *>(c), "dp5_client",
         (PyCapsule_Destructor) &client_delete);
 
     return cap;
@@ -110,6 +172,12 @@ static PyObject* pyclientregstart(PyObject* self, PyObject* args){
     string result;
     vector<BuddyInfo> bs;
 
+    s_client * c = (s_client *) PyCapsule_GetPointer(sclient, "dp5_client");
+    if (!c){
+         PyErr_SetString(PyExc_RuntimeError, "Bad capsule");
+         return NULL;
+    }
+
     for(unsigned int i = 0; i < PyList_Size(buddielist); i++)
     {
         PyObject * item = PyList_GetItem(buddielist, i);
@@ -124,26 +192,22 @@ static PyObject* pyclientregstart(PyObject* self, PyObject* args){
             return NULL;
         }
 
-        if (PyString_Size(pubk) != DP5Params::PUBKEY_BYTES ||
-                PyString_Size(data) != DP5Params::DATAPLAIN_BYTES){
+        // FIXME: dataencbytes will eventually not equal dataplain_bytes
+        if (PyString_Size(pubk) != PubKey::size ||
+                PyString_Size(data) != c->config.dataenc_bytes){
             PyObject_Print(item, stdout, 0);
             PyErr_SetString(PyExc_RuntimeError, "Bad item format");
             return NULL;  }
 
         BuddyInfo b;
-        memmove(b.pubkey, PyString_AsString(pubk), DP5Params::PUBKEY_BYTES);
-        memmove(b.data, PyString_AsString(data), DP5Params::DATAPLAIN_BYTES);
+        b.pubkey.assign(reinterpret_cast<const byte *>(PyString_AsString(pubk)), b.pubkey.size);
+        b.data.assign(PyString_AsString(data), PyString_Size(data));
         bs.push_back(b);
     }
 
-    s_client * c = (s_client *) PyCapsule_GetPointer(sclient, "dp5_client");
-    if (!c){
-         PyErr_SetString(PyExc_RuntimeError, "Bad capsule");
-         return NULL;
-    }
     ok = (c->reg)->start_reg(result, next_epoch, bs);
     if (ok != 0x00){
-        printf("Error: %hd\n",ok);
+        printf("Error: %d\n", ok);
         PyErr_SetString(PyExc_RuntimeError, "Protocol interface error");
         return NULL;
     }
@@ -171,7 +235,7 @@ static PyObject* pyclientregcomplete(PyObject* self, PyObject* args){
     }
     ok = (c->reg)->complete_reg(smsg, next_epoch);
     if (ok != 0x00){
-        printf("Error: %hd\n",ok);
+        printf("Error: %d\n",ok);
         PyErr_SetString(PyExc_RuntimeError, "Protocol interface error");
         return NULL;
     }
@@ -221,7 +285,7 @@ static PyObject* pyclientmetadatareply(PyObject* self, PyObject* args){
 
     ok = (c->cli)->metadata_reply(datain);
     if (ok != 0x00) {
-        printf("Error: %hd\n",ok);
+        printf("Error: %d\n",ok);
         PyErr_SetString(PyExc_RuntimeError, "Protocol interface error");
         return NULL; }
 
@@ -231,7 +295,7 @@ static PyObject* pyclientmetadatareply(PyObject* self, PyObject* args){
 static PyObject* pyclientlookuprequest(PyObject* self, PyObject* args){
     // printf("Got to request... 1\n");
     PyObject* sclient;
-    PyObject* buddies;     
+    PyObject* buddies;
 	unsigned int num_servers;
 	unsigned int privacy;
     int ok = PyArg_ParseTuple(args, "OOII", &sclient, &buddies, &num_servers, &privacy);
@@ -245,18 +309,20 @@ static PyObject* pyclientlookuprequest(PyObject* self, PyObject* args){
          return NULL;
     }
 
-    vector<BuddyKey> buds;
+    vector<PubKey> buds;
     for(unsigned int i = 0; i < PyList_Size(buddies); i++)
     {
         PyObject * item = PyList_GetItem(buddies, i);
         if (!item || !PyString_Check(item)
-                || PyString_Size(item) != DP5Params::PUBKEY_BYTES) {
-            PyErr_SetString(PyExc_RuntimeError, "Item is null or not a string or not the right length");
+                || PyString_Size(item) != PubKey::size) {
+            PyErr_SetString(PyExc_RuntimeError,
+                "Item is null or not a string or not the right length");
             return NULL; }
 
-        BuddyKey b;
-        b.pubkey.assign(PyString_AsString(item), DP5Params::PUBKEY_BYTES);
-        buds.push_back(b);
+        PubKey pk;
+        pk.assign(reinterpret_cast<const byte *>(
+            PyString_AsString(item)), PyString_Size(item));
+        buds.push_back(pk);
     }
 
     if (!(c->cli)) return NULL;
@@ -311,23 +377,25 @@ static PyObject* pyclientlookupreply(PyObject* self, PyObject* args){
         }
     }
 
-    vector<BuddyPresence> presence;
+    vector<DP5LookupClient::Presence> presence;
     ok = (c->req).lookup_reply(presence, msgStoCpir);
     if (ok != 0x00) {
-        printf("Error: %hd\n",ok);
+        printf("Error: %d\n",ok);
         PyErr_SetString(PyExc_RuntimeError, "Protocol interface error");
-        return NULL; }
+        return NULL;
+    }
 
     PyObject* ret = PyList_New(presence.size());
     for( unsigned int i = 0; i < presence.size(); i++){
         if (presence[i].is_online) {
-            PyObject * item = Py_BuildValue("z#Oz#", presence[i].pubkey.c_str(),
-                DP5Params::PUBKEY_BYTES, Py_True,
-                presence[i].data, DP5Params::DATAPLAIN_BYTES);
+            PyObject * item = Py_BuildValue("z#Oz#",
+                (const byte *) presence[i].pubkey, presence[i].pubkey.size,
+                Py_True, presence[i].data.c_str(), presence[i].data.size());
             PyList_SetItem(ret, i, item); }
         else {
-            PyObject * item = Py_BuildValue("z#OO", presence[i].pubkey.c_str(),
-                DP5Params::PUBKEY_BYTES, Py_False, Py_None);
+            PyObject * item = Py_BuildValue("z#OO",
+                (const byte *) presence[i].pubkey, presence[i].pubkey.size,
+                Py_False, Py_None);
             PyList_SetItem(ret, i, item);
         }
     }
@@ -345,10 +413,20 @@ void server_delete(PyObject * self){
 	PyMem_Free(s);
 }
 
-static PyObject* pygetnewserver(PyObject* self, PyObject* args){
+static PyObject* pygetnewserver(PyObject* self, PyObject* args) {
+    PyObject *config_capsule;
+    int ok = PyArg_ParseTuple(args, "O", &config_capsule);
+    if (!ok)
+        return NULL;
+    DP5Config *config = getConfig(config_capsule);
+    if (!config)
+        return NULL;
     s_server * s = (s_server *) PyMem_Malloc(sizeof(s_server));
+    if (!s)
+        return NULL;
     s->regs = NULL;
     s->lookups = NULL;
+    s->config = *config;
 
     PyObject * cap = PyCapsule_New((void *) s, "dp5_server",
         (PyCapsule_Destructor) &server_delete);
@@ -368,7 +446,7 @@ static PyObject* pyserverinitreg(PyObject* self, PyObject* args){
     // Clean delete of previous instance!
     if (s->regs) delete s->regs;
 
-    s->regs = new DP5RegServer(epoch, regdir, datadir);
+    s->regs = new DP5RegServer(s->config, epoch, regdir, datadir);
     Py_RETURN_NONE;
 }
 
@@ -441,9 +519,8 @@ static PyObject* pyserverinitlookup(PyObject* self, PyObject* args){
     // Clean delete of previous instance!
     if (s->lookups) delete s->lookups;
 
-    s->lookups = new DP5LookupServer();
+    s->lookups = new DP5LookupServer(metafile, datafile);
     // printf("meta: %s data: %s\n", metafile, datafile);
-    (s->lookups)->init(epoch, metafile, datafile);
 
     Py_RETURN_NONE;
 }
