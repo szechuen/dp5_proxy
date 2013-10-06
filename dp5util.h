@@ -7,8 +7,9 @@
 #include <stdexcept>
 
 namespace dp5 {
+    typedef unsigned char byte;
+
     namespace internal {
-        typedef unsigned char byte;
 
         template<std::size_t N>
         class ByteArray {
