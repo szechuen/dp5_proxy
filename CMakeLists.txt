@@ -8,6 +8,22 @@ set (DP5_VERSION_MINOR 01)
 set (CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -fPIC")
 set (CMAKE_C_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -fPIC")
 
+include(ExternalProject)
+ExternalProject_Add(
+    Relic
+    LIST_SEPARATOR @@
+    URL http://relic-toolkit.googlecode.com/files/relic-0.3.5.tar.gz
+    CMAKE_ARGS -DWITH=ALL -DCHECK=off -DARITH=gmp -DFP_PRIME=254 -DFP_QNRES=on
+    -DFP_METHD=BASIC@@COMBA@@COMBA@@MONTY@@LOWER@@SLIDE DFP_QNRES=on
+    -DPC_METHD=PRIME -DPP_METHD=INTEG@@INTEG@@LAZYR@@OATEP
+    "-DCOMP=-O2 -funroll-loops -fomit-frame-pointer -fPIC"
+    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>)
+ExternalProject_Get_Property(Relic INSTALL_DIR)
+include_directories(${INSTALL_DIR}/include)
+find_library(RELIC_LIBRARIES NAMES relic_s PATHS ${INSTALL_DIR}/lib)
+
+
+
 set (PERCYDIR ${CMAKE_CURRENT_SOURCE_DIR}/../percy)
 
 find_library(NTL ntl)
@@ -18,7 +34,6 @@ find_library(PERCYSERVER NAMES percyserver PATHS ${PERCYDIR})
 find_library(PERCYCLIENT NAMES percyclient PATHS ${PERCYDIR})
 find_file(PERCYH NAMES percyclient.h PATHS ${PERCYDIR})
 string(REGEX REPLACE "[^/]+$" "" PERCYINCLUDE ${PERCYH})
-find_library(RELIC_LIBRARIES NAMES relic_s PATHS "../relic/lib")
 
 # NTL might be compiled with GMP, so link with it just in case
 find_library(GMP gmp)
@@ -39,8 +54,6 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 add_subdirectory(relicwrapper)
 
 include_directories(${DP5_SOURCE_DIR}/relicwrapper)
-# FIXME
-include_directories(${DP5_SOURCE_DIR}/../relic/include)
 
 add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
     dp5params.cpp dp5metadata.cpp dp5combregclient.cpp dp5regclient.cpp dp5regserver.cpp)
