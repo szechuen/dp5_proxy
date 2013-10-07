@@ -5,7 +5,7 @@ project (DP5)
 set (DP5_VERSION_MAJOR 0)
 set (DP5_VERSION_MINOR 01)
 
-set (CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -fPIC")
+set (CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -Wno-non-template-friend -fPIC")
 set (CMAKE_C_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -fPIC")
 
 include(ExternalProject)
@@ -20,9 +20,7 @@ ExternalProject_Add(
     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>)
 ExternalProject_Get_Property(Relic INSTALL_DIR)
 include_directories(${INSTALL_DIR}/include)
-find_library(RELIC_LIBRARIES NAMES relic_s PATHS ${INSTALL_DIR}/lib)
-
-
+set (RELIC_LIBRARIES ${INSTALL_DIR}/lib/librelic_s.a)
 
 set (PERCYDIR ${CMAKE_CURRENT_SOURCE_DIR}/../percy)
 
@@ -75,7 +73,7 @@ if(PYTHON)
     endif(CMAKE_HOST_APPLE)
     add_custom_command(OUTPUT dp5.so
                            COMMAND ${PYTHONCMD}
-                           DEPENDS dp5 ${PROJECT_BINARY_DIR}/setup.py)
+                           DEPENDS dp5 ${PROJECT_BINARY_DIR}/setup.py relicwrapper)
     add_custom_target(python ALL DEPENDS dp5.so)
 endif(PYTHON)
 
