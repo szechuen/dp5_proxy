@@ -4,6 +4,7 @@ The DP5 C++ library depends on GMP, NTL, percy++, and OpenSSL.
 
 Building GMP: 
 ( Download latest source from: http://gmplib.org/ )
+   $ tar -xvf <gmp-X.Y.Z.tar.lz>
    $ cd <gmp source directory>
    $ ./configure "CFLAGS=-fPIC"
    $ make
@@ -13,34 +14,40 @@ Building GMP:
 Building NTL:
 ( Download latest source from: http://www.shoup.net/ntl/ )
    $ cd <ntl source directory>
-   $ ./configure "CFLAGS=-fPIC" NTL_GMP_LIP=on
+   $ ./configure PREFIX=/usr/local/lib "CFLAGS=-O2 -fPIC" NTL_GMP_LIP=on
    $ make
    $ make check
    $ sudo make install
+   $ sudo cp ntl.a /usr/local/lib/libntl.a
+
+Get OpenSSL
+   $ sudo apt-get install libssl-dev
+
+Get Python-dev
+   $ sudo apt-get install python-dev
 
 Building percy++:
    ( Get the latest source for percy++ )
-   (Add the -fPIC flag in the makefile)
+   (Add the -fPIC flag in the makefile using
+       CXXFLAGS= -fPIC -Wall -Wno-vla -Wno-long-long -g -O2 -pedantic -I/usr/local/include/NTL)
    $ make libs   
 
 To build the DP5 C++ libraries and test programs just do:
-(Explain the dependencies on ntl and percy++)
 
+   $ cd code/
+   $ git submodule init
+   $ git submodule update
+   $ cd ..
+   $ mkdir build
+   $ cd build
+   $ cmake ../code
    $ make
 
 II. Python bindings
 
 To build the python bindings you need to:
 
-1. Build the ntl and percy++ libraries with the -fPIC gcc flag:
-
-   NTL: We need to compile NTL using Position-Independent-Code. Configure it as:
-        ./configure PREFIX=/usr/local/lib "CFLAGS=-O2 -fPIC"
-        When built make sure to copy the lib to /usr/local/lib by doing:
-        sudo cp ntl.a /usr/local/lib/libntl.a
-   
-   Percy: Also recompile with PIC by adding -fPIC to the CXX flags
-          CXXFLAGS= -fPIC -Wall -Wno-vla -Wno-long-long -g -O2 -pedantic -I/usr/local/include/NTL 
+1. Build the ntl and percy++ libraries with the -fPIC gcc flag (see above)
 
 2. Install the "python-dev" ubuntu / mint packages
 
