@@ -61,9 +61,9 @@ void genkeypair<PubKey,PrivKey>(PubKey & pubkey, PrivKey & privkey)
 {
     // Generate a private key
     privkey.random();
-    privkey[0] &= 248;
-    privkey[31] &= 127;
-    privkey[31] |= 64;
+    privkey[0u] &= 248;
+    privkey[31u] &= 127;
+    privkey[31u] |= 64;
     getpubkey(pubkey, privkey);
 }
 
