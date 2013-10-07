@@ -8,12 +8,25 @@ set (DP5_VERSION_MINOR 01)
 set (CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -Wno-non-template-friend -fPIC")
 set (CMAKE_C_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -fPIC")
 
+find_library(GMP gmp)
+if(GMP)
+    set(RELIC_ARITH "-DARITH=gmp")
+else(GMP)
+    set(RELIC_ARITH "-DARITH=easy")
+endif(GMP)
+
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES i.86)
+    set(RELIC_ARCH -DARCH=X86 -DWORD=32)
+else(${CMAKE_SYSTEM_PROCESSOR} MATCHES i.86)
+    set(RELIC_ARCH "")
+endif(${CMAKE_SYSTEM_PROCESSOR} MATCHES i.86)
+
 include(ExternalProject)
 ExternalProject_Add(
     Relic
     LIST_SEPARATOR @@
     URL http://relic-toolkit.googlecode.com/files/relic-0.3.5.tar.gz
-    CMAKE_ARGS -DWITH=ALL -DCHECK=off -DARITH=gmp -DFP_PRIME=254 -DFP_QNRES=on
+    CMAKE_ARGS -DWITH=ALL -DCHECK=off ${RELIC_ARITH} ${RELIC_ARCH} -DFP_PRIME=254 -DFP_QNRES=on
     -DFP_METHD=BASIC@@COMBA@@COMBA@@MONTY@@LOWER@@SLIDE DFP_QNRES=on
     -DPC_METHD=PRIME -DPP_METHD=INTEG@@INTEG@@LAZYR@@OATEP
     "-DCOMP=-O2 -funroll-loops -fomit-frame-pointer -fPIC"
@@ -33,10 +46,9 @@ find_library(PERCYCLIENT NAMES percyclient PATHS ${PERCYDIR})
 find_file(PERCYH NAMES percyclient.h PATHS ${PERCYDIR})
 string(REGEX REPLACE "[^/]+$" "" PERCYINCLUDE ${PERCYH})
 
-# NTL might be compiled with GMP, so link with it just in case
-find_library(GMP gmp)
 set(PERCY_LIBRARIES ${PERCYSERVER} ${PERCYCLIENT} ${NTL})
 if(GMP)
+# NTL might be compiled with GMP, so link with it just in case
     set(PERCY_LIBRARIES ${PERCY_LIBRARIES} ${GMP})
     set(RELIC_LIBRARIES ${RELIC_LIBRARIES} ${GMP})
 endif(GMP)
