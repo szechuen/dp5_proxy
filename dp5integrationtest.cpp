@@ -1,6 +1,8 @@
 #include <vector>
 #include <set>
 #include <sys/types.h>
+#include <sys/stat.h>
+
 
 #include <unistd.h>
 #include <string.h>
@@ -177,6 +179,8 @@ int mainfunc(unsigned int NUMBEROFCLIENTS, unsigned int NUMBEROFFRIENDS) {
                 }
         }
     }
+    mkdir("regdir", 0777);
+    mkdir("datadir", 0777);
 
     // Make a registration server
     DP5RegServer * rs =
