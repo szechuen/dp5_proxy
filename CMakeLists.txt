@@ -29,7 +29,7 @@ ExternalProject_Add(
     CMAKE_ARGS -DWITH=ALL -DCHECK=off ${RELIC_ARITH} ${RELIC_ARCH} -DFP_PRIME=254 -DFP_QNRES=on
     -DFP_METHD=BASIC@@COMBA@@COMBA@@MONTY@@LOWER@@SLIDE DFP_QNRES=on
     -DPC_METHD=PRIME -DPP_METHD=INTEG@@INTEG@@LAZYR@@OATEP
-    "-DCOMP=-O2 -funroll-loops -fomit-frame-pointer -fPIC"
+    -DSEED=UDEV "-DCOMP=-O2 -funroll-loops -fomit-frame-pointer -fPIC"
     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>)
 ExternalProject_Get_Property(Relic INSTALL_DIR)
 include_directories(${INSTALL_DIR}/include)
