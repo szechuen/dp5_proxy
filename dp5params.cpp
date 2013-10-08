@@ -335,15 +335,15 @@ int Dec(string & plaintext, const DataKey enckey, const string & ciphertext)
 
     unsigned char plaintext_bytes[ciphertext.size()];
     int len;
+    ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16,
+        (void *) (ciphertext.data() + ciphertext.size() - 16));
+    if (!ok)
+        return 4;
     ok = EVP_DecryptUpdate(ctx, plaintext_bytes, &len,
         (const unsigned char*) ciphertext.data(), ciphertext.size()-16);
     if (!ok)
         return 3;
     int plaintext_len = len;
-    ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16,
-        (void *) (ciphertext.data() + ciphertext.size() - 16));
-    if (!ok)
-        return 4;
 
     ok = EVP_DecryptFinal_ex(ctx, plaintext_bytes+plaintext_len, &len);
 
