@@ -9,3 +9,4 @@ datadir
 *_unittest
 pairing_integrationtest
 *.a
+*.pyc
