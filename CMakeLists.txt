@@ -59,6 +59,9 @@ get_filename_component(NTL_PARENT_DIR ${NTL_INCLUDE_DIR} PATH)
 include_directories(${NTL_PARENT_DIR})
 
 find_package(OpenSSL REQUIRED)
+if(${OPENSSL_VERSION} VERSION_LESS "1.0.1")
+    message(FATAL_ERROR "Need OpenSSL 1.0.1 or later to use GCM mode encryption (found ${OPENSSL_VERSION}")
+endif(${OPENSSL_VERSION} VERSION_LESS "1.0.1")
 include_directories(${OPENSSL_INCLUDE_DIR})
 
 add_subdirectory(relicwrapper)
