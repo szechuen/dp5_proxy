@@ -576,7 +576,7 @@ static void dump(const char *prefix, const unsigned char *data,
 
 int main()
 {
-    const unsigned int DATAPLAIN_BYTES = 17;
+    const unsigned int DATAPLAIN_BYTES = 16;
 
     unsigned char key1[DATAKEY_BYTES];
     unsigned char key2[DATAKEY_BYTES];
@@ -584,6 +584,8 @@ int main()
     random_bytes(key1, DATAKEY_BYTES);
     random_bytes(key2, DATAKEY_BYTES);
     dump("Key 1  ", key1, DATAKEY_BYTES);
+    for (unsigned i = 0; i < DATAKEY_BYTES; i++) 
+      key2[i] = 'a' + i;
     dump("Key 2  ", key2, DATAKEY_BYTES);
 
     string plain1, plain2;
