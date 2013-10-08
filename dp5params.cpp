@@ -580,21 +580,26 @@ int main()
 
     unsigned char key1[DATAKEY_BYTES];
     unsigned char key2[DATAKEY_BYTES];
+    unsigned char key3[DATAKEY_BYTES];
 
     random_bytes(key1, DATAKEY_BYTES);
     random_bytes(key2, DATAKEY_BYTES);
     dump("Key 1  ", key1, DATAKEY_BYTES);
-    for (unsigned i = 0; i < DATAKEY_BYTES; i++) 
+    for (unsigned i = 0; i < DATAKEY_BYTES; i++) {
       key2[i] = 'a' + i;
+      key3[i] = 0;
+    }
     dump("Key 2  ", key2, DATAKEY_BYTES);
 
-    string plain1, plain2;
+    string plain1, plain2, zerop;
     for (unsigned int i=0; i<DATAPLAIN_BYTES; ++i) {
 	plain1.push_back('A' + i);
 	plain2.push_back('0' + i);
+    zerop.push_back(0);
     }
     dump("\nPlain 1", (const unsigned char *) plain1.data(), DATAPLAIN_BYTES);
     dump("Plain 2", (const unsigned char *) plain2.data(), DATAPLAIN_BYTES);
+    dump("Zero P", (const unsigned char *) zerop.data(), zerop.size());
 
     string cipher11, cipher12, cipher21, cipher22;
     cipher11 = Enc(key1, plain1);
@@ -605,6 +610,8 @@ int main()
     dump("Cip 1/2", (const unsigned char *) cipher12.data(), cipher12.size());
     dump("Cip 2/1", (const unsigned char *) cipher21.data(), cipher21.size());
     dump("Cip 2/2", (const unsigned char *) cipher22.data(), cipher22.size());
+    string testvec = Enc(key3, zerop);
+    dump("TV", (const unsigned char*) testvec.data(), testvec.size());
 
     string dec11, dec12, dec21, dec22;
     int res11 = Dec(dec11, key1, cipher11);
