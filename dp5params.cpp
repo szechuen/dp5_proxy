@@ -294,7 +294,7 @@ string Enc(const DataKey datakey, const string & plaintext)
         return "";
 
     int len = 0;
-    int ciphertext_len = 0;
+    unsigned int ciphertext_len = 0;
     unsigned char ciphertext[plaintext.size() + 32];
     ok = EVP_EncryptUpdate(ctx, ciphertext, &len, (const unsigned char *)plaintext.data(),
         plaintext.size());
