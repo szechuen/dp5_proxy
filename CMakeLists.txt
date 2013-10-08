@@ -5,7 +5,7 @@ project (DP5)
 set (DP5_VERSION_MAJOR 0)
 set (DP5_VERSION_MINOR 01)
 
-set (CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -Wno-non-template-friend -fPIC")
+set (CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -Wno-non-template-friend -Wno-error=unknown-warning-option -fPIC")
 set (CMAKE_C_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -fPIC")
 
 find_library(GMP gmp)
@@ -16,9 +16,9 @@ else(GMP)
 endif(GMP)
 
 if(${CMAKE_SYSTEM_PROCESSOR} MATCHES i.86)
+  if(${CMAKE_SIZEOF_VOID_P} EQUAL 4)
     set(RELIC_ARCH -DARCH=X86 -DWORD=32)
-else(${CMAKE_SYSTEM_PROCESSOR} MATCHES i.86)
-    set(RELIC_ARCH "")
+  endif(${CMAKE_SIZEOF_VOID_P} EQUAL 4)
 endif(${CMAKE_SYSTEM_PROCESSOR} MATCHES i.86)
 
 include(ExternalProject)
