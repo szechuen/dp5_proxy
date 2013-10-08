@@ -8,11 +8,15 @@
 #include <arpa/inet.h>
 
 #include <stdexcept>
+#include <assert.h>
 
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <openssl/aes.h>
+#include <openssl/evp.h>
 
+#undef BN_BYTES
+#undef BN_BITS
 #define rsa_st relic_rsa_st
 #include "Pairing.h"
 
@@ -31,7 +35,7 @@ namespace dp5 {
 using namespace dp5::internal;
 
 // Retrieve the current epoch number
-unsigned int DP5Config::current_epoch()
+unsigned int DP5Config::current_epoch() const
 {
     if (!valid()) {
         throw runtime_error("Invalid configuration!");
@@ -262,6 +266,7 @@ unsigned int PRF::M(const HashKey x)
 // Encrypt using a key of size DATAKEY_BYTES bytes a plaintext of size
 // DATAPLAIN_BYTES bytes to yield a ciphertext of size DATAENC_BYTES
 // bytes.
+/*
 string Enc(const DataKey enckey, const string & plaintext)
 {
     AES_KEY aeskey;
@@ -274,6 +279,46 @@ string Enc(const DataKey enckey, const string & plaintext)
 
     return string((char *)ciphertext, 16);
 }
+*/
+
+static const unsigned char zeroiv[12] = {0, };
+
+string Enc(const DataKey datakey, const string & plaintext)
+{
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
+        return "";
+
+    int ok = EVP_EncryptInit(ctx, EVP_aes_128_gcm(), (const byte *)datakey, zeroiv);
+    if (ok != 1)
+        return "";
+
+    int len = 0;
+    int ciphertext_len = 0;
+    unsigned char ciphertext[plaintext.size() + 32];
+    ok = EVP_EncryptUpdate(ctx, ciphertext, &len, (const unsigned char *)plaintext.data(),
+        plaintext.size());
+    if (ok != 1)
+        return "";
+
+    ciphertext_len = len;
+    ok = EVP_EncryptFinal(ctx, ciphertext+ciphertext_len, &len);
+    if (ok != 1)
+        return "";
+    ciphertext_len += len;
+
+    ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, ciphertext + ciphertext_len);
+    if (ok != 1)
+        return "";
+
+    ciphertext_len += 16;
+
+    assert(ciphertext_len <= sizeof(ciphertext));
+
+    EVP_CIPHER_CTX_free(ctx);
+
+    return string((const char *)ciphertext, ciphertext_len);
+}
 
 // Decrypt using a key of size DATAKEY_BYTES bytes a ciphertext of
 // size DATAENC_BYTES bytes to yield a plaintext of size
@@ -281,16 +326,38 @@ string Enc(const DataKey enckey, const string & plaintext)
 // otherwise.
 int Dec(string & plaintext, const DataKey enckey, const string & ciphertext)
 {
-    AES_KEY aeskey;
-    if (ciphertext.size() != 16) {
-        throw runtime_error("Only 128-bit ciphertext currently supported");
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
+        return 1;
+    int ok = EVP_DecryptInit(ctx, EVP_aes_128_gcm(), (const byte *) enckey, zeroiv);
+    if (!ok)
+        return 2;
+
+    unsigned char plaintext_bytes[ciphertext.size()];
+    int len;
+    ok = EVP_DecryptUpdate(ctx, plaintext_bytes, &len,
+        (const unsigned char*) ciphertext.data(), ciphertext.size()-16);
+    if (!ok)
+        return 3;
+    int plaintext_len = len;
+    ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16,
+        (void *) (ciphertext.data() + ciphertext.size() - 16));
+    if (!ok)
+        return 4;
+
+    ok = EVP_DecryptFinal_ex(ctx, plaintext_bytes+plaintext_len, &len);
+
+    EVP_CIPHER_CTX_free(ctx);
+
+    if (ok > 0) {
+        plaintext_len += len;
+        plaintext.assign((const char*) plaintext_bytes, plaintext_len);
+        return 0;
+    } else {
+        return 5;
     }
-    unsigned char plaintext_bytes[16];
-    AES_set_decrypt_key(enckey, 8*DATAKEY_BYTES, &aeskey);
-    AES_decrypt((const unsigned char*) ciphertext.data(), plaintext_bytes, &aeskey);
-    plaintext.assign((char *) plaintext_bytes, 16);
-    return 0;
 }
+
 
 // Convert an epoch number to an epoch byte array
 void epoch_num_to_bytes(WireEpoch wire_epoch, Epoch epoch_num)
@@ -509,8 +576,7 @@ static void dump(const char *prefix, const unsigned char *data,
 
 int main()
 {
-    const unsigned int DATAPLAIN_BYTES = 16;
-    const unsigned int DATAENC_BYTES = 16;
+    const unsigned int DATAPLAIN_BYTES = 17;
 
     unsigned char key1[DATAKEY_BYTES];
     unsigned char key2[DATAKEY_BYTES];
@@ -533,10 +599,10 @@ int main()
     cipher12 = Enc(key1, plain2);
     cipher21 = Enc(key2, plain1);
     cipher22 = Enc(key2, plain2);
-    dump("\nCip 1/1", (const unsigned char *) cipher11.data(), DATAENC_BYTES);
-    dump("Cip 1/2", (const unsigned char *) cipher12.data(), DATAENC_BYTES);
-    dump("Cip 2/1", (const unsigned char *) cipher21.data(), DATAENC_BYTES);
-    dump("Cip 2/2", (const unsigned char *) cipher22.data(), DATAENC_BYTES);
+    dump("\nCip 1/1", (const unsigned char *) cipher11.data(), cipher11.size());
+    dump("Cip 1/2", (const unsigned char *) cipher12.data(), cipher12.size());
+    dump("Cip 2/1", (const unsigned char *) cipher21.data(), cipher21.size());
+    dump("Cip 2/2", (const unsigned char *) cipher22.data(), cipher22.size());
 
     string dec11, dec12, dec21, dec22;
     int res11 = Dec(dec11, key1, cipher11);

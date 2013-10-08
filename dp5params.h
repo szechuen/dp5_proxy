@@ -39,6 +39,9 @@ namespace dp5 {
     // Epoch representation
     typedef unsigned int Epoch;
 
+    // 128 bits for the final authentication tag
+    static const unsigned int ENCRYPTION_OVERHEAD = 16;
+
     // Runtime configurable variables
     struct DP5Config {
         unsigned int epoch_len;
@@ -50,11 +53,14 @@ namespace dp5 {
             combined(other.combined)
             {}
 
-        bool valid() {
+        bool valid() const {
             return epoch_len != 0;
         }
+        unsigned int dataplain_bytes() const {
+            return dataenc_bytes - ENCRYPTION_OVERHEAD;
+        }
 
-        Epoch current_epoch();
+        Epoch current_epoch() const;
     };
 
 

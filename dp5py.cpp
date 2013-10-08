@@ -198,9 +198,8 @@ static PyObject* pyclientregstart(PyObject* self, PyObject* args){
             return NULL;
         }
 
-        // FIXME: dataencbytes will eventually not equal dataplain_bytes
         if (PyString_Size(pubk) != PubKey::size ||
-                PyString_Size(data) != c->config.dataenc_bytes){
+                PyString_Size(data) != c->config.dataplain_bytes()){
             PyObject_Print(item, stdout, 0);
             PyErr_SetString(PyExc_RuntimeError, "Bad item format");
             return NULL;  }

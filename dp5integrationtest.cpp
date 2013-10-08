@@ -75,7 +75,7 @@ void dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient>::registerClient(
         b.data.push_back(0x99);
         b.data.append((char *) &index, sizeof(index));
         b.data.append((char *) &f2->index, sizeof(index));
-        b.data.append(config.dataenc_bytes - 2*sizeof(index) - 1, 0);
+        b.data.append(config.dataplain_bytes() - 2*sizeof(index) - 1, 0);
         buds.push_back(b);
     }
 
@@ -101,7 +101,7 @@ void dp5TestClientTemplate<BLSPubKey,BLSPrivKey,DP5CombinedLookupClient>::regist
     stringstream ss;
     ss << index;
     string data(ss.str());
-    data.append(config.dataenc_bytes - data.size(), (char ) 0x99);
+    data.append(config.dataplain_bytes() - data.size(), (char ) 0x99);
 
     string msgCtoS;
     int err1 = regClient.start_reg(msgCtoS, epoch+1, data);
@@ -120,15 +120,17 @@ bool dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient>::verifyData(
     const DP5Config & config,
     const dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient> * friendp,
     const DP5LookupClient::Presence & presence) {
-    unsigned char data[config.dataenc_bytes];
-    memset(data, 0, config.dataenc_bytes);
+    if (presence.data.size() != config.dataplain_bytes())
+        return 0;   // wrong sized output
+    unsigned char data[config.dataplain_bytes()];
+    memset(data, 0, config.dataplain_bytes());
     data[0] = 0x99; // Just a random marker
     memmove(data +1,
         reinterpret_cast<const char *>(&friendp->index), sizeof(unsigned int));
     memmove(data +1 + sizeof(unsigned int),
         reinterpret_cast<const char *>(&index), sizeof(unsigned int));
 
-    return (memcmp(data, presence.data.data(), config.dataenc_bytes) == 0);
+    return (memcmp(data, presence.data.data(), sizeof(data)) == 0);
 }
 
 template<>
@@ -139,7 +141,7 @@ bool dp5TestClientTemplate<BLSPubKey,BLSPrivKey,DP5CombinedLookupClient>::verify
     stringstream ss;
     ss << friendp->index;
     string data(ss.str());
-    data.append(config.dataenc_bytes - data.size(), (char ) 0x99);
+    data.append(config.dataplain_bytes() - data.size(), (char ) 0x99);
 
     return data == presence.data;
 }
@@ -149,7 +151,7 @@ int mainfunc(unsigned int NUMBEROFCLIENTS, unsigned int NUMBEROFFRIENDS) {
     typedef dp5TestClientTemplate<Public,Private,LookupClient> dp5TestClient;
     DP5Config dp5;
     dp5.epoch_len = 1800;
-    dp5.dataenc_bytes = 16;
+    dp5.dataenc_bytes = 32;
     dp5.combined = combined;
     Epoch epoch = dp5.current_epoch();
 
