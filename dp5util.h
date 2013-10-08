@@ -66,6 +66,11 @@ namespace dp5 {
                 memmove(data, input, N);
             }
         };
+
+	// FIXME: This declaration *should* be unnecessary, but 
+	// C++ const class-static variables are weird
+	template<std::size_t N>
+	const std::size_t ByteArray<N>::size;
     }
 }
 
