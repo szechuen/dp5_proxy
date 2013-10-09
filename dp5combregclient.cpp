@@ -48,7 +48,10 @@ int DP5CombinedRegClient::start_reg(string &msgtosend, unsigned int next_epoch,
     H5(data_key, next_epoch, blspk);
 
     // Encrypt associated data
-    msgtosend += Enc(data_key, data);
+    string ad((char *) epoch_bytes, sizeof(epoch_bytes));
+    ad.append(blspk);
+
+    msgtosend += Enc(data_key, data, ad);
 
     return 0x00;
 }

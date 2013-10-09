@@ -466,7 +466,11 @@ int LookupRequest<BLSPubKey,Empty>::get_data(string & data,
     const string & ciphertext) {
     DataKey data_key;
     H5(data_key, _metadata.epoch, buddy.pubkey);
-    return Dec(data, data_key, ciphertext);
+    byte epoch_bytes[EPOCH_BYTES];
+    epoch_num_to_bytes(epoch_bytes, _metadata.epoch);
+    string ad((char *) epoch_bytes, sizeof(epoch_bytes));
+    ad.append(buddy.pubkey);
+    return Dec(data, data_key, ciphertext, ad);
 }
 
 template class LookupRequest<PubKey,PrivKey>;
