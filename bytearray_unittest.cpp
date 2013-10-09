@@ -3,6 +3,7 @@
 
 using namespace std;
 using namespace dp5::internal;
+using dp5::byte;
 
 template<typename T>
 class ByteArrayTest : public ::testing::Test {
