@@ -157,7 +157,7 @@ macro(gtest TARGET SOURCES)
     add_executable(${TARGET} ${SOURCES})
     add_dependencies(${TARGET} googletest)
     target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES}
-     ${PERCY_LIBRARIES} ${RELIC_LIBRARIES} relicwrapper curve25519-donna ${GTEST_LIBRARIES} ${ARGN})
+     ${PERCY_LIBRARIES} relicwrapper ${RELIC_LIBRARIES} curve25519-donna ${GTEST_LIBRARIES} ${ARGN} pthread)
     add_test(${TARGET} ${TARGET})
 endmacro(gtest)
 
