@@ -12,7 +12,7 @@ TEST(EncryptionTest, GCMTestVector1) {
     byte key_bytes[DATAKEY_BYTES];
     memset(key_bytes, 0, sizeof(key_bytes));
     string result = Enc(key_bytes, ""); // encrypt zero-length text
-    EXPECT_EQ(result.size(), 16); // should contain only the tag
+    EXPECT_EQ(result.size(), 16u); // should contain only the tag
     EXPECT_EQ(result, "\x58\xe2\xfc\xce\xfa\x7e\x30\x61\x36\x7f\x1d\x57\xa4\xe7\x45\x5a");
 }
 
@@ -21,7 +21,7 @@ TEST(EncryptionTest, GCMTestVector2) {
     memset(key_bytes, 0, sizeof(key_bytes));
     string plaintext(16u, (char) 0);
     string result = Enc(key_bytes, plaintext);
-    EXPECT_EQ(result.size(), 32);
+    EXPECT_EQ(result.size(), 32u);
     EXPECT_EQ(result, "\x03\x88\xda\xce\x60\xb6\xa3\x92\xf3\x28\xc2\xb9\x71\xb2\xfe\x78\xab\x6e\x47\xd4\x2c\xec\x13\xbd\xf5\x3a\x67\xb2\x12\x57\xbd\xdf");
 }
 
