@@ -171,14 +171,16 @@ namespace dp5 {
         // Encrypt using a key of size DATAKEY_BYTES bytes a plaintext of size
         // DATAPLAIN_BYTES bytes to yield a ciphertext of size DATAENC_BYTES
         // bytes.
-        std::string Enc(const DataKey datakey, const std::string & plaintext);
+        std::string Enc(const DataKey datakey, const std::string & plaintext,
+            const std::string & additionaldata = "");
 
         // Decrypt using a key of size DATAKEY_BYTES bytes a ciphertext of
         // size DATAENC_BYTES bytes to yield a plaintext of size
         // DATAPLAIN_BYTES.  Return 0 if the decryption was successful, -1
         // otherwise.
         int Dec(std::string & plaintext, const DataKey enckey,
-            const std::string & ciphertext);
+            const std::string & ciphertext,
+            const std::string & additionaldata = "");
 
 
         // Convert an epoch number to an epoch byte array

@@ -40,3 +40,24 @@ TEST(EncryptionTest, EncDecTest) {
     EXPECT_EQ(Dec(plaintext2, key_bytes, ciphertext), 0);
     EXPECT_EQ(plaintext2, plaintext);
 }
+
+TEST(EncryptionTest, EncDecTestAD) {
+    byte key_bytes[DATAKEY_BYTES];
+    for (unsigned i = 0; i < sizeof(key_bytes); i++) {
+        key_bytes[i] = i + 0x33;
+    }
+    string plaintext;
+    string ad;
+    for (unsigned i = 0; i < 32; i++) {
+        plaintext.push_back(i + 0x55);
+        ad.push_back(i + 0x77);
+    }
+    string ciphertext = Enc(key_bytes, plaintext, ad);
+    EXPECT_EQ(ciphertext.size(), plaintext.size() + ENCRYPTION_OVERHEAD);
+    string plaintext2;
+    EXPECT_NE(Dec(plaintext2, key_bytes, ciphertext), 0);
+    EXPECT_NE(Dec(plaintext2, key_bytes, ciphertext, "baddata"), 0);
+    EXPECT_EQ(Dec(plaintext2, key_bytes, ciphertext, ad), 0);
+    EXPECT_EQ(plaintext2, plaintext);
+}
+

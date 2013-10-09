@@ -261,7 +261,8 @@ unsigned int PRF::M(const HashKey x)
 
 static const unsigned char zeroiv[12] = {0, };
 
-string Enc(const DataKey datakey, const string & plaintext)
+string Enc(const DataKey datakey, const string & plaintext,
+    const string & additionaldata)
 {
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
@@ -275,6 +276,13 @@ string Enc(const DataKey datakey, const string & plaintext)
     int len = 0;
     unsigned int ciphertext_len = 0;
     unsigned char ciphertext[plaintext.size() + 32];
+    if (additionaldata.size() > 0) {
+        ok = EVP_EncryptUpdate(ctx, NULL, &len,
+            reinterpret_cast<const unsigned char *>(additionaldata.data()),
+            additionaldata.size());
+        if (ok != 1)
+            return "";
+    }
     ok = EVP_EncryptUpdate(ctx, ciphertext, &len,
         (const unsigned char *)plaintext.data(), plaintext.size());
     if (ok != 1)
@@ -304,7 +312,8 @@ string Enc(const DataKey datakey, const string & plaintext)
 // size DATAENC_BYTES bytes to yield a plaintext of size
 // DATAPLAIN_BYTES.  Return 0 if the decryption was successful, -1
 // otherwise.
-int Dec(string & plaintext, const DataKey enckey, const string & ciphertext)
+int Dec(string & plaintext, const DataKey enckey, const string & ciphertext,
+    const string & additionaldata)
 {
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
@@ -320,6 +329,13 @@ int Dec(string & plaintext, const DataKey enckey, const string & ciphertext)
         (void *) (ciphertext.data() + ciphertext.size() - 16));
     if (!ok)
         return 4;
+    if (additionaldata.size() > 0) {
+        ok = EVP_DecryptUpdate(ctx, NULL, &len,
+            reinterpret_cast<const unsigned char *>(additionaldata.data()),
+            additionaldata.size());
+        if (!ok)
+            return 6;
+    }
     ok = EVP_DecryptUpdate(ctx, plaintext_bytes, &len,
         (const unsigned char*) ciphertext.data(), ciphertext.size()-16);
     if (!ok)
