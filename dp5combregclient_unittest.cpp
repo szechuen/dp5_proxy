@@ -29,7 +29,7 @@ TEST_F(CombRegClient, StartReg) {
 	string data(16, 0x0);
 
 	EXPECT_EQ(client.start_reg(result, 0, data), 0);
-	EXPECT_EQ(result.length(), EPOCH_BYTES + EPOCH_SIG_BYTES + 16);
+	EXPECT_EQ(result.length(), EPOCH_BYTES + EPOCH_SIG_BYTES + data.size() + ENCRYPTION_OVERHEAD);
 }
 
 TEST_F(CombRegClient, FinishReg) {
