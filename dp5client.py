@@ -92,8 +92,9 @@ prefix = 3
 import os
 def regfun(u):
     #print "Register", hexlify(u.pub[:prefix])
+    # FIXME: should the "16" here be configurable?
     buddies = [(pub, ('%s->%s' % (hexlify(u.pub[:prefix]),
-        hexlify(pub[:prefix]))).center(servers["dataEncSize"])) for pub in u.buddies]
+        hexlify(pub[:prefix]))).center(servers["dataEncSize"]-16)) for pub in u.buddies]
     u.client = dp5client(servers, u.priv)
     u.client.register(buddies)
 
