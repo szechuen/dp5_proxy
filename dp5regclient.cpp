@@ -57,7 +57,13 @@ int DP5RegClient::start_reg(string &msgtosend, Epoch next_epoch,
 
         s.assign((char *) shared_key, SHAREDKEY_BYTES);
 
-        s += Enc(data_key, current_buddy.data);
+        string ad((char *) epoch_bytes, sizeof(epoch_bytes));
+        ad.append(current_buddy.pubkey);
+        ad.append((char *) shared_key, sizeof(shared_key));
+
+        if (current_buddy.data.size() != _config.dataplain_bytes())
+            return 0x01; // wrong data size
+        s += Enc(data_key, current_buddy.data, ad);
         to_sort.push_back(s);
     }
 
@@ -129,7 +135,7 @@ int main()
     PrivKey client_privkey;
     PubKey client_pubkey;
     genkeypair(client_pubkey, client_privkey);
-    dp5.dataenc_bytes = 16;
+    dp5.dataenc_bytes = 32;
     dp5.epoch_len = 1800;
 
     DP5RegClient client = DP5RegClient(dp5, client_privkey);
@@ -142,13 +148,13 @@ int main()
         PubKey & bud_pubkey = buddies[i].pubkey;
         genkeypair(bud_pubkey, bud_privkey);
 
-        for (unsigned int j=0; j<dp5.dataenc_bytes; ++j) {
+        for (unsigned int j=0; j<dp5.dataplain_bytes(); ++j) {
             buddies[i].data.push_back(0x00 + j);
         }
         printf("Buddy %d PK: ", i);
         dump(NULL, buddies[i].pubkey, PUBKEY_BYTES);
         printf("Buddy %d data: ", i);
-        dump(NULL, (unsigned char  *) buddies[i].data.c_str(), dp5.dataenc_bytes);
+        dump(NULL, (unsigned char  *) buddies[i].data.c_str(), dp5.dataplain_bytes());
     }
 
     // Make the first message

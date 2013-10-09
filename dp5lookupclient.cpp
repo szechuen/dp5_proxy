@@ -449,7 +449,15 @@ int LookupRequest<PubKey,PrivKey>::get_data(string & data,
     SharedKey shared_key;
     DataKey data_key;
     H1H2(shared_key, data_key, _metadata.epoch, buddy.pubkey, shared_dh_secret);
-    return Dec(data, data_key, ciphertext);
+    byte epoch_bytes[EPOCH_BYTES];
+    epoch_num_to_bytes(epoch_bytes, _metadata.epoch);
+    string ad((char *) epoch_bytes, sizeof(epoch_bytes));
+    PubKey mypubkey;
+    // FIXME we probably shouldn't do this calculation for every presence entry
+    getpubkey(mypubkey, _privkey);
+    ad.append(mypubkey);
+    ad.append((char *) shared_key, sizeof(shared_key));
+    return Dec(data, data_key, ciphertext, ad);
 }
 
 template<>

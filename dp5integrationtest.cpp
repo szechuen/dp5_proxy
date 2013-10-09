@@ -277,7 +277,7 @@ int mainfunc(unsigned int NUMBEROFCLIENTS, unsigned int NUMBEROFFRIENDS) {
 
 
         for(typename std::set<dp5TestClientTemplate<Public,Private,LookupClient> *>::iterator ix = tcs[f].friends.begin();
-            ix!=tcs[f].friends.end(); ++ix){
+            idx < presence.size() && ix!=tcs[f].friends.end(); ++ix){
             dp5TestClientTemplate<Public,Private,LookupClient> * f2 = *ix;
             bool mem_ok = (f2->pubkey == presence[idx].pubkey);
             bool online_ok = (f2->online == presence[idx].is_online);
