@@ -87,7 +87,7 @@ TEST_F(BLSTest, HashSigErrorInvalid) {
 TEST_F(BLSTest, HashPKErrorInvalid) {
 	unsigned char hashkey[HASHKEY_BYTES];
 	BLSPubKey pubkey3;
-	pubkey3[0] = 1;
+	pubkey3[0u] = 1;
 
 	EXPECT_NE(hash_key_from_pk(hashkey, pubkey3, 0), 0);
 }
