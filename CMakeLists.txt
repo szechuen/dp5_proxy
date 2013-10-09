@@ -26,6 +26,7 @@ ExternalProject_Add(
     Relic
     LIST_SEPARATOR @@
     URL http://relic-toolkit.googlecode.com/files/relic-0.3.5.tar.gz
+    URL_MD5 f3dd5d7ad1683e5f4d5503b18ff18d5c
     CMAKE_ARGS -DWITH=ALL -DCHECK=off ${RELIC_ARITH} ${RELIC_ARCH} -DFP_PRIME=254 -DFP_QNRES=on
     -DFP_METHD=BASIC@@COMBA@@COMBA@@MONTY@@LOWER@@SLIDE DFP_QNRES=on
     -DPC_METHD=PRIME -DPP_METHD=INTEG@@INTEG@@LAZYR@@OATEP
@@ -34,6 +35,17 @@ ExternalProject_Add(
 ExternalProject_Get_Property(Relic INSTALL_DIR)
 include_directories(${INSTALL_DIR}/include)
 set (RELIC_LIBRARIES ${INSTALL_DIR}/lib/librelic_s.a)
+
+ExternalProject_Add(
+    googletest
+    URL http://googletest.googlecode.com/files/gtest-1.7.0.zip
+    URL_MD5 2d6ec8ccdf5c46b05ba54a9fd1d130d7
+    INSTALL_COMMAND "")
+ExternalProject_Get_Property(googletest source_dir)
+set(GTEST_INCLUDE_DIRS ${source_dir}/include)
+ExternalProject_Get_Property(googletest binary_dir)
+set(GTEST_LIBS_DIR ${binary_dir})
+set(GTEST_LIBRARIES ${GTEST_LIBS_DIR}/libgtest.a ${GTEST_LIBS_DIR}/libgtest_main.a)
 
 set (PERCYDIR ${CMAKE_CURRENT_SOURCE_DIR}/../percy)
 
@@ -135,5 +147,22 @@ testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp;dp
 add_executable(test_integrate dp5integrationtest.cpp)
 target_link_libraries(test_integrate dp5 curve25519-donna ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES}
     relicwrapper ${RELIC_LIBRARIES})
-# Don't add it as a test because it takes a long time
-#add_test(IntegrationTest test_integrate)
+# Note that this doesn't exercise PIR, but at least it runs quickly
+add_test(IntegrationTest test_integrate 25)
+set_tests_properties(IntegrationTest PROPERTIES FAIL_REGULAR_EXPRESSION "False")
+
+include_directories(${GTEST_INCLUDE_DIRS})
+
+macro(gtest TARGET SOURCES)
+    add_executable(${TARGET} ${SOURCES})
+    add_dependencies(${TARGET} googletest)
+    target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES}
+     ${PERCY_LIBRARIES} ${RELIC_LIBRARIES} relicwrapper curve25519-donna ${GTEST_LIBRARIES} ${ARGN})
+    add_test(${TARGET} ${TARGET})
+endmacro(gtest)
+
+gtest(bytearray_unittest bytearray_unittest.cpp)
+gtest(dp5metadata_unittest "dp5metadata_unittest.cpp;dp5metadata.cpp;dp5params.cpp")
+gtest(dp5combregclient_unittest "dp5combregclient_unittest.cpp;dp5combregclient.cpp;dp5params.cpp")
+gtest(dp5lookupclient_unittest "dp5lookupclient_unittest.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp")
+gtest(pairing_unittest "pairing_unittest.cpp;dp5params.cpp")
