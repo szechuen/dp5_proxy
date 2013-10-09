@@ -166,3 +166,4 @@ gtest(dp5metadata_unittest "dp5metadata_unittest.cpp;dp5metadata.cpp;dp5params.c
 gtest(dp5combregclient_unittest "dp5combregclient_unittest.cpp;dp5combregclient.cpp;dp5params.cpp")
 gtest(dp5lookupclient_unittest "dp5lookupclient_unittest.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp")
 gtest(pairing_unittest "pairing_unittest.cpp;dp5params.cpp")
+gtest(enc_test "enc_test.cpp;dp5params.cpp")
