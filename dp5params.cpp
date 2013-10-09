@@ -259,28 +259,6 @@ unsigned int PRF::M(const HashKey x)
     return outint % _num_buckets;
 }
 
-// Encryption and decryption of associated data
-// Each (small) piece of associated data is encrypted with a
-// different key, so keeping key state is unnecessary.
-
-// Encrypt using a key of size DATAKEY_BYTES bytes a plaintext of size
-// DATAPLAIN_BYTES bytes to yield a ciphertext of size DATAENC_BYTES
-// bytes.
-/*
-string Enc(const DataKey enckey, const string & plaintext)
-{
-    AES_KEY aeskey;
-    AES_set_encrypt_key(enckey, 8*DATAKEY_BYTES, &aeskey);
-    if (plaintext.size() != 16) {
-        throw runtime_error("Only 128-bit plaintext currently supported");
-    }
-    unsigned char ciphertext[16];
-    AES_encrypt((const unsigned char *) plaintext.data(), ciphertext, &aeskey);
-
-    return string((char *)ciphertext, 16);
-}
-*/
-
 static const unsigned char zeroiv[12] = {0, };
 
 string Enc(const DataKey datakey, const string & plaintext)
@@ -289,15 +267,16 @@ string Enc(const DataKey datakey, const string & plaintext)
     if (!ctx)
         return "";
 
-    int ok = EVP_EncryptInit(ctx, EVP_aes_128_gcm(), (const byte *)datakey, zeroiv);
+    int ok = EVP_EncryptInit(ctx, EVP_aes_128_gcm(), (const byte *)datakey,
+        zeroiv);
     if (ok != 1)
         return "";
 
     int len = 0;
     unsigned int ciphertext_len = 0;
     unsigned char ciphertext[plaintext.size() + 32];
-    ok = EVP_EncryptUpdate(ctx, ciphertext, &len, (const unsigned char *)plaintext.data(),
-        plaintext.size());
+    ok = EVP_EncryptUpdate(ctx, ciphertext, &len,
+        (const unsigned char *)plaintext.data(), plaintext.size());
     if (ok != 1)
         return "";
 
@@ -307,7 +286,8 @@ string Enc(const DataKey datakey, const string & plaintext)
         return "";
     ciphertext_len += len;
 
-    ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, ciphertext + ciphertext_len);
+    ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16,
+        ciphertext + ciphertext_len);
     if (ok != 1)
         return "";
 
@@ -329,7 +309,8 @@ int Dec(string & plaintext, const DataKey enckey, const string & ciphertext)
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
         return 1;
-    int ok = EVP_DecryptInit(ctx, EVP_aes_128_gcm(), (const byte *) enckey, zeroiv);
+    int ok = EVP_DecryptInit(ctx, EVP_aes_128_gcm(), (const byte *) enckey,
+        zeroiv);
     if (!ok)
         return 2;
 
