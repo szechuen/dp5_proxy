@@ -1,0 +1,82 @@
+diff --git c/CMakeLists.txt i/CMakeLists.txt
+new file mode 100644
+index 0000000..95a0bab
+--- /dev/null
++++ i/CMakeLists.txt
+@@ -0,0 +1,10 @@
++project (Percy++)
++
++find_file(NTL_INCLUDE_DIR "NTL/")
++
++include_directories(${NTL_INCLUDE_DIR})
++add_library(percyclient percyclient.cc percyparams.cc recover.cc rsdecoder.cc percyio.cc 
++                FXY.cc gf2e.cc subset_iter.cc subset.cc portfolio.cc)
++add_library(percyserver percyserver.cc percyparams.cc datastore.cc percyio.cc gf2e.cc distserver.cc 
++                threadedserver.cc cmdtools.cc)
++
+diff --git c/gf2e.h i/gf2e.h
+index 0635efc..d304aa9 100644
+--- c/gf2e.h
++++ i/gf2e.h
+@@ -99,7 +99,7 @@ E interpolate_GF2E(const E *indices, const E *values,
+         unsigned short numpoints, const E alpha) {
+     E res;
+ 
+-    E lagrange[numpoints];
++	E *lagrange = new E[numpoints];
+     unsigned short i,j;
+ 
+     for (i=0;i<numpoints;++i) {
+@@ -117,7 +117,8 @@ E interpolate_GF2E(const E *indices, const E *values,
+     res = 0;
+     for (i=0;i<numpoints;++i) {
+         res ^= multiply_GF2E<E>(lagrange[i], values[i]);
+-    }
++    }    
++	delete [] lagrange;
+     return res;
+ }
+ 
+diff --git c/percyserver.h i/percyserver.h
+index f0b2f81..ff3e7a6 100644
+--- c/percyserver.h
++++ i/percyserver.h
+@@ -34,7 +34,7 @@ public:
+     // Initialize a server with the given DataStore.
+     PercyServer(DataStore * datastore) : byzantine(false),
+ 					 datastore(datastore) {}
+-    ~PercyServer() {}
++    virtual ~PercyServer() {}
+ 
+     // Tell the server to be Byzantine
+     void be_byzantine() { byzantine = true; }
+diff --git c/percytypes.h i/percytypes.h
+index f64a50d..54fd2e3 100644
+--- c/percytypes.h
++++ i/percytypes.h
+@@ -81,7 +81,12 @@
+ //	#warning "Detected 64-bit build."
+ 
+ 	#define BUILD_64
+-	#define _W160_OPT
++	#define _W160_OPT   
++	
++#ifdef __APPLE__
++#define off64_t off_t   
++#define mmap64 mmap
++#endif
+ 
+ 	typedef uint32_t sid_t;
+ 	typedef uint64_t dbsize_t;
+diff --git c/threadedserver.cc i/threadedserver.cc
+index ede4207..7d3c327 100644
+--- c/threadedserver.cc
++++ i/threadedserver.cc
+@@ -20,6 +20,7 @@
+ #include <string.h>
+ #include <sstream>
+ #include <fstream>
++#include <unistd.h>
+ #include <pthread.h>
+ #include <sys/time.h>
+ #include <sys/resource.h>

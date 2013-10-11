@@ -47,16 +47,20 @@ ExternalProject_Get_Property(googletest binary_dir)
 set(GTEST_LIBS_DIR ${binary_dir})
 set(GTEST_LIBRARIES ${GTEST_LIBS_DIR}/libgtest.a ${GTEST_LIBS_DIR}/libgtest_main.a)
 
-set (PERCYDIR ${CMAKE_CURRENT_SOURCE_DIR}/../percy)
+ExternalProject_Add(
+    Percy++
+    URL http://downloads.sourceforge.net/percy/percy-0.9.0.tar.gz
+    URL_MD5 3f2a6e7507309f5e20d761586dfd0d5e
+    PATCH_COMMAND patch -t -N < ${CMAKE_CURRENT_SOURCE_DIR}/percy.patch || true
+    INSTALL_COMMAND "")
+ExternalProject_Get_Property(Percy++ source_dir)
+include_directories(${source_dir})
+ExternalProject_Get_Property(Percy++ binary_dir)
+set(PERCYSERVER ${binary_dir}/libpercyserver.a)
+set(PERCYCLIENT ${binary_dir}/libpercyclient.a)
 
 find_library(NTL ntl)
 find_file(NTL_INCLUDE_DIR "NTL/")
-
-set (PERCYDIR ${CMAKE_CURRENT_SOURCE_DIR}/../percy)
-find_library(PERCYSERVER NAMES percyserver PATHS ${PERCYDIR})
-find_library(PERCYCLIENT NAMES percyclient PATHS ${PERCYDIR})
-find_file(PERCYH NAMES percyclient.h PATHS ${PERCYDIR})
-string(REGEX REPLACE "[^/]+$" "" PERCYINCLUDE ${PERCYH})
 
 set(PERCY_LIBRARIES ${PERCYSERVER} ${PERCYCLIENT} ${NTL})
 if(GMP)
@@ -65,7 +69,6 @@ if(GMP)
     set(RELIC_LIBRARIES ${RELIC_LIBRARIES} ${GMP})
 endif(GMP)
 
-include_directories(${PERCYINCLUDE})
 include_directories(${NTL_INCLUDE_DIR})
 get_filename_component(NTL_PARENT_DIR ${NTL_INCLUDE_DIR} PATH)
 include_directories(${NTL_PARENT_DIR})
