@@ -51,6 +51,7 @@ ExternalProject_Add(
     Percy++
     URL http://downloads.sourceforge.net/percy/percy-0.9.0.tar.gz
     URL_MD5 3f2a6e7507309f5e20d761586dfd0d5e
+    CMAKE_ARGS "-DCMAKE_CXX_FLAGS=-g -O2 -fPIC"
     PATCH_COMMAND patch -t -N < ${CMAKE_CURRENT_SOURCE_DIR}/percy.patch || true
     INSTALL_COMMAND "")
 ExternalProject_Get_Property(Percy++ source_dir)
@@ -75,7 +76,7 @@ include_directories(${NTL_PARENT_DIR})
 
 find_package(OpenSSL REQUIRED)
 if(${OPENSSL_VERSION} VERSION_LESS "1.0.1")
-    message(FATAL_ERROR "Need OpenSSL 1.0.1 or later to use GCM mode encryption (found ${OPENSSL_VERSION}")
+    message("Need OpenSSL 1.0.1 or later to use GCM mode encryption (found ${OPENSSL_VERSION})")
 endif(${OPENSSL_VERSION} VERSION_LESS "1.0.1")
 include_directories(${OPENSSL_INCLUDE_DIR})
 
