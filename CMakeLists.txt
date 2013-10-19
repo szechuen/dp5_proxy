@@ -87,6 +87,12 @@ include_directories(${DP5_SOURCE_DIR}/relicwrapper)
 add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
     dp5params.cpp dp5metadata.cpp dp5combregclient.cpp dp5regclient.cpp dp5regserver.cpp)
 
+# Build a pure C shared-library to call with Python CFFI wrapper
+add_library(dp5clib SHARED dp5clib.cpp curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
+    dp5params.cpp dp5metadata.cpp dp5combregclient.cpp dp5regclient.cpp dp5regserver.cpp)
+target_link_libraries(dp5clib ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES}
+        curve25519-donna relicwrapper ${RELIC_LIBRARIES} ${ARGN})
+
 # Separate this library for building tests to avoid
 # rebuilding it every time
 add_library(curve25519-donna curve25519-donna.c)
