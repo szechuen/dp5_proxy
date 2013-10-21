@@ -91,7 +91,8 @@ add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
 add_library(dp5clib SHARED dp5clib.cpp curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
     dp5params.cpp dp5metadata.cpp dp5combregclient.cpp dp5regclient.cpp dp5regserver.cpp)
 target_link_libraries(dp5clib ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES}
-        curve25519-donna relicwrapper ${RELIC_LIBRARIES} ${ARGN})
+        relicwrapper ${RELIC_LIBRARIES})
+set_source_files_properties(dp5clib.cpp PROPERTIES COMPILE_FLAGS "-Wno-mismatched-tags")
 
 # Separate this library for building tests to avoid
 # rebuilding it every time
