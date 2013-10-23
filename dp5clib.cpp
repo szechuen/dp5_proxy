@@ -5,6 +5,14 @@ using namespace std;
 using namespace dp5;
 using namespace dp5::internal;
 
+// ----------------------------
+
+// Create a Buffer interface to exchange data
+
+void nativebuffer_purge(nativebuffer buf){
+    if (buf.buf != NULL) free(buf.buf);
+}
+
 // Initialize libraries
 void * Init_init(){
     ZZ_p::init(to_ZZ(256));
@@ -27,8 +35,6 @@ DHKey * DHKey_alloc(){
     DHKey * keys = new DHKey();
     return keys; 
 }
-
-
 
 void DHKey_free(DHKey * keys){
     delete keys;
@@ -132,7 +138,7 @@ int RegClient_start(
     }
 
     string msgCtoS;
-    unsigned int next_epoch = epoch + 1;
+    unsigned int next_epoch = epoch;
     int err1 = reg->start_reg(msgCtoS, next_epoch, buds);
     if (err1) return err1;
 
@@ -144,11 +150,10 @@ int RegClient_start(
 int RegClient_complete(
     DP5RegClient * reg,
     unsigned int epoch,
-    size_t len,
-    char * buffer){
+    nativebuffer buf){
 
     string data;
-    data.append(buffer, len);
+    data.append(buf.buf, buf.len);
 
     int err = reg->complete_reg(data, epoch);
     return err;
@@ -156,7 +161,41 @@ int RegClient_complete(
 
 // ----------- Combined Reg Client Functions ------
 
+struct DP5CombinedRegClient * RegClientCB_alloc(BLSKey * keys){
+    return new struct DP5CombinedRegClient(keys->privkey);
+}
 
+void RegClientCB_delete(struct DP5CombinedRegClient * p){
+    delete p;
+}
+
+int RegClientCB_start(
+    DP5CombinedRegClient * reg, 
+    unsigned int epoch,
+    nativebuffer data,
+    void processbuf(size_t, const void*)){
+
+    string msgCtoS;
+    string sdata;
+    sdata.append(data.buf, data.len);
+    int err1 = reg->start_reg(msgCtoS, epoch, sdata);
+    if (err1) return err1;
+
+    processbuf(msgCtoS.size(), msgCtoS.data());
+    return 0x00;
+}
+
+int RegClientCB_complete(
+    DP5CombinedRegClient * reg,
+    unsigned int epoch,
+    nativebuffer buffer){
+
+    string data;
+    data.append(buffer.buf, buffer.len);
+
+    int err = reg->complete_reg(data, epoch);
+    return err;
+}
 
 // ----------- Registration Server Functions ------
 
@@ -177,12 +216,11 @@ void RegServer_delete(DP5RegServer * p){
 
 void RegServer_register(
     DP5RegServer * reg,
-    size_t len,
-    void * data,
+    nativebuffer data,
     void processbuf(size_t, const void*)){
 
     string input;
-    input.append((char*) data, len);
+    input.append((char*) data.buf, data.len);
     string output;
     reg->client_reg(output, input);
     
@@ -205,8 +243,139 @@ unsigned int RegServer_epoch_change(
 
 // ---------- Lookup client functions -----------
 
+
+
 DP5LookupClient * LookupClient_alloc(DHKey * keys){
     return new DP5LookupClient(keys->privkey);
+}
+
+void LookupClient_delete(DP5LookupClient * p){
+    delete p;
+}
+
+void LookupClient_metadata_req(
+    DP5LookupClient * cli,
+    unsigned int epoch,
+    void processbuf(size_t, const void*)){
+
+    string output;
+    cli->metadata_request(output, epoch);
+
+    processbuf(output.size(), output.data());
+}
+
+int LookupClient_metadata_rep(
+    DP5LookupClient * cli,
+    nativebuffer data){
+
+    string msgStoC;
+    msgStoC.append((char *) data.buf, data.len);
+    int err = cli->metadata_reply(msgStoC);
+
+    return err;
+}
+
+DP5LookupClient::Request * LookupRequest_lookup(
+    DP5LookupClient * cli,
+    unsigned int buds_len,
+    void * buds,
+    unsigned int num_servers,
+    void processbuf(size_t, const void*)
+    ){
+
+    vector<PubKey> vbuds;
+    size_t pk_len = sizeof(PubKey);
+    for (unsigned int f = 0; f < buds_len; f++){
+        PubKey pub;
+        memcpy(&pub, ((char *) buds) + f*pk_len, pk_len);
+        vbuds.push_back(pub);
+
+    }
+
+    DP5LookupClient::Request * req = new DP5LookupClient::Request();
+
+    // DP5Request * req = new DP5Request();
+    cli->lookup_request(*req, vbuds, num_servers, num_servers-1);
+
+    vector<string> msgCtoSpir = req->get_msgs();
+    vector<string> msgStoCpir;
+    for(unsigned int s = 0; s < msgCtoSpir.size(); s++){
+        if (msgCtoSpir[s] == "") {
+            processbuf(0, NULL);
+        }
+        else
+        {
+            processbuf(msgCtoSpir[s].size(), msgCtoSpir[s].data());
+        }
+    }
+
+    return req;
+}
+
+
+    int LookupRequest_reply(
+        DP5LookupClient::Request * req,
+        unsigned int num_servers,
+        nativebuffer * replies,
+        void processprez(char*, bool, size_t, const void*)
+        ){
+
+        vector<string> msgStoCpir;
+        for (unsigned int i = 0; i < num_servers; i++){
+            string msg;
+            if (replies[i].len >0){
+                msg.append(replies[i].buf, replies[i].len);
+            }
+            else {
+                msg = "";
+            }
+            msgStoCpir.push_back(msg);
+        }
+
+        vector<typename DP5LookupClient::Presence> presence;
+        int err4 = req->lookup_reply(presence, msgStoCpir);
+        if (err4) return err4;
+
+
+        for (unsigned int j = 0; j < presence.size(); j++){
+            processprez(
+            (char*) & (presence[j].pubkey),
+            presence[j].is_online,
+            presence[j].data.size(),
+            presence[j].data.data());
+        }
+        
+
+        return 0;  
+
+    }
+
+
+
+
+// --------- Lookup Server functios -------------
+
+DP5LookupServer * LookupServer_alloc(char* meta, char* data){
+        DP5LookupServer *server = new DP5LookupServer();
+        server->init(meta, data);
+        return server;
+}
+
+void LookupServer_delete(DP5LookupServer * p){
+    delete p;
+}
+
+void LookupServer_process(DP5LookupServer * ser, 
+    nativebuffer data,
+    void processbuf(size_t, const void*)){
+
+    string msgCtoS;
+    msgCtoS.append(data.buf, data.len);
+
+    string msgStoC;
+    ser->process_request(msgStoC, msgCtoS);
+
+    processbuf(msgStoC.size(), msgStoC.data());
 }
 
 

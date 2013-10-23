@@ -27,6 +27,17 @@ using namespace dp5::internal;
 
 extern "C" {
 
+    // Native buffer interface
+
+    typedef struct {
+    size_t len;
+    char * buf;
+    } nativebuffer;
+
+    void nativebuffer_purge(nativebuffer buf);
+
+    /* Init functions */
+
     void * Init_init();
     void Init_cleanup(void * p);
 
@@ -78,8 +89,24 @@ extern "C" {
     int RegClient_complete(
         DP5RegClient * reg,
         unsigned int epoch,
-        size_t len,
-        char * buffer);
+        nativebuffer buf);
+
+    /* Combined registration client */
+
+    DP5CombinedRegClient * RegClientCB_alloc(BLSKey * keys);
+
+    void RegClientCB_delete(struct DP5CombinedRegClient * p);
+
+    int RegClientCB_start(
+        DP5CombinedRegClient * reg, 
+        unsigned int epoch,
+        nativebuffer data,
+        void processbuf(size_t, const void*));
+
+    int RegClientCB_complete(
+        DP5CombinedRegClient * reg,
+        unsigned int epoch,
+        nativebuffer buffer);
 
     /* Registration Server */
 
@@ -93,12 +120,23 @@ extern "C" {
 
     void RegServer_register(
         DP5RegServer * reg,
-        size_t len,
-        void * data,
+        nativebuffer data,
         void processbuf(size_t, const void*));
 
     unsigned int RegServer_epoch_change(
         DP5RegServer * reg,
         char * metadata,
         char * data);
+
+
+    /* Lookup server */
+
+    DP5LookupServer * LookupServer_alloc(char* meta, char* data);
+
+    void LookupServer_delete(DP5LookupServer * p);
+
+    void LookupServer_process(
+        DP5LookupServer * ser, 
+        nativebuffer data,
+        void processbuf(size_t, const void*));
 }
