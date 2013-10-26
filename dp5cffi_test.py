@@ -4,13 +4,32 @@ from dp5clib import *
 ## ------- Tests -----------------------
 
 import unittest
+import shutil
+import os
 
 class DP5TestCase(unittest.TestCase):
     def setUp(self):
         InitLib()
 
+        try:
+            shutil.rmtree("regdirpy")
+        except Exception, e:
+            pass
+
+        try:
+            shutil.rmtree("datadirpy")
+        except Exception, e:
+            pass
+
+
+        os.mkdir("regdirpy")
+        os.mkdir("datadirpy")
+
+
     def tearDown(self):
-        pass
+        ## Delete all files in server directories
+        shutil.rmtree("regdirpy")
+        shutil.rmtree("datadirpy")
 
     def test_raw_DHKey(self):
         # Using raw C functions
@@ -102,12 +121,7 @@ class DP5TestCase(unittest.TestCase):
             process_buffer)
         self.assertEqual( int(err) , 0 )
 
-        import os
-        try:
-            os.mkdir("regdirpy")
-            os.mkdir("datadirpy")
-        except Exception, e:
-            pass
+
 
         server = C.RegServer_alloc(config, epoch, "regdirpy", "datadirpy")
 
@@ -122,6 +136,88 @@ class DP5TestCase(unittest.TestCase):
         self.assertEqual( err , 0)
 
         e = C.RegServer_epoch_change(server, "metadatapy.dat", "datapy.dat")
+
+    def test_client_reg1(self):
+        state = {}
+        cli = AsyncDP5Client(state)
+
+        def handler(state, event):
+            self.assertEqual( event , ("REGID","SUCCESS"))
+
+        cli.event_handlers += [handler]
+
+        for i in range(10):
+            k = DHKeys()
+            k.gen()
+            cli.set_friend(k.pub(), "Friend %s" % i)
+
+        msg, cb, nf = cli.register_ID()
+
+        ## RAW server code
+        epoch = C.Config_current_epoch(cli.config.get_ptr())
+        server = C.RegServer_alloc(cli.config.get_ptr(), epoch, "regdirpy", "datadirpy")
+
+        datax, process_buffer = callbackbuffer()
+        buf = NativeBuf(msg)
+        C.RegServer_register(server, buf.get(), process_buffer)
+        reply = datax[0]
+
+        cb(reply)
+
+    def test_client_nosync(self):
+        state = {}
+        cli = AsyncDP5Client(state)
+
+        def handler(state, event):
+            self.assertEqual( event , ("REGID","FAIL"))
+
+        cli.event_handlers += [handler]
+
+        for i in range(10):
+            k = DHKeys()
+            k.gen()
+            cli.set_friend(k.pub(), "Friend %s" % i)
+
+        msg, cb, nf = cli.register_ID()
+
+        ## RAW server code
+        epoch = C.Config_current_epoch(cli.config.get_ptr())
+        server = C.RegServer_alloc(cli.config.get_ptr(), epoch+5, "regdirpy", "datadirpy")
+
+        datax, process_buffer = callbackbuffer()
+        buf = NativeBuf(msg)
+        C.RegServer_register(server, buf.get(), process_buffer)
+        reply = datax[0]
+
+        cb(reply)
+
+    def test_client_reg_combined(self):
+        state = {}
+        cli = AsyncDP5Client(state)
+
+        def handler(state, event):
+            self.assertEqual( event , ("REGCB","SUCCESS"))            
+
+        cli.event_handlers += [handler]
+
+        for i in range(10):
+            k = DHKeys()
+            k.gen()
+            cli.set_friend(k.pub(), "Friend %s" % i)
+
+        msg, cb, nf = cli.register_combined(" "*16)
+
+        ## RAW server code
+        epoch = C.Config_current_epoch(cli.configCB.get_ptr())
+        server = C.RegServer_alloc(cli.configCB.get_ptr(), epoch, "regdirpy", "datadirpy")
+
+        datax, process_buffer = callbackbuffer()
+        buf = NativeBuf(msg)
+        C.RegServer_register(server, buf.get(), process_buffer)
+        reply = datax[0]
+
+        cb(reply)
+
 
 if __name__ == "__main__":
     unittest.main()
