@@ -241,9 +241,115 @@ unsigned int RegServer_epoch_change(
     return epoch;
 }
 
+// ---------- Combined Lookup client functions -----------
+
+DP5CombinedLookupClient * LookupClientCB_alloc(){
+    return new DP5CombinedLookupClient();
+}
+
+void LookupClientCB_delete(DP5CombinedLookupClient * p){
+    delete p;
+}
+
+void LookupClientCB_metadata_req(
+    DP5CombinedLookupClient * cli,
+    unsigned int epoch,
+    void processbuf(size_t, const void*)){
+
+    string output;
+    cli->metadata_request(output, epoch);
+
+    processbuf(output.size(), output.data());
+}
+
+int LookupClientCB_metadata_rep(
+    DP5CombinedLookupClient * cli,
+    nativebuffer data){
+
+    string msgStoC;
+    msgStoC.append((char *) data.buf, data.len);
+    int err = cli->metadata_reply(msgStoC);
+
+    return err;
+}
+
+DP5CombinedLookupClient::Request * LookupRequestCB_lookup(
+    DP5CombinedLookupClient * cli,
+    unsigned int buds_len,
+    void * buds,
+    unsigned int num_servers,
+    void processbuf(size_t, const void*)
+    ){
+
+    vector<BLSPubKey> vbuds;
+    size_t pk_len = sizeof(BLSPubKey);
+    for (unsigned int f = 0; f < buds_len; f++){
+        BLSPubKey pub;
+        memcpy(&pub, ((char *) buds) + f*pk_len, pk_len);
+        vbuds.push_back(pub);
+
+    }
+
+    DP5CombinedLookupClient::Request * req = new DP5CombinedLookupClient::Request();
+
+    // DP5Request * req = new DP5Request();
+    cli->lookup_request(*req, vbuds, num_servers, num_servers-1);
+
+    vector<string> msgCtoSpir = req->get_msgs();
+    vector<string> msgStoCpir;
+    for(unsigned int s = 0; s < msgCtoSpir.size(); s++){
+        if (msgCtoSpir[s] == "") {
+            processbuf(0, NULL);
+        }
+        else
+        {
+            processbuf(msgCtoSpir[s].size(), msgCtoSpir[s].data());
+        }
+    }
+
+    return req;
+}
+
+int LookupRequestCB_reply(
+    DP5CombinedLookupClient::Request * req,
+    unsigned int num_servers,
+    nativebuffer * replies,
+    void processprez(char*, bool, size_t, const void*)
+    ){
+
+    vector<string> msgStoCpir;
+    for (unsigned int i = 0; i < num_servers; i++){
+        string msg;
+        if (replies[i].len > 0){
+            msg.append(replies[i].buf, replies[i].len);
+        }
+        else {
+            msg = "";
+        }
+        msgStoCpir.push_back(msg);
+    }
+
+    vector<typename DP5CombinedLookupClient::Presence> presence;
+    int err4 = req->lookup_reply(presence, msgStoCpir);
+    if (err4) return err4;
+
+
+    for (unsigned int j = 0; j < presence.size(); j++){
+        processprez(
+        (char*) & (presence[j].pubkey),
+        presence[j].is_online,
+        presence[j].data.size(),
+        presence[j].data.data());
+    }
+    
+    return 0;  
+}
+
+void LookupRequestCB_delete(DP5CombinedLookupClient::Request * p){
+    delete p;
+}
+
 // ---------- Lookup client functions -----------
-
-
 
 DP5LookupClient * LookupClient_alloc(DHKey * keys){
     return new DP5LookupClient(keys->privkey);
@@ -312,45 +418,44 @@ DP5LookupClient::Request * LookupRequest_lookup(
     return req;
 }
 
+int LookupRequest_reply(
+    DP5LookupClient::Request * req,
+    unsigned int num_servers,
+    nativebuffer * replies,
+    void processprez(char*, bool, size_t, const void*)
+    ){
 
-    int LookupRequest_reply(
-        DP5LookupClient::Request * req,
-        unsigned int num_servers,
-        nativebuffer * replies,
-        void processprez(char*, bool, size_t, const void*)
-        ){
-
-        vector<string> msgStoCpir;
-        for (unsigned int i = 0; i < num_servers; i++){
-            string msg;
-            if (replies[i].len >0){
-                msg.append(replies[i].buf, replies[i].len);
-            }
-            else {
-                msg = "";
-            }
-            msgStoCpir.push_back(msg);
+    vector<string> msgStoCpir;
+    for (unsigned int i = 0; i < num_servers; i++){
+        string msg;
+        if (replies[i].len >0){
+            msg.append(replies[i].buf, replies[i].len);
         }
-
-        vector<typename DP5LookupClient::Presence> presence;
-        int err4 = req->lookup_reply(presence, msgStoCpir);
-        if (err4) return err4;
-
-
-        for (unsigned int j = 0; j < presence.size(); j++){
-            processprez(
-            (char*) & (presence[j].pubkey),
-            presence[j].is_online,
-            presence[j].data.size(),
-            presence[j].data.data());
+        else {
+            msg = "";
         }
-        
-
-        return 0;  
-
+        msgStoCpir.push_back(msg);
     }
 
+    vector<typename DP5LookupClient::Presence> presence;
+    int err4 = req->lookup_reply(presence, msgStoCpir);
+    if (err4) return err4;
 
+
+    for (unsigned int j = 0; j < presence.size(); j++){
+        processprez(
+        (char*) & (presence[j].pubkey),
+        presence[j].is_online,
+        presence[j].data.size(),
+        presence[j].data.data());
+    }
+    
+    return 0;  
+}
+
+void LookupRequest_delete(DP5LookupClient::Request * p){
+    delete p;
+}
 
 
 // --------- Lookup Server functios -------------

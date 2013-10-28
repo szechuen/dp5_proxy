@@ -40,8 +40,7 @@ class dp5client:
         if int(self._params["epoch"] != dp5.getepoch(self._config)):
             msg = "Client and Server epoch out of sync. \
                   (Client: %s Server: %s)" % (dp5.getepoch(self._config), self._params["epoch"])
-            #raise Exception(msg)
-            #print msg
+            raise Exception(msg)
 
         # Initialize the client
         self._client = dp5.getnewclient(self._config, self._priv)
@@ -134,7 +133,7 @@ if __name__ == "__main__":
     end = time.time()
     print "Done ({:.2f}s / {:.2f}ms / user)".format(end-start, (end-start)/len(users)*1000)
 
-    ## Simulate an time period advance
+    ## Simulate a time period advance
     url = protocol + "://" + servers["regServer"] + "/debugfastforward"
     ff = requests.get(url, verify=SSLVERIFY)
     print ff.content

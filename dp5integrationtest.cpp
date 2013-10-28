@@ -125,9 +125,9 @@ bool dp5TestClientTemplate<PubKey,PrivKey,DP5LookupClient>::verifyData(
     unsigned char data[config.dataplain_bytes()];
     memset(data, 0, config.dataplain_bytes());
     data[0] = 0x99; // Just a random marker
-    memmove(data +1,
+    memmove(data + 1,
         reinterpret_cast<const char *>(&friendp->index), sizeof(unsigned int));
-    memmove(data +1 + sizeof(unsigned int),
+    memmove(data + 1 + sizeof(unsigned int),
         reinterpret_cast<const char *>(&index), sizeof(unsigned int));
 
     return (memcmp(data, presence.data.data(), sizeof(data)) == 0);
@@ -244,7 +244,7 @@ int mainfunc(unsigned int NUMBEROFCLIENTS, unsigned int NUMBEROFFRIENDS) {
             buds.push_back((*ix)->pubkey);
         }
 
-        // Build a requesr object
+        // Build a request object
         typename LookupClient::Request req;
         tcs[f].cli->lookup_request(req, buds, num_servers, num_servers-1);
 

@@ -139,4 +139,64 @@ extern "C" {
         DP5LookupServer * ser, 
         nativebuffer data,
         void processbuf(size_t, const void*));
+
+    /* Combined lookup Client */
+
+    DP5CombinedLookupClient * LookupClientCB_alloc();
+    void LookupClientCB_delete(DP5CombinedLookupClient * p);
+
+    void LookupClientCB_metadata_req(
+        DP5CombinedLookupClient * cli,
+        unsigned int epoch,
+        void processbuf(size_t, const void*));
+
+    int LookupClientCB_metadata_rep(
+        DP5CombinedLookupClient * cli,
+        nativebuffer data);
+    
+    DP5CombinedLookupClient::Request * LookupRequestCB_lookup(
+        DP5CombinedLookupClient * cli,
+        unsigned int buds_len,
+        void * buds,
+        unsigned int num_servers,
+        void processbuf(size_t, const void*) );
+
+    int LookupRequestCB_reply(
+        DP5CombinedLookupClient::Request * req,
+        unsigned int num_servers,
+        nativebuffer * replies,
+        void processprez(char*, bool, size_t, const void*)
+        );
+
+    void LookupRequestCB_delete(DP5CombinedLookupClient::Request * p);
+
+    /* Lookup client */
+
+    DP5LookupClient * LookupClient_alloc(DHKey * keys);
+    void LookupClient_delete(DP5LookupClient * p);
+
+    void LookupClient_metadata_req(
+        DP5LookupClient * cli,
+        unsigned int epoch,
+        void processbuf(size_t, const void*));
+
+    int LookupClient_metadata_rep(
+        DP5LookupClient * cli,
+        nativebuffer data);
+    
+    DP5LookupClient::Request * LookupRequest_lookup(
+        DP5LookupClient * cli,
+        unsigned int buds_len,
+        void * buds,
+        unsigned int num_servers,
+        void processbuf(size_t, const void*) );
+
+    int LookupRequest_reply(
+        DP5LookupClient::Request * req,
+        unsigned int num_servers,
+        nativebuffer * replies,
+        void processprez(char*, bool, size_t, const void*)
+        );
+
+    void LookupRequest_delete(DP5LookupClient::Request * p);
 }

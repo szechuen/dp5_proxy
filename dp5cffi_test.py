@@ -1,5 +1,6 @@
 from dp5cffi import *
 from dp5clib import *
+from dp5asyncclient import *
 
 ## ------- Tests -----------------------
 
@@ -21,15 +22,63 @@ class DP5TestCase(unittest.TestCase):
         except Exception, e:
             pass
 
+        try:
+            shutil.rmtree("regdirCBpy")
+        except Exception, e:
+            pass
+
+        try:
+            shutil.rmtree("datadirCBpy")
+        except Exception, e:
+            pass
+
+        try:
+            os.remove("metadatapy.dat")
+        except:
+            pass
+        try:
+            os.remove("datapy.dat")
+        except:
+            pass
+
+        try:
+            os.remove("metadataCBpy.dat")
+        except:
+            pass
+        try:
+            os.remove("dataCBpy.dat")
+        except:
+            pass
 
         os.mkdir("regdirpy")
         os.mkdir("datadirpy")
+        os.mkdir("regdirCBpy")
+        os.mkdir("datadirCBpy")
 
 
     def tearDown(self):
         ## Delete all files in server directories
         shutil.rmtree("regdirpy")
         shutil.rmtree("datadirpy")
+        shutil.rmtree("regdirCBpy")
+        shutil.rmtree("datadirCBpy")
+        try:
+            os.remove("metadatapy.dat")
+        except:
+            pass
+        try:
+            os.remove("datapy.dat")
+        except:
+            pass
+
+        try:
+            os.remove("metadataCBpy.dat")
+        except:
+            pass
+        try:
+            os.remove("dataCBpy.dat")
+        except:
+            pass
 
     def test_raw_DHKey(self):
         # Using raw C functions
@@ -144,7 +193,7 @@ class DP5TestCase(unittest.TestCase):
         def handler(state, event):
             self.assertEqual( event , ("REGID","SUCCESS"))
 
-        cli.event_handlers += [handler]
+        cli.set_event_handler(handler)
 
         for i in range(10):
             k = DHKeys()
@@ -164,6 +213,8 @@ class DP5TestCase(unittest.TestCase):
 
         cb(reply)
 
+        C.RegServer_delete(server)
+
     def test_client_nosync(self):
         state = {}
         cli = AsyncDP5Client(state)
@@ -171,7 +222,7 @@ class DP5TestCase(unittest.TestCase):
         def handler(state, event):
             self.assertEqual( event , ("REGID","FAIL"))
 
-        cli.event_handlers += [handler]
+        cli.set_event_handler(handler)
 
         for i in range(10):
             k = DHKeys()
@@ -179,6 +230,10 @@ class DP5TestCase(unittest.TestCase):
             cli.set_friend(k.pub(), "Friend %s" % i)
 
         msg, cb, nf = cli.register_ID()
+
+        ## Check that it will refuse to re-enter
+        xx = cli.register_ID()
+        self.assertEquals(xx, None)
 
         ## RAW server code
         epoch = C.Config_current_epoch(cli.config.get_ptr())
@@ -191,6 +246,8 @@ class DP5TestCase(unittest.TestCase):
 
         cb(reply)
 
+        C.RegServer_delete(server)
+
     def test_client_reg_combined(self):
         state = {}
         cli = AsyncDP5Client(state)
@@ -198,7 +255,7 @@ class DP5TestCase(unittest.TestCase):
         def handler(state, event):
             self.assertEqual( event , ("REGCB","SUCCESS"))            
 
-        cli.event_handlers += [handler]
+        cli.set_event_handler(handler)
 
         for i in range(10):
             k = DHKeys()
@@ -218,8 +275,214 @@ class DP5TestCase(unittest.TestCase):
 
         cb(reply)
 
+        C.RegServer_delete(server)
+
+    def test_lookup(self):
+        
+        clients = []
+        for i in range(10):
+            state = {}
+            cli = AsyncDP5Client(state)
+            clients += [cli]
+
+        for i in range(10):
+            for j in range(5):
+                clients[i].set_friend(clients[j].get_pub(), "Friend %s" % j)
+                clients[j].set_friend(clients[i].get_pub(), "Friend %s" % i)
+
+        ## RAW server code
+        cli0 = clients[0]
+
+        CALLED = [False]
+        def handler(state, event):
+            CALLED[0] = True
+            self.assertEqual( event , ("LOOKID","SUCCESS"))
+
+        cli0.set_event_handler(handler)
+
+        epoch = cli0.config.current_epoch()
+        server = RegServer(cli0.config, "regdirpy", "datadirpy")
+
+        for i in range(4,8):
+            cli = clients[i]
+            msg, cb, nf = cli.register_ID()
+            reply = server.register(msg)
+            cb(reply)
+
+        server.epoch_change("metadatapy.dat", "datapy.dat")
+
+        ## Test lookup
+        msg, success, failure = cli0.lookup_ID(epoch+1)
+        lookup_server = LookupServer("metadatapy.dat", "datapy.dat")
+
+        reply = lookup_server.process(msg)
+        messages, success, failure = success(reply)
+
+        for m in messages:
+            if len(m) == 0:
+                success("")
+            else:
+                reply = lookup_server.process(m)                
+                success(reply)
+
+        self.assertTrue( CALLED[0] )
+
+    def test_nethandler(self):
+        
+        clients = []
+        for i in range(10):
+            state = {}
+            cli = AsyncDP5Client(state)
+            clients += [cli]
+
+        for i in range(10):
+            for j in range(5):
+                clients[i].set_friend(clients[j].get_pub(), "Friend %s" % j)
+
+        
+        cli0 = clients[0]
+
+        ## Initialize servers
+        epoch = cli0.config.current_epoch()
+        server = RegServer(cli0.config, "regdirpy", "datadirpy")
+
+        ## Register 2 network handlers
+        def send_registration(cli, epoch, combined, msg, cb, fail):
+            reply = server.register(msg)
+            cb(reply)
+
+        for i in range(10):
+            cli = clients[i]
+            cli.register_handlers += [send_registration]
+
+        CALLED = [False]
+        def handler(state, event):
+            CALLED[0] = True
+            self.assertEqual( event , ("LOOKID","SUCCESS"))
+
+        cli0.set_event_handler(handler)
+
+        for i in range(4,8):
+            cli = clients[i]
+            msg, cb, nf = cli.register_ID()
+
+        server.epoch_change("metadatapy.dat", "datapy.dat")
+
+        lookup_server = LookupServer("metadatapy.dat", "datapy.dat")
+        def send_lookup(cli, epoch, combined, seq, msg, cb, fail):
+            if msg == "":
+                cb("")
+            else:
+                reply = lookup_server.process(msg)
+                cb(reply)
+
+        for i in range(10):
+            cli = clients[i]
+            cli.lookup_handlers += [send_lookup]
+
+        ## Test lookup
+        msg, success, failure = cli0.lookup_ID(epoch+1)        
+
+        self.assertTrue( CALLED[0] )
+
+    def test_update(self):
+        bls = BLSKeys()
+        config = DP5Config(1800, 16 + bls.pub_size(), False)
+        configCB = DP5Config(1800 / 6, 16 + 16, True)
+        #epoch = config.current_epoch() + 1000
+        #epochCB = configCB.current_epoch() + 1000
+
+        epoch = 9000
+        epochCB = 10000
+
+        ## Make some clients
+        clients = []
+        for i in range(10):
+            state = {}
+            cli = AsyncDP5Client(state)
+            cli.online = False
+            clients += [cli]
+
+        for i in range(10):
+            for j in range(5):
+                clients[i].set_friend(clients[j].get_pub(), "Friend %s" % j)
+                clients[j].set_friend(clients[i].get_pub(), "Friend %s" % i)
+
+        ## First create the ID infrastructure
+        server = RegServer(config, "regdirpy", "datadirpy", epoch-1)
+        serverCB = RegServer(configCB, "regdirCBpy", "datadirCBpy", epochCB-1)
+
+        def send_registration(cli, epoch, combined, msg, cb, fail):
+            if combined:
+                reply = serverCB.register(msg)
+                cb(reply)
+            else:
+                reply = server.register(msg)
+                cb(reply)
+
+        for i in range(3,7):
+            cli = clients[i]
+            cli.online = True
+            cli.register_handlers += [send_registration]
+
+            cli.register_ID(epoch-1)
+            cli.register_combined(" "*16, epochCB-1)
+
+        server.epoch_change("metadatapy.dat", "datapy.dat")
+        serverCB.epoch_change("metadataCBpy.dat", "dataCBpy.dat")
+
+        lookup_server = LookupServer("metadatapy.dat", "datapy.dat")
+        lookup_serverCB = LookupServer("metadataCBpy.dat", "dataCBpy.dat")
+
+        def send_lookup(cli, epoch, combined, seq, msg, cb, fail):
+            if msg == "":
+                cb("")
+            else:
+                if combined:
+                    reply = lookup_serverCB.process(msg)
+                    cb(reply)
+                else:
+                    reply = lookup_server.process(msg)
+                    cb(reply)
+
+        for i in range(10):
+            clients[i].lookup_handlers += [send_lookup]        
+
+        CALLED = [False]
+        def handler(state, event):
+            CALLED[0] = True
+            
+            self.assertEqual( event[1] , "SUCCESS")
+            try:
+                if event[0] == "LOOKID":
+                    for i in range(10):
+                            pk = clients[i].get_pub()
+                            if pk in state["friends"]:
+                                #print "ID Key:", (state["friends"][pk]["cbID"] != None), clients[i].online
+                                self.assertEqual((state["friends"][pk]["cbID"] != None), clients[i].online)
+
+                if event[0] == "LOOKCB":
+                    for i in range(10):
+                            pk = clients[i].get_pub()
+                            if pk in state["friends"]:
+                                if clients[i].online:
+                                    self.assertEqual(state["friends"][pk].get("last_on_line", None), 10000)
+                                else:
+                                    self.assertEqual(state["friends"][pk].get("last_on_line", None), None)
+
+            except Exception as e:
+                print "FAIL", e
+
+        for i in range(10):
+            clients[i].set_event_handler(handler)
+
+
+        for i in range(4,8):
+            clients[i].update(epoch, epochCB)   
+
+        return
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=2)
     pass
     

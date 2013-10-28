@@ -2,8 +2,7 @@ from cffi import FFI
 ffi = FFI()
 ffi.cdef("""
 
-
-    // Native buffer interface
+    /* Native buffer interface */
 
     typedef struct {
     size_t len;
@@ -19,6 +18,8 @@ ffi.cdef("""
 
     typedef _Bool bool;
 
+    /* DH Crypto */
+
     typedef struct _DHKey DHKey;
 
     DHKey * DHKey_alloc();
@@ -26,6 +27,8 @@ ffi.cdef("""
     void DHKey_keygen(DHKey * vkeys);
     size_t DHKey_size();
     size_t DHKey_pubsize();
+
+    /* BLS Crypto */
 
     typedef struct _BLSKey BLSKey;
 
@@ -35,6 +38,7 @@ ffi.cdef("""
     size_t BLSKey_size();
     size_t BLSKey_pubsize();
 
+    /* Configuration file */
 
     typedef struct _DP5Config DP5Config;
 
@@ -45,6 +49,8 @@ ffi.cdef("""
     unsigned int Config_dataplain_bytes(DP5Config * config);
     unsigned int Config_current_epoch(DP5Config * config);
     void Config_delete(DP5Config * config);
+
+    /* Registration client */
 
     typedef struct _DP5RegClient DP5RegClient;
 
@@ -67,6 +73,8 @@ ffi.cdef("""
 
     void RegClient_delete(DP5RegClient * p);
 
+    /* Combined registration server */
+
     typedef struct _regserver DP5RegServer;
 
     DP5RegServer * RegServer_alloc(
@@ -74,8 +82,6 @@ ffi.cdef("""
         unsigned int epoch,
         char* regdir,
         char* datadir);
-
-    void RegServer_delete(DP5RegServer * p);
 
     void RegServer_register(
         DP5RegServer * reg,
@@ -86,6 +92,10 @@ ffi.cdef("""
         DP5RegServer * reg,
         char * metadata,
         char * data);
+
+    void RegServer_delete(DP5RegServer * p);
+
+    /* Combined registration client */ 
 
     typedef struct _DP5CombinedRegClient DP5CombinedRegClient;
 
@@ -104,7 +114,85 @@ ffi.cdef("""
         unsigned int epoch,
         nativebuffer buffer);
 
+    /* Lookup client */
 
+    typedef struct _DP5LookupClient DP5LookupClient;
+
+    DP5LookupClient * LookupClient_alloc(DHKey * keys);
+    void LookupClient_delete(DP5LookupClient * p);
+
+    void LookupClient_metadata_req(
+        DP5LookupClient * cli,
+        unsigned int epoch,
+        void processbuf(size_t, const void*));
+
+    int LookupClient_metadata_rep(
+        DP5LookupClient * cli,
+        nativebuffer data);
+
+    typedef struct _DP5LookupClient_Request DP5LookupClient_Request;
+
+    DP5LookupClient_Request * LookupRequest_lookup(
+        DP5LookupClient * cli,
+        unsigned int buds_len,
+        void * buds,
+        unsigned int num_servers,
+        void processbuf(size_t, const void*) );
+
+    int LookupRequest_reply(
+        DP5LookupClient_Request * req,
+        unsigned int num_servers,
+        nativebuffer * replies,
+        void processprez(char*, bool, size_t, const void*)
+        );
+
+    void LookupRequest_delete(DP5LookupClient_Request * p);
+
+    /* Combined Lookup Client */
+
+    typedef struct _DP5CombinedLookupClient DP5CombinedLookupClient;
+    typedef struct _DP5CombinedLookupClient_Request DP5CombinedLookupClient_Request;
+
+    DP5CombinedLookupClient * LookupClientCB_alloc();
+    void LookupClientCB_delete(DP5CombinedLookupClient * p);
+
+    void LookupClientCB_metadata_req(
+        DP5CombinedLookupClient * cli,
+        unsigned int epoch,
+        void processbuf(size_t, const void*));
+
+    int LookupClientCB_metadata_rep(
+        DP5CombinedLookupClient * cli,
+        nativebuffer data);
+
+    DP5CombinedLookupClient_Request * LookupRequestCB_lookup(
+        DP5CombinedLookupClient * cli,
+        unsigned int buds_len,
+        void * buds,
+        unsigned int num_servers,
+        void processbuf(size_t, const void*) );
+
+    int LookupRequestCB_reply(
+        DP5CombinedLookupClient_Request * req,
+        unsigned int num_servers,
+        nativebuffer * replies,
+        void processprez(char*, bool, size_t, const void*)
+        );
+
+    void LookupRequestCB_delete(DP5CombinedLookupClient_Request * p);
+
+    /* Lookup server */
+
+    typedef struct _DP5LookupServer DP5LookupServer;
+
+    DP5LookupServer * LookupServer_alloc(char* meta, char* data);
+
+    void LookupServer_delete(DP5LookupServer * p);
+
+    void LookupServer_process(
+        DP5LookupServer * ser, 
+        nativebuffer data,
+        void processbuf(size_t, const void*));
 
     """)
 
@@ -125,6 +213,8 @@ class NativeBuf:
         else:
             self.nbuf = ffi.new("nativebuffer *", (0, ffi.NULL))
 
+        assert str(buf) == self.str()
+
     def get(self):
         return self.nbuf[0]
 
@@ -133,6 +223,10 @@ class NativeBuf:
 
     def len(self):
         return self.nbuf[0].len
+
+    def str(self):
+        return str(ffi.buffer(self.nbuf[0].buf, self.nbuf[0].len)[:])
+
 
 def callbackbuffer():
     datax = []

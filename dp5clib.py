@@ -1,5 +1,9 @@
 from dp5cffi import *
 
+class DP5Exception(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
 class DP5Config:
     def __init__(self, epoch_length, data_size, combined=False):
         self.epoch_length = epoch_length
@@ -99,7 +103,7 @@ class DP5ClientReg:
 
         for fpub in friendpubs:
             if len(fpub) != mykey.pub_size():
-                raise Exception("Wrong public key length for friend")
+                raise DP5Exception("Wrong public key length for friend")
 
     def register(self, payload):
         assert len(payload) == self.config.dataplain_bytes()
@@ -119,7 +123,7 @@ class DP5ClientReg:
             process_buffer)
 
         if err != 0:
-            raise Exception(("Regisration error", err))
+            raise DP5Exception(("Regisration error", err))
 
         return results[0]
 
@@ -127,7 +131,7 @@ class DP5ClientReg:
         buf = NativeBuf(msg)
         err = C.RegClient_complete(self.reg, self.epoch, buf.get())
         if err != 0:
-            raise Exception(("Regisration error", err))
+            raise DP5Exception(("Regisration error", err))
 
     def __del__(self):
         C.RegClient_delete(self.reg)
@@ -141,7 +145,8 @@ class DP5CombinedClientReg:
         self.reg = C.RegClientCB_alloc(mykey.get_ptr())
 
     def register(self, payload):
-        assert len(payload) == self.config.dataplain_bytes()
+        if len(payload) != self.config.dataplain_bytes():
+            raise DP5Exception("Wrong payload length")
 
         results, process_buffer = callbackbuffer()
         buf = NativeBuf(payload)
@@ -151,7 +156,7 @@ class DP5CombinedClientReg:
             process_buffer)
 
         if err != 0:
-            raise Exception(("Regisration error", err))
+            raise DP5Exception(("Regisration error", err))
 
         return results[0]
 
@@ -159,124 +164,181 @@ class DP5CombinedClientReg:
         buf = NativeBuf(msg)
         err = C.RegClientCB_complete(self.reg, self.epoch, buf.get())
         if err != 0:
-            raise Exception(("Regisration error", err))
+            raise DP5Exception(("Regisration error", err))
 
-    def __del__(self):
+    def __del__(self):       
         C.RegClientCB_delete(self.reg)
 
-class AsyncDP5Client:
 
-    def __init__(self, state = None):
-        self.state = state
-        if state == None:
-            state = {}
+class DP5lookup:
+    def __init__(self, mykey, friendpubs, epoch):
+        self.ptr = C.LookupClient_alloc(mykey.get_ptr())
+        self.mykey = mykey
+        self.friendspubs = friendpubs
+        self.epoch = epoch
+        self.req = None
 
-        self.init_ID(data=self.state.get("ltID",None))
-        self.init_BLS(data=self.state.get("bls",None))
+    def metadata_request(self):
+        results, process_buffer = callbackbuffer()
+        C.LookupClient_metadata_req(self.ptr, self.epoch, process_buffer)
+        return results[0]
 
-        ## TODO: Remove magic number 16 (MAC length)
-        ## TODO: Allow for configurable periods
-        self.config = DP5Config(1800, 16 + self.bls.pub_size(), False)
-        self.configCB = DP5Config(1800 / 6, 16 + 16, True)
+    def metadata_reply(self, msg):
+        buf = NativeBuf(msg)
+        err = C.LookupClient_metadata_rep(self.ptr, buf.get())
+        if err != 0:
+            raise DP5Exception(("Lookup error", err))
 
-        self.event_handlers = []
+    def lookup_request(self, num_servers):
+        assert self.req is None
 
-    def fire_event(self, event):
-        for e in self.event_handlers:
-            e(self.state, event)
+        data = ""
+        for pk in self.friendspubs:
+            data += pk
 
-    def init_ID(self, data=None):
-        self.ltID = DHKeys()
-        if data is None:
-            self.ltID.gen()
-        else:
-            self.ltID.frombuffer(data)
-        self.state["ltID"] = self.ltID.tobuffer()
+        buf = ffi.new("char[]", len(data))
+        ffi.buffer(buf, len(data))[:] = data[:]
+        results, process_buffer = callbackbuffer()
 
-    def init_BLS(self, data = None):
-        self.bls = BLSKeys()
-        if data is None:
-            self.bls.gen()
-        else:
-            self.bls.frombuffer(data)
-        self.state["bls"] = self.ltID.tobuffer()
+        friends_len = len(self.friendspubs)
+        self.req = C.LookupRequest_lookup(self.ptr, friends_len, buf, num_servers, process_buffer)
 
-    def get_pub(self):
-        return self.ltID.pub()
+        return results
 
-    def set_friend(self, ltID, nick):
-        if "friends" not in self.state:
-            self.state["friends"] = {}
+    def lookup_reply(self, replies):
 
-        friends = self.state["friends"]
-        ## nick = None means delete friend
-        if ltID in friends:
-            print friends
-            if nick is None:
-                del friends[ltID]
-                return
-            else: 
-                raise Exception("Trying to delete inexistant friend")
+        returns = []
 
-        if ltID not in friends:
-            friends[ltID] = {}
-            friends[ltID]["nick"] = nick
-            friends[ltID]["ltID"] = ltID
-            friends[ltID]["cbID"] = []
-            friends[ltID]["online"] = []
-            friends[ltID]["data"] = []
-        else:
-            friends[ltID]["nick"] = nick
+        @ffi.callback("void(char*, bool, size_t, void*)")
+        def presence(pub, online, size, msg):            
+            pub = str(ffi.buffer(pub, self.mykey.pub_size())[:])
+            online = [False, True][online]
+            status = None
+            if online:
+                status = str(ffi.buffer(msg, size)[:])
 
-    def register_ID(self, epoch = None):
+            returns.append((pub, online, status))
+
+        data = [NativeBuf(x).get() for x in replies]
+        err = C.LookupRequest_reply(self.req, len(replies), data, presence)
+        if err != 0:
+            raise DP5Exception(("Lookup Error", err))
+
+        return returns
+
+    def __del__(self):
+        C.LookupClient_delete(self.ptr)
+        if self.req != None:
+            C.LookupRequest_delete(self.req)
+
+class DP5Combinedlookup:
+    def __init__(self, mykey, friendpubs, epoch):
+        self.ptr = C.LookupClientCB_alloc()
+        self.mykey = mykey
+        self.friendspubs = friendpubs
+        self.epoch = epoch
+        self.req = None
+        self.handles = None
+
+        pk_size = len(mykey.pub())
+        for fkey in friendpubs:
+            if len(fkey) != pk_size:
+                raise DP5Exception("Wrong BLS key size")
+
+    def metadata_request(self):
+        results, process_buffer = callbackbuffer()
+        C.LookupClientCB_metadata_req(self.ptr, self.epoch, process_buffer)
+        return results[0]
+
+    def metadata_reply(self, msg):
+        buf = NativeBuf(msg)
+        err = C.LookupClientCB_metadata_rep(self.ptr, buf.get())
+        if err != 0:
+            raise DP5Exception(("Lookup error (Metadata)", err))
+
+    def lookup_request(self, num_servers):
+        assert self.req is None
+
+        data = ""
+        for pk in self.friendspubs:
+            data += pk
+
+        buf = ffi.new("char[]", data)
+        results, process_buffer = callbackbuffer()
+
+        friends_len = len(self.friendspubs)
+        self.req = C.LookupRequestCB_lookup(self.ptr, friends_len, buf, num_servers, process_buffer)
+
+        return results
+
+    def lookup_reply(self, replies):
+
+        returns = []
+
+        @ffi.callback("void(char*, bool, size_t, void*)")
+        def presence(pub, online, size, msg):            
+            pub = str(ffi.buffer(pub, self.mykey.pub_size())[:])
+            online = [False, True][online]
+            status = None
+            if online:
+                status = str(ffi.buffer(msg, size)[:])
+
+            returns.append((pub, online, status))
+
+        ## WE NEED THIS VARIABLE TO KEEP THE MEMORY ALIVE
+        self.handles = [NativeBuf(x) for x in replies]
+
+        data = [h.get() for h in self.handles]
+        err = C.LookupRequestCB_reply(self.req, len(replies), data, presence)
+        if err != 0:
+            raise DP5Exception(("Lookup Error (Lookup)", err))
+
+        return returns
+
+    def __del__(self):
+        C.LookupClientCB_delete(self.ptr)
+        if self.req != None:
+            C.LookupRequestCB_delete(self.req)
+
+# ---- Some server helper functions
+
+class RegServer:
+    def __init__(self, config, regdir, datadir, epoch = None):
         if epoch == None:
-            # By default we register for the next epoch
-            epoch = self.config.current_epoch()
-        epoch = epoch + 1
+            epoch = config.current_epoch()
+        self.epoch = epoch
+        self.server = C.RegServer_alloc(config.get_ptr(), self.epoch, "regdirpy", "datadirpy")
 
-        ## First of all generate a fresh BLS Key
-        friends = self.state["friends"]
-        pks = [self.ltID.pub()] ## Always include our own
-        for f in friends:
-            pks += [friends[f]["ltID"]]
-        reg = DP5ClientReg(self.config, self.ltID, pks, epoch)
-        req = reg.register(self.bls.pub())
+    def register(self, msg):
+        datax, process_buffer = callbackbuffer()
+        buf = NativeBuf(msg)
+        C.RegServer_register(self.server, buf.get(), process_buffer)
+        reply = datax[0]
+        return reply
 
-        def reply_callback(msg):
-            try:
-                reg.finish(msg)
-                self.state["last_register_epoch"] = epoch
-                self.fire_event(("REGID","SUCCESS"))
-            except:
-                self.fire_event(("REGID","FAIL"))
+    def epoch_change(self, metafile, datafile):
+        C.RegServer_epoch_change(self.server, metafile, datafile)
 
-        def fail_callback():
-            self.fire_event(("REGID","NETFAIL"))
+    def __del__(self):
+        C.RegServer_delete(self.server)
+
+class LookupServer:
+    def __init__(self, metafile, datafile):
+        self.server = C.LookupServer_alloc(metafile, datafile)
+
+    def process(self, msg):
+        datax, process_buffer = callbackbuffer()
+        mem = NativeBuf(msg)
+        C.LookupServer_process(self.server, mem.get(), process_buffer)
+
+        return str(datax[0])
+
+    def __del__(self):
+        C.LookupServer_delete(self.server)
 
 
-        return req, reply_callback, fail_callback
 
-    def register_combined(self, userdata, epoch = None):
-        if epoch == None:
-            # By default we register for the next epoch
-            epoch = self.configCB.current_epoch()
-        epoch = epoch + 1
 
-        reg = DP5CombinedClientReg(self.configCB, self.bls, epoch)
-        msg = reg.register(userdata)
-
-        def reply_callback(msg):
-            try:
-                reg.finish(msg)
-                self.state["last_combined_epoch"] = epoch
-                self.fire_event(("REGCB","SUCCESS"))
-            except:
-                self.fire_event(("REGCB","FAIL"))
-
-        def fail_callback():
-            self.fire_event(("REGCB","NETFAIL"))
-
-        return msg, reply_callback, fail_callback
 
             
 
