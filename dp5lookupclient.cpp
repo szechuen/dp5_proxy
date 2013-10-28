@@ -358,7 +358,6 @@ int LookupRequest<BuddyKey,MyPrivKey>::lookup_reply(
 
                 byte status = replies[s][0];
                 // Expected a download request but got a PIR?
-                // printf("Status %X\n", status);
                 if (status != 0x82) return 0x13;
 
                 unsigned int server_epoch = epoch_bytes_to_num(
@@ -429,6 +428,7 @@ int LookupRequest<BuddyKey,MyPrivKey>::lookup_reply(
             {
                 // Found it!
                 output_record.is_online = true;
+
                 if (get_data(output_record.data, buddy,
                     string(p + HASHKEY_BYTES, _metadata.dataenc_bytes)) != 0)
                     return 0x09;
@@ -465,12 +465,16 @@ int LookupRequest<BLSPubKey,Empty>::get_data(string & data,
     const LookupRequest<BLSPubKey,Empty>::BuddyState & buddy,
     const string & ciphertext) {
     DataKey data_key;
+
     H5(data_key, _metadata.epoch, buddy.pubkey);
     byte epoch_bytes[EPOCH_BYTES];
     epoch_num_to_bytes(epoch_bytes, _metadata.epoch);
     string ad((char *) epoch_bytes, sizeof(epoch_bytes));
     ad.append(buddy.pubkey);
-    return Dec(data, data_key, ciphertext, ad);
+
+    int err = Dec(data, data_key, ciphertext, ad);
+
+    return err;
 }
 
 template class LookupRequest<PubKey,PrivKey>;
