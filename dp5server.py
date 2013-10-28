@@ -29,7 +29,7 @@ class RootServer:
         self.config = config
 
         self.dp5config = dp5.make_config(config["epochLength"],
-            config["dataEncSize"], False)
+            config["dataEncSize"], config["combined"])
 
         self.is_register = config["isRegServer"]
         self.register_handlers = {}
