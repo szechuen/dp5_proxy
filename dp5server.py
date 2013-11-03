@@ -150,29 +150,44 @@ class RootServer:
     @cherrypy.expose
     def register(self, epoch):
         "Register a number of friends"
-        ## First check if we are a registration server in a valid state
+        ## First check if we are a registration server in a valid state        
         try:
             self.check_epoch()
+            #print self.epoch, epoch
             assert self.epoch == int(epoch)
             assert self.is_register
             assert self.epoch in self.register_handlers
+            assert cherrypy.request.process_request_body
         except:
+            print "Epoch", self.epoch == int(epoch)
+            print "Register", self.is_register
+            print "Handlers", self.epoch in self.register_handlers
+            print "POST", cherrypy.request.process_request_body
+            print "Register request (epoch = %s) fail." % epoch
             raise cherrypy.HTTPError(403)
 
-        ## Now register the client
-        ## TODO: do the simplest of authentications
-        server = self.register_handlers[self.epoch]
+        try:
+            ## Now register the client
+            ## TODO: do the simplest of authentications
+            server = self.register_handlers[self.epoch]
 
-        post_body = cherrypy.request.body.read()
-        reply_msg = dp5.serverclientreg(server, post_body)
+            post_body = cherrypy.request.body.read()
+            reply_msg = dp5.serverclientreg(server, post_body)
 
-        ## Reply with the raw data
-        cherrypy.response.headers["Content-Type"] = "application/octet-stream"
-        return reply_msg
+            ## Reply with the raw data
+            cherrypy.response.headers["Content-Type"] = "application/octet-stream"
+            print "Register request (epoch = %s) done." % epoch
+            return reply_msg
+        except Exception as e:
+            print "Register request (epoch = %s) fail." % epoch
+            traceback.print_exc()
+            raise e
+
 
     @cherrypy.expose
     def lookup(self, epoch):
         assert self.is_lookup
+        assert cherrypy.request.process_request_body
 
     # Lazily set up lookup server
         server = self.lookup_server(int(epoch))
@@ -182,11 +197,13 @@ class RootServer:
 
         ## Reply with the raw data
         cherrypy.response.headers["Content-Type"] = "application/octet-stream"
+        # print "Return length", len(reply_msg)
         return reply_msg
 
     @cherrypy.expose
     def download(self, epoch, metadata=False):
         try:
+            self.check_epoch()
             metaname, dataname = self.filenames(int(epoch))
             if metadata:
                 f = open(metaname)

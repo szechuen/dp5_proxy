@@ -219,7 +219,9 @@ class DP5lookup:
 
             returns.append((pub, online, status))
 
-        data = [NativeBuf(x).get() for x in replies]
+        ## WARNING: "live" variable below must be kept alive
+        self.live = [NativeBuf(x) for x in replies]
+        data = [b.get() for b in self.live]
         err = C.LookupRequest_reply(self.req, len(replies), data, presence)
         if err != 0:
             raise DP5Exception(("Lookup Error", err))

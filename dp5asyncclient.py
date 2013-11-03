@@ -4,25 +4,76 @@ from dp5clib import *
 import random
 import traceback
 
-
-
 class AsyncDP5Client:
 
     def __init__(self, state = None, numservers=3):
+        InitLib()
+
         self.state = state
         if state == None:
             self.state = {}
-        
-        if not "numservers" in state:
-            self.state["numservers"] = numservers
 
         self.init_ID(data=self.state.get("ltID",None))
         self.init_BLS(data=self.state.get("bls",None))
+        
+        try:
+            self.state["numservers"] = len(state["standard"]["lookupServers"])
+            print "Numservers: Using config ...",
+        except:
+            self.state["numservers"] = numservers
+            print "Numservers: Using default ...",
+        print self.state["numservers"]
+
+        try:
+            self.state["numserversCB"] = len(state["combined"]["lookupServers"])
+            print "NumserversCB: Using config ...",
+        except:
+            self.state["numserversCB"] = numservers
+            print "NumserversCB: Using default ...",
+        print self.state["numserversCB"]
+
+        try:
+            self.state["epoch_length"] = len(state["standard"]["epochLength"])
+            print "epoch_length: Using config ...",
+        except:
+            self.state["epoch_length"] = 60
+            print "epoch_length: Using default ...",
+        print self.state["epoch_length"]
+
+        try:
+            self.state["epoch_lengthCB"] = len(state["combined"]["epochLength"])
+            print "epoch_lengthCB: Using config ...",
+        except:
+            self.state["epoch_lengthCB"] = 10
+            print "epoch_lengthCB: Using default ...",
+        print self.state["epoch_lengthCB"]
+
+        try:
+            self.state["data_length"] = len(state["standard"]["dataEncSize"])
+            print "data_length: Using config ...",
+        except:
+            self.state["data_length"] = 16 + self.bls.pub_size()
+            print "data_length: Using default ...",
+        print self.state["data_length"]
+        assert (16 + self.bls.pub_size()) == self.state["data_length"]
+
+        try:
+            self.state["data_lengthCB"] = len(state["combined"]["dataEncSize"])
+            print "data_length: Using config ...",
+        except:
+            self.state["data_lengthCB"] = 32
+            print "data_lengthCB: Using default ...",
+        print self.state["data_lengthCB"]
+        assert self.state["data_lengthCB"] > 16
+
+
+
 
         ## TODO: Remove magic number 16 (MAC length)
         ## TODO: Allow for configurable periods
-        self.config = DP5Config(1800, 16 + self.bls.pub_size(), False)
-        self.configCB = DP5Config(1800 / 6, 16 + 16, True)
+        self.config = DP5Config(self.state["epoch_length"], self.state["data_length"], False)
+        self.configCB = DP5Config(self.state["epoch_lengthCB"], self.state["data_lengthCB"], True)
+        # print "Datasize: %s (normal) %s (combined)" % (self.config.dataplain_bytes(),self.configCB.dataplain_bytes())
 
         ## Check any input data
         if "data" not in self.state:
@@ -37,13 +88,17 @@ class AsyncDP5Client:
         self.active_requests = []
         self.seq_requests = 0
 
-        self.seq_handlers = 0 
+        self.seq_handlers = 0
+
+        self.cbhandlerID = {}
 
     def set_active(self, label):
         self.seq_requests += 1
         self.active_requests += [(label, self.seq_requests)]
+        return self.seq_requests
 
     def check_active(self, label, ID=None):
+        # print len(self.active_requests), self.active_requests[:-5]
         for (l, i) in self.active_requests:
             match = True
             match =  match and l == label
@@ -127,7 +182,7 @@ class AsyncDP5Client:
         reqID = self.set_active(label)
 
         ## First of all generate a fresh BLS Key
-        friends = self.state["friends"]
+        friends = self.state.get("friends", [])
         pks = [self.ltID.pub()] ## Always include our own
         for f in friends:
             pks += [friends[f]["ltID"]]
@@ -202,10 +257,11 @@ class AsyncDP5Client:
         ## Do not re-enter
         label = ("LOOKID", epoch)
         if self.check_active(label):
+            # print "Is already active", label
             return
         reqID = self.set_active(label)
 
-        friends = self.state["friends"]
+        friends = self.state.get("friends", [])
         pks = [self.ltID.pub()] ## Always include our own
         for f in friends:
                 pks += [friends[f]["ltID"]]
@@ -241,6 +297,8 @@ class AsyncDP5Client:
                     self.fire_event(("LOOKID","SUCCESS"))
                 except DP5Exception as e:
                     print "Lookup Error", e.msg
+                    print "Last Epoch", str(self.state.get("last_lookup_epoch",None)), "***"
+                    print "Current epoch", epoch
                     traceback.print_exc()
                     self.remove_active(label, reqID)
                     self.fire_event(("LOOKID","FAIL"))
@@ -276,10 +334,11 @@ class AsyncDP5Client:
         ## Do not re-enter
         label = ("LOOKCB", epoch)
         if self.check_active(label):
+            # print "CB already active"
             return
         reqID = self.set_active(label)
 
-        friends = self.state["friends"]
+        friends = self.state.get("friends", [])
         pks = [self.bls.pub()] ## Always include our own
         cbmap = {}
         count = 0 
@@ -293,7 +352,7 @@ class AsyncDP5Client:
         lookup = DP5Combinedlookup( self.bls, pks, epoch )
         meta_msg = lookup.metadata_request()
 
-        SERVER_NUM = self.state["numservers"]  
+        SERVER_NUM = self.state["numserversCB"]  
         replies = []        
 
         def metafail_callback():
@@ -379,20 +438,23 @@ class AsyncDP5Client:
             self.register_combined(self.state["data"], epochcb)
 
         ## Then read the stuff from this epoch
-        if self.state.get("last_lookup_epoch",0) < epoch:            
-            kID = [None]
-            def handler(state, event):  
-                if self.state.get("last_lookupcb_epoch", 0) < epochcb:
-                    if self.state.get("last_lookup_epoch",0) == epoch:
+        if self.state.get("last_lookup_epoch",0) < epoch:
+
+            ## Register a handler to triget the combined lookup
+            def handler(state, event):
+                if event in self.cbhandlerID:
+                    if self.state.get("last_lookup_epoch",0) >= epoch:
                         self.update( epoch, epochcb, data)
-                else:
-                    self.remove_event_handler(kID[0])
-                
-            kID[0] = self.set_event_handler(handler)
+                        self.remove_event_handler(self.cbhandlerID[epoch])
+                        del self.cbhandlerID[epoch]
+                    
+            if epoch not in self.cbhandlerID:
+                self.cbhandlerID[epoch] = self.set_event_handler(handler)
 
             self.lookup_ID(epoch)
         else:
             if self.state.get("last_lookupcb_epoch", 0) < epochcb:
+                # print "Perform a combined lookup only"
                 self.lookup_combined(epochcb)
 
 

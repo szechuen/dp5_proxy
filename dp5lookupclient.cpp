@@ -136,7 +136,10 @@ int GenericLookupClient<BuddyKey,MyPrivKey>::metadata_reply(const string &metada
     if (_metadata.fromString(metadata) != 0) {
         return 0x02; // malformed message
     }
-    if (!_metadata.valid()) {
+
+    int err = _metadata.valid();
+    if (!err) {
+        cout << "Metadata error " << err << "\n";
         return 0x03;
     }
 
