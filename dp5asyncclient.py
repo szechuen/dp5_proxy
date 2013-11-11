@@ -66,9 +66,6 @@ class AsyncDP5Client:
         print self.state["data_lengthCB"]
         assert self.state["data_lengthCB"] > 16
 
-
-
-
         ## TODO: Remove magic number 16 (MAC length)
         ## TODO: Allow for configurable periods
         self.config = DP5Config(self.state["epoch_length"], self.state["data_length"], False)
@@ -431,11 +428,21 @@ class AsyncDP5Client:
             epoch = self.config.current_epoch()
         
         ## First check whether we have registered for the next epoch.
-        if self.state.get("last_register_epoch",0) < epoch + 1:
-            self.register_ID(epoch)
+        try:
+            if self.state.get("last_register_epoch",0) < epoch + 1:
+                self.register_ID(epoch)
+        except:
+            ## TODO: Log error
+            traceback.print_exc()
+            ## ... and the show goes on ...
 
-        if self.state.get("last_combined_epoch",0) < epochcb + 1:
-            self.register_combined(self.state["data"], epochcb)
+        try:
+            if self.state.get("last_combined_epoch",0) < epochcb + 1:
+                self.register_combined(self.state["data"], epochcb)
+        except:
+            ## TODO: Log error
+            traceback.print_exc()
+            ## ... and the show goes on ...
 
         ## Then read the stuff from this epoch
         if self.state.get("last_lookup_epoch",0) < epoch:
@@ -451,11 +458,22 @@ class AsyncDP5Client:
             if epoch not in self.cbhandlerID:
                 self.cbhandlerID[epoch] = self.set_event_handler(handler)
 
-            self.lookup_ID(epoch)
+            try:
+                self.lookup_ID(epoch)
+            except:
+                ## TODO: Log error
+                traceback.print_exc()
+                ## ... and the show goes on ...
         else:
             if self.state.get("last_lookupcb_epoch", 0) < epochcb:
                 # print "Perform a combined lookup only"
-                self.lookup_combined(epochcb)
+
+                try:
+                    self.lookup_combined(epochcb)
+                except:
+                    ## TODO: Log error
+                    traceback.print_exc()
+                    ## ... and the show goes on ...
 
 
 
