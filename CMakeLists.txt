@@ -5,7 +5,7 @@ project (DP5)
 set (DP5_VERSION_MAJOR 0)
 set (DP5_VERSION_MINOR 01)
 
-set (CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -Wno-non-template-friend -Wno-unknown-warning-option -fPIC")
+set (CMAKE_CXX_FLAGS "-g -O0 -Wall  -Werror -Wno-deprecated-declarations -Wno-non-template-friend -Wno-unknown-warning-option -fPIC")
 set (CMAKE_C_FLAGS "-g -O0 -Wall -Werror -Wno-deprecated-declarations -fPIC")
 
 find_library(GMP gmp)
@@ -92,7 +92,7 @@ add_library(dp5clib SHARED dp5clib.cpp curve25519-donna.c dp5lookupclient.cpp dp
     dp5params.cpp dp5metadata.cpp dp5combregclient.cpp dp5regclient.cpp dp5regserver.cpp)
 target_link_libraries(dp5clib ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES}
         relicwrapper ${RELIC_LIBRARIES})
-set_source_files_properties(dp5clib.cpp PROPERTIES COMPILE_FLAGS "-Wno-mismatched-tags")
+set_source_files_properties(dp5clib.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
 
 # Separate this library for building tests to avoid
 # rebuilding it every time
