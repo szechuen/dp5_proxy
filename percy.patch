@@ -1,8 +1,8 @@
-diff --git c/CMakeLists.txt i/CMakeLists.txt
+diff --git c/CMakeLists.txt w/CMakeLists.txt
 new file mode 100644
 index 0000000..95a0bab
 --- /dev/null
-+++ i/CMakeLists.txt
++++ w/CMakeLists.txt
 @@ -0,0 +1,10 @@
 +project (Percy++)
 +
@@ -14,10 +14,10 @@ index 0000000..95a0bab
 +add_library(percyserver percyserver.cc percyparams.cc datastore.cc percyio.cc gf2e.cc distserver.cc 
 +                threadedserver.cc cmdtools.cc)
 +
-diff --git c/gf2e.h i/gf2e.h
+diff --git c/gf2e.h w/gf2e.h
 index 0635efc..d304aa9 100644
 --- c/gf2e.h
-+++ i/gf2e.h
++++ w/gf2e.h
 @@ -99,7 +99,7 @@ E interpolate_GF2E(const E *indices, const E *values,
          unsigned short numpoints, const E alpha) {
      E res;
@@ -37,10 +37,10 @@ index 0635efc..d304aa9 100644
      return res;
  }
  
-diff --git c/percyserver.h i/percyserver.h
+diff --git c/percyserver.h w/percyserver.h
 index f0b2f81..ff3e7a6 100644
 --- c/percyserver.h
-+++ i/percyserver.h
++++ w/percyserver.h
 @@ -34,7 +34,7 @@ public:
      // Initialize a server with the given DataStore.
      PercyServer(DataStore * datastore) : byzantine(false),
@@ -50,10 +50,10 @@ index f0b2f81..ff3e7a6 100644
  
      // Tell the server to be Byzantine
      void be_byzantine() { byzantine = true; }
-diff --git c/percytypes.h i/percytypes.h
+diff --git c/percytypes.h w/percytypes.h
 index f64a50d..54fd2e3 100644
 --- c/percytypes.h
-+++ i/percytypes.h
++++ w/percytypes.h
 @@ -81,7 +81,12 @@
  //	#warning "Detected 64-bit build."
  
@@ -68,10 +68,23 @@ index f64a50d..54fd2e3 100644
  
  	typedef uint32_t sid_t;
  	typedef uint64_t dbsize_t;
-diff --git c/threadedserver.cc i/threadedserver.cc
+diff --git c/rsdecoder_impl.h w/rsdecoder_impl.h
+index 5cb9aaf..ca2d2a4 100644
+--- c/rsdecoder_impl.h
++++ w/rsdecoder_impl.h
+@@ -2291,7 +2291,7 @@ bool cmp (const ZZ_pX& a, const ZZ_pX& b) {
+ template<class F, class vec_F, class FX, class FXY, class mat_F>
+ class cmpPolys {
+ public:
+-    bool operator() (const FX& a, const FX& b) {
++    bool operator() (const FX& a, const FX& b) const {
+         if (a == b) {
+             return false;
+         }
+diff --git c/threadedserver.cc w/threadedserver.cc
 index ede4207..7d3c327 100644
 --- c/threadedserver.cc
-+++ i/threadedserver.cc
++++ w/threadedserver.cc
 @@ -20,6 +20,7 @@
  #include <string.h>
  #include <sstream>

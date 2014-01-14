@@ -41,14 +41,16 @@ void DP5LookupServer::init(const char *metadatafilename,
         throw runtime_error("Cannot parse metadata file");
     }
 
-    _pirserverparams = new PercyServerParams(
-	   _metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes),
-        _metadata.num_buckets,
-    	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0, 0);
+    if (_metadata.num_buckets > 0 && _metadata.bucket_size > 0) {
+        _pirserverparams = new PercyServerParams(
+    	   _metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes),
+            _metadata.num_buckets,
+        	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0, 0);
 
-    _datastore = new FileDataStore(_datafilename, *_pirserverparams);
+        _datastore = new FileDataStore(_datafilename, *_pirserverparams);
 
-    _pirserver = new PercyServer(_datastore);
+        _pirserver = new PercyServer(_datastore);
+    }
 }
 
 // Copy constructor
