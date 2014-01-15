@@ -194,14 +194,18 @@ static PyObject* pyclientregstart(PyObject* self, PyObject* args){
         PyObject * pubk = PySequence_GetItem(item,0);
         PyObject * data = PySequence_GetItem(item,1);
         if (!pubk || !PyString_Check(pubk) || !data || !PyString_Check(data)){
-            PyErr_SetString(PyExc_RuntimeError, "Bad item format");
+            PyErr_SetString(PyExc_RuntimeError, "Bad item format: type mismatch");
             return NULL;
         }
 
-        if (PyString_Size(pubk) != PubKey::size ||
-                PyString_Size(data) != c->config.dataplain_bytes()){
+        if (PyString_Size(pubk) != PubKey::size){
             PyObject_Print(item, stdout, 0);
-            PyErr_SetString(PyExc_RuntimeError, "Bad item format");
+            PyErr_SetString(PyExc_RuntimeError, "Bad item format: pub. key length mismatch");
+            return NULL;  }
+
+        if (PyString_Size(data) != c->config.dataplain_bytes()){
+            PyObject_Print(item, stdout, 0);
+            PyErr_SetString(PyExc_RuntimeError, "Bad item format: plaintext length mismatch");
             return NULL;  }
 
         BuddyInfo b;
@@ -462,10 +466,12 @@ static PyObject* pyserverclientreg(PyObject* self, PyObject* args){
     int ok = PyArg_ParseTuple(args, "Os*", &server_cap, &data);
     if (!ok) {
         PyBuffer_Release(&data);
+        cout << "Error 1" << "\n";
         return NULL;
     }
     if (!PyCapsule_CheckExact(server_cap)){
         PyBuffer_Release(&data);
+        cout << "Error 2" << "\n";       
         return NULL;
     }
 
@@ -473,6 +479,7 @@ static PyObject* pyserverclientreg(PyObject* self, PyObject* args){
     // Clean delete of previous instance!
     if (!s->regs){
         PyBuffer_Release(&data);
+        cout << "Error 3" << "\n";
         return NULL;
     }
 

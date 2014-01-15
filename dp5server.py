@@ -150,6 +150,8 @@ class RootServer:
     @cherrypy.expose
     def register(self, epoch):
         "Register a number of friends"
+
+	print "Register request for epoch %s" % epoch
         ## First check if we are a registration server in a valid state        
         try:
             self.check_epoch()
@@ -159,7 +161,7 @@ class RootServer:
             assert self.epoch in self.register_handlers
             assert cherrypy.request.process_request_body
         except:
-            print "Epoch", self.epoch == int(epoch)
+            print "Epoch", self.epoch == int(epoch), (self.epoch, int(epoch))
             print "Register", self.is_register
             print "Handlers", self.epoch in self.register_handlers
             print "POST", cherrypy.request.process_request_body
@@ -188,6 +190,7 @@ class RootServer:
     def lookup(self, epoch):
         assert self.is_lookup
         assert cherrypy.request.process_request_body
+	print "Lookup request for epoch %s" % epoch
 
     # Lazily set up lookup server
         server = self.lookup_server(int(epoch))
