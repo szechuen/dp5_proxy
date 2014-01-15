@@ -2,6 +2,7 @@ How to test the python async client.
 
 1) Ensure that the python CFFI library works:
 
+$ python dp5test.py
 $ python dp5cffi_test.py
 
 2) Create a test env:

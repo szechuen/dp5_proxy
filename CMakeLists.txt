@@ -61,7 +61,7 @@ set(PERCYSERVER ${binary_dir}/libpercyserver.a)
 set(PERCYCLIENT ${binary_dir}/libpercyclient.a)
 
 find_library(NTL ntl)
-find_file(NTL_INCLUDE_DIR "NTL/")
+find_file(NTL_INCLUDE_DIR "NTL/" "/usr/local/include/")
 
 set(PERCY_LIBRARIES ${PERCYSERVER} ${PERCYCLIENT} ${NTL})
 if(GMP)
