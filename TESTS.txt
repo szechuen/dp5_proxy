@@ -1,0 +1,32 @@
+How to test the python async client.
+
+1) Ensure that the python CFFI library works:
+
+$ python dp5cffi_test.py
+
+2) Create a test env:
+
+Ensure "tests/" folder exists
+
+Populate it with 5 configuration files:
+tests/client.cfg
+tests/regserver.cfg
+tests/lookupserver.cfg
+tests/regserverCB.cfg
+tests/lookupserverCB.cfg
+
+3) Run the servers in different processes
+
+$ cd tests
+$ python ../dp5twistedserver.py regserver.cfg
+$ python ../dp5twistedserver.py lookupserver.cfg
+$ python ../dp5twistedserver.py regserverCB.cfg
+$ python ../dp5twistedserver.py regserverCB.cfg
+$ cd ..
+
+4) Configure and run many clients
+
+$ python users.py 20 tests/users.20.dat
+$ python dp5twistedclient.py tests/client.cfg tests/users.20.dat 
+
+
