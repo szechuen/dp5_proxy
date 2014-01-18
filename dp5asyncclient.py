@@ -1,6 +1,8 @@
 ## ---- Async client
 
 from dp5clib import *
+from dp5logs import logger
+
 import random
 import traceback
 
@@ -15,6 +17,8 @@ class AsyncDP5Client:
 
         self.init_ID(data=self.state.get("ltID",None))
         self.init_BLS(data=self.state.get("bls",None))
+
+        self.log = logger(str(self.state.get("ltID","")).encode("hex")[:10])
         
         try:
             self.state["numservers"] = len(state["standard"]["lookupServers"])
@@ -70,8 +74,7 @@ class AsyncDP5Client:
         ## TODO: Allow for configurable periods
         self.config = DP5Config(self.state["epoch_length"], self.state["data_length"], False)
         self.configCB = DP5Config(self.state["epoch_lengthCB"], self.state["data_lengthCB"], True)
-        # print "Datasize: %s (normal) %s (combined)" % (self.config.dataplain_bytes(),self.configCB.dataplain_bytes())
-
+        
         ## Check any input data
         if "data" not in self.state:
             self.state["data"] = "\x00" * self.configCB.dataplain_bytes()
@@ -88,6 +91,12 @@ class AsyncDP5Client:
         self.seq_handlers = 0
 
         self.cbhandlerID = {}
+        self.actionID = 0
+
+    def next_actionID(self):
+        aID = self.actionID
+        self.actionID += 1
+        return aID
 
     def set_active(self, label):
         self.seq_requests += 1
@@ -118,9 +127,10 @@ class AsyncDP5Client:
         if hID in self.event_handlers:
             del self.event_handlers[hID]
 
-    def fire_event(self, event):
+    def fire_event(self, event, aID = None):
         for e in self.event_handlers.values():
             e(self.state, event)
+        self.log.log(event, aID)
 
     def init_ID(self, data=None):
         self.ltID = DHKeys()
@@ -146,6 +156,7 @@ class AsyncDP5Client:
             self.state["friends"] = {}
 
         friends = self.state["friends"]
+        
         ## nick = None means delete friend
         if ltID in friends:
             if nick is None:
@@ -176,7 +187,10 @@ class AsyncDP5Client:
         label = ("REGID", epoch)
         if self.check_active(label):
             return
+
+        aID = self.next_actionID()
         reqID = self.set_active(label)
+        self.fire_event(("REGID","START"), aID)
 
         ## First of all generate a fresh BLS Key
         friends = self.state.get("friends", [])
@@ -194,18 +208,19 @@ class AsyncDP5Client:
                 reg.finish(msg)
                 self.state["last_register_epoch"] = epoch
                 self.remove_active(label, reqID)
-                self.fire_event(("REGID","SUCCESS"))
+                self.fire_event(("REGID","SUCCESS"), aID)
             except DP5Exception as e:
                 self.remove_active(label, reqID)
-                self.fire_event(("REGID","FAIL"))
+                self.fire_event(("REGID","FAIL"), aID)
 
         def fail_callback():
             if not self.check_active(label, reqID):
                 return
             self.remove_active(label, reqID)
-            self.fire_event(("REGID","NETFAIL"))
+            self.fire_event(("REGID","NETFAIL"), aID)
 
         # Call the network handlers
+        self.fire_event(("REGID","SEND"), aID)
         self.send_registration(epoch, False, req, reply_callback, fail_callback)
 
         return req, reply_callback, fail_callback
@@ -222,6 +237,10 @@ class AsyncDP5Client:
             return
         reqID = self.set_active(label)
 
+        aID = self.next_actionID()
+        self.fire_event(("REGCB","START"), aID)
+
+
         reg = DP5CombinedClientReg(self.configCB, self.bls, epoch)
         msg = reg.register(userdata)
 
@@ -232,17 +251,18 @@ class AsyncDP5Client:
                 reg.finish(msg)
                 self.state["last_combined_epoch"] = epoch
                 self.remove_active(label, reqID)
-                self.fire_event(("REGCB","SUCCESS"))
+                self.fire_event(("REGCB","SUCCESS"), aID)
             except:
                 self.remove_active(label, reqID)
-                self.fire_event(("REGCB","FAIL"))
+                self.fire_event(("REGCB","FAIL"), aID)
 
         def fail_callback():
             if not self.check_active(label, reqID):
                 return
             self.remove_active(label, reqID)
-            self.fire_event(("REGCB","NETFAIL"))
+            self.fire_event(("REGCB","NETFAIL"), aID)
 
+        self.fire_event(("REGCB","SEND"), aID)
         self.send_registration(epoch, True, msg, reply_callback, fail_callback)
         return msg, reply_callback, fail_callback
 
@@ -257,7 +277,10 @@ class AsyncDP5Client:
             # print "Is already active", label
             return
         reqID = self.set_active(label)
+        aID = self.next_actionID()
 
+
+        self.fire_event(("METAID","START"), aID)
         friends = self.state.get("friends", [])
         pks = [self.ltID.pub()] ## Always include our own
         for f in friends:
@@ -273,7 +296,7 @@ class AsyncDP5Client:
             if not self.check_active(label, reqID):
                 return
             self.remove_active(label, reqID)
-            self.fire_event(("LOOKID","NETFAIL"))
+            self.fire_event(("LOOKID","NETFAIL"), aID)
 
         def lookup_callback(msg):
             if not self.check_active(label, reqID):
@@ -291,14 +314,14 @@ class AsyncDP5Client:
                                 assert len(friends[kx]["cbID"]) == len(self.bls.pub())
                                 friends[kx]["epoch_cbID"] = epoch
                     self.remove_active(label, reqID)
-                    self.fire_event(("LOOKID","SUCCESS"))
+                    self.fire_event(("LOOKID","SUCCESS"), aID)
                 except DP5Exception as e:
                     print "Lookup Error", e.msg
                     print "Last Epoch", str(self.state.get("last_lookup_epoch",None)), "***"
                     print "Current epoch", epoch
                     traceback.print_exc()
                     self.remove_active(label, reqID)
-                    self.fire_event(("LOOKID","FAIL"))
+                    self.fire_event(("LOOKID","FAIL"), aID)
 
         def metareply_callback(msg):
             if not self.check_active(label, reqID):
@@ -307,8 +330,11 @@ class AsyncDP5Client:
                 lookup.metadata_reply(msg)
                 self.state["last_meta_epoch"] = epoch
 
+                self.fire_event(("LOOKID","START"), aID)
+
                 messages = lookup.lookup_request(SERVER_NUM)
                 for seq, mx in enumerate(messages):
+                    self.fire_event(("LOOKID","SEND%02d" % seq), aID)
                     self.send_lookup(epoch, False, seq, mx, lookup_callback, metafail_callback)
 
                 return messages, lookup_callback, metafail_callback
@@ -317,9 +343,10 @@ class AsyncDP5Client:
                 print "Lookup Error (Meta ID)", e.msg
                 traceback.print_exc()
                 self.remove_active(label, reqID)
-                self.fire_event(("METAID","FAIL"))
+                self.fire_event(("METAID","FAIL"), aID)
 
         seq = random.randint(0, SERVER_NUM-1)
+        self.fire_event(("METAID","SEND"), aID)
         self.send_lookup(epoch, False, seq, meta_msg, metareply_callback, metafail_callback)
         return meta_msg, metareply_callback, metafail_callback
 
@@ -334,7 +361,9 @@ class AsyncDP5Client:
             # print "CB already active"
             return
         reqID = self.set_active(label)
+        aID = self.next_actionID()
 
+        self.fire_event(("METACB","START"), aID)
         friends = self.state.get("friends", [])
         pks = [self.bls.pub()] ## Always include our own
         cbmap = {}
@@ -357,7 +386,7 @@ class AsyncDP5Client:
                 return
 
             self.remove_active(label, reqID)
-            self.fire_event(("LOOKCB","NETFAIL"))
+            self.fire_event(("LOOKCB","NETFAIL"), aID)
 
         def lookup_callback(msg):
             if not self.check_active(label, reqID):
@@ -374,13 +403,13 @@ class AsyncDP5Client:
                                 cbmap[kx]["data"] = msg
 
                     self.remove_active(label, reqID)
-                    self.fire_event(("LOOKCB","SUCCESS"))
+                    self.fire_event(("LOOKCB","SUCCESS"), aID)
                 except DP5Exception as e:
                     print "CB Lookup Error", e.msg
 
                     traceback.print_exc()
                     self.remove_active(label, reqID)
-                    self.fire_event(("LOOKCB","FAIL"))
+                    self.fire_event(("LOOKCB","FAIL"), aID)
 
 
         def metareply_callback(msg):
@@ -390,10 +419,12 @@ class AsyncDP5Client:
                 lookup.metadata_reply(msg)
                 self.state["last_metacb_epoch"] = epoch
 
+                self.fire_event(("LOOKCB","START"), aID)
                 messages = lookup.lookup_request(SERVER_NUM)
                 # print "message lengths",  messages
 
                 for seq, mx in enumerate(messages):
+                    self.fire_event(("LOOKCB","SEND%02d" % seq), aID)
                     self.send_lookup(epoch, True, seq, str(mx), lookup_callback, metafail_callback)
 
                 return messages, lookup_callback, metafail_callback
@@ -401,10 +432,11 @@ class AsyncDP5Client:
             except DP5Exception, e:
                 print "CB FAIL", e
                 self.remove_active(label, reqID)
-                self.fire_event(("METACB","FAIL"))
+                self.fire_event(("METACB","FAIL"), aID)
                 
 
         seq = random.randint(0, SERVER_NUM-1)
+        self.fire_event(("METACB","SEND"), aID)
         self.send_lookup(epoch, True, seq, meta_msg, metareply_callback, metafail_callback)
         
         return meta_msg, metareply_callback, metafail_callback
@@ -424,6 +456,7 @@ class AsyncDP5Client:
 
         if epochcb == None:
             epochcb = self.configCB.current_epoch()
+
         if epoch == None:
             epoch = self.config.current_epoch()
         
@@ -474,9 +507,4 @@ class AsyncDP5Client:
                     ## TODO: Log error
                     traceback.print_exc()
                     ## ... and the show goes on ...
-
-
-
-
-
 

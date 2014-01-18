@@ -47,21 +47,11 @@ def dp5twistedclientFactory(state):
     ## Define the networking for registration
     def send_registration(cli, epoch, combined, msg, cb, fail):
         if combined:
-            try:
-                ser = cli.state["combined"]["regServer"]
-            except:
-                print "Using dummy registration server: localhost:8444"
-                ser = "localhost:8444"
+            ser = cli.state["combined"]["regServer"]
             surl = str("https://"+ser+"/register?epoch=%s" % (epoch-1))
         else:
-            try:
-                ser = cli.state["standard"]["regServer"]
-            except:
-                print "Using dummy registration server: localhost:8443"
-                ser = "localhost:8443"
+            ser = cli.state["standard"]["regServer"]
             surl = str("https://" + ser + "/register?epoch=%s" % (epoch-1))
-
-        #print "Send registration: %s" % surl
 
         body = FileBodyProducer(StringIO(msg))
 
@@ -76,16 +66,12 @@ def dp5twistedclientFactory(state):
             fail()
 
         def cbRequest(response):
-            #print 'Response version:', response.version
-            #print 'Response code:', response.code
-            #print 'Response phrase:', response.phrase
-            #print 'Response headers:'
-            #print pformat(list(response.headers.getAllRawHeaders()))
             finished = Deferred()
             finished.addCallback(cb)
             finished.addErrback(err)
             response.deliverBody(BufferedReception(finished))
             return finished
+
         d.addCallback(cbRequest)
         d.addErrback(err)
     cli.register_handlers += [send_registration]
@@ -97,18 +83,10 @@ def dp5twistedclientFactory(state):
             return cb("")
 
         if combined:
-            try:
-                ser = cli.state["combined"]["lookupServers"][seq]
-            except:
-                print "Using dummy lookup server: localhost:8454"
-                ser = "localhost:8454"
+            ser = cli.state["combined"]["lookupServers"][seq]
             surl = str("https://"+ser+"/lookup?epoch=%s" % epoch)
         else:
-            try:
-                ser = cli.state["standard"]["lookupServers"][seq]
-            except:
-                print "Using dummy lookup server: localhost:8453"
-                ser = "localhost:8453"
+            ser = cli.state["standard"]["lookupServers"][seq]
             surl = str("https://" + ser + "/lookup?epoch=%s" % epoch)
 
         body = FileBodyProducer(StringIO(msg))
@@ -129,11 +107,6 @@ def dp5twistedclientFactory(state):
             fail()
 
         def cbRequest(response):
-            #print 'Response version:', response.version
-            #print 'Response code:', response.code
-            #print 'Response phrase:', response.phrase
-            #print 'Response headers:'
-            #print pformat(list(response.headers.getAllRawHeaders()))
             finished = Deferred()
             finished.addCallback(cb)
             finished.addErrback(err)
@@ -144,16 +117,13 @@ def dp5twistedclientFactory(state):
     cli.lookup_handlers += [send_lookup]
 
     def loopupdate():
-        # print ".",
         cli.update()
 
     cli.l = task.LoopingCall(loopupdate)
     period = float(cli.state["epoch_lengthCB"] / 4.0)
     print "Update every %2.2f secs" % period
     cli.l.start(period) # call every second
-
     return cli
-
 
 if __name__ == "__main__":
     try:
@@ -173,13 +143,20 @@ if __name__ == "__main__":
         print e
         sys.exit(1)
 
-    def handler(state, event):
-            print state["Name"], event
+    ## ------------------------------------ ##
+    ## --- Overwrite this modest function - ##
+    ## --- for the client to do something - ##
+    ## ------------------------------------ ##
+    def handler(state, event):              ##
+            print state["Name"], event      ##
+    ## ------------------------------------ ##
+    ## ------------------------------------ ##
+    ## ------------------------------------ ##
 
     clients = []
     for x, u in enumerate(uxs):
         state = copy.deepcopy(config)
-        state["Name"] = ("Client%s"%x)
+        state["Name"] = ("Client%07d" % x)
         state["ltID"] = u.pub + u.priv
 
         xcli = dp5twistedclientFactory(state)
@@ -187,7 +164,6 @@ if __name__ == "__main__":
             xcli.set_friend(f, "F%s"%i)
 
         xcli.set_event_handler(handler)
-        
         clients += [xcli]
 
     reactor.run()
