@@ -1,6 +1,8 @@
 How to test the python async client.
 
 1) Ensure that the python CFFI library works:
+   (depending on how you build you may have to 
+    move a few .so libs to put them on the path)
 
 $ python dp5test.py
 $ python dp5cffi_test.py
@@ -27,7 +29,7 @@ $ cd ..
 
 4) Configure and run many clients
 
+$ mkdir logs
 $ python users.py 20 tests/users.20.dat
 $ python dp5twistedclient.py tests/client.cfg tests/users.20.dat 
-
 
