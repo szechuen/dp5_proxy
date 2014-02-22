@@ -24,7 +24,7 @@ $ cd tests
 $ python ../dp5twistedserver.py regserver.cfg
 $ python ../dp5twistedserver.py lookupserver.cfg
 $ python ../dp5twistedserver.py regserverCB.cfg
-$ python ../dp5twistedserver.py regserverCB.cfg
+$ python ../dp5twistedserver.py lookupserverCB.cfg
 $ cd ..
 
 4) Configure and run many clients
