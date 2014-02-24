@@ -4,6 +4,8 @@ from dp5asyncclient import *
 
 ## ------- Tests -----------------------
 
+from collections import Counter
+
 import unittest
 import shutil
 import os
@@ -190,8 +192,9 @@ class DP5TestCase(unittest.TestCase):
         state = {}
         cli = AsyncDP5Client(state)
 
+        event_cnt = Counter()
         def handler(state, event):
-            self.assertEqual( event , ("REGID","SUCCESS"))
+            event_cnt.update([event])
 
         cli.set_event_handler(handler)
 
@@ -214,13 +217,18 @@ class DP5TestCase(unittest.TestCase):
         cb(reply)
 
         C.RegServer_delete(server)
+        self.assertEqual( event_cnt[('REGID', 'SUCCESS')] , 1)
+
 
     def test_client_nosync(self):
         state = {}
         cli = AsyncDP5Client(state)
-
+        
+        # Expected order of event for this test
+        event_list = [("REGID","START"),("REGID","SEND"),("REGID","FAIL")]
         def handler(state, event):
-            self.assertEqual( event , ("REGID","FAIL"))
+            exp_event = event_list.pop(0)
+            self.assertEqual( event , exp_event)
 
         cli.set_event_handler(handler)
 
@@ -252,8 +260,9 @@ class DP5TestCase(unittest.TestCase):
         state = {}
         cli = AsyncDP5Client(state)
 
+        event_cnt = Counter()
         def handler(state, event):
-            self.assertEqual( event , ("REGCB","SUCCESS"))            
+            event_cnt.update([event])
 
         cli.set_event_handler(handler)
 
@@ -277,6 +286,9 @@ class DP5TestCase(unittest.TestCase):
 
         C.RegServer_delete(server)
 
+        self.assertEqual( event_cnt[('REGCB', 'SUCCESS')] , 1)
+
+
     def test_lookup(self):
         
         clients = []
@@ -293,10 +305,10 @@ class DP5TestCase(unittest.TestCase):
         ## RAW server code
         cli0 = clients[0]
 
-        CALLED = [False]
+
+        event_cnt = Counter()
         def handler(state, event):
-            CALLED[0] = True
-            self.assertEqual( event , ("LOOKID","SUCCESS"))
+            event_cnt.update([event])
 
         cli0.set_event_handler(handler)
 
@@ -325,7 +337,7 @@ class DP5TestCase(unittest.TestCase):
                 reply = lookup_server.process(m)                
                 success(reply)
 
-        self.assertTrue( CALLED[0] )
+        self.assertTrue(  event_cnt[('LOOKID', 'SUCCESS')] == 1)
 
     def test_nethandler(self):
         
@@ -355,10 +367,9 @@ class DP5TestCase(unittest.TestCase):
             cli = clients[i]
             cli.register_handlers += [send_registration]
 
-        CALLED = [False]
+        event_cnt = Counter()
         def handler(state, event):
-            CALLED[0] = True
-            self.assertEqual( event , ("LOOKID","SUCCESS"))
+            event_cnt.update([event])
 
         cli0.set_event_handler(handler)
 
@@ -383,7 +394,7 @@ class DP5TestCase(unittest.TestCase):
         ## Test lookup
         msg, success, failure = cli0.lookup_ID(epoch+1)        
 
-        self.assertTrue( CALLED[0] )
+        self.assertTrue( event_cnt[('LOOKID', 'SUCCESS')] == 1)
 
     def test_update(self):
         bls = BLSKeys()
@@ -448,12 +459,12 @@ class DP5TestCase(unittest.TestCase):
         for i in range(10):
             clients[i].lookup_handlers += [send_lookup]        
 
-        CALLED = [False]
+        event_cnt = Counter()
         def handler(state, event):
-            CALLED[0] = True
+            event_cnt.update([event])
             
-            self.assertEqual( event[1] , "SUCCESS")
-            try:
+            #self.assertEqual( event[1] , "SUCCESS")
+            if event[1] == "SUCCESS":
                 if event[0] == "LOOKID":
                     for i in range(10):
                             pk = clients[i].get_pub()
@@ -470,8 +481,8 @@ class DP5TestCase(unittest.TestCase):
                                 else:
                                     self.assertEqual(state["friends"][pk].get("last_on_line", None), None)
 
-            except Exception as e:
-                print "FAIL", e
+            #except Exception as e:
+            #    print "FAIL", e
 
         for i in range(10):
             clients[i].set_event_handler(handler)
@@ -480,7 +491,15 @@ class DP5TestCase(unittest.TestCase):
         for i in range(4,8):
             clients[i].update(epoch, epochCB)   
 
+        self.assertEqual( event_cnt[('LOOKID', 'SUCCESS')], 4)
+
+        for i in range(4,8):
+            clients[i].update(epoch, epochCB)   
+
+        self.assertEqual( event_cnt[('LOOKCB', 'SUCCESS')], 4)
+        self.assertEqual( event_cnt[('LOOKID', 'SUCCESS')], 4)
         return
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
