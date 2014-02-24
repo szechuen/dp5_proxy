@@ -14,11 +14,10 @@ Building GMP:
 Building NTL:
 ( Download latest source from: http://www.shoup.net/ntl/ )
    $ cd <ntl source directory>
-   $ ./configure PREFIX=/usr/local/lib "CFLAGS=-O2 -fPIC" NTL_GMP_LIP=on
+   $ ./configure PREFIX=/usr/local "CFLAGS=-O2 -fPIC" NTL_GMP_LIP=on
    $ make
    $ make check
    $ sudo make install
-   $ sudo cp ntl.a /usr/local/lib/libntl.a
 
 Get OpenSSL
    $ sudo apt-get install libssl-dev
