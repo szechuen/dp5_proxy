@@ -14,7 +14,7 @@ protected:
 
     virtual void SetUp() {
         char tempmetadata[] = "/tmp/.dp5.metadata.XXXXXXX";
-  //      char tempdata[] = "/tmp/.dp5.data.XXXXXXXX";
+        char tempdata[] = "/tmp/.dp5.data.XXXXXXXX";
 
         int metadatafd = mkstemp(tempmetadata);
         ASSERT_GE(metadatafd, 0);   // fail out if mkstemp failed
@@ -28,15 +28,23 @@ protected:
         write(metadatafd, metadataStr.c_str(), metadataStr.length());
         close(metadatafd);
 
+        int datafd = mkstemp(tempdata);
+        ASSERT_GE(datafd, 0);
+
+        close(datafd); // keep data file empty
+
         metadatafilename.assign(tempmetadata, strlen(tempmetadata));
+        datafilename.assign(tempdata, strlen(tempdata));
     }
 
     virtual void TearDown() {
         unlink(metadatafilename.c_str());
+        unlink(datafilename.c_str());
     }
 };
 
 TEST_F(EmptyFileTest, Constructor) {
     DP5LookupServer ls(metadatafilename.c_str(), datafilename.c_str());
-
 }
+
+
