@@ -74,6 +74,6 @@ TEST_F(EmptyFileTest, Download) {
     ls.process_request(reply, requeststr);
 
     EXPECT_EQ(reply[0], '\x82');
-    EXPECT_EQ(reply.length(), 5);
+    EXPECT_EQ(reply.length(), (unsigned int) 5);
 }
 

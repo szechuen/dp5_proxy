@@ -541,6 +541,8 @@ static PyObject* pyserverprocessrequest(PyObject* self, PyObject* args){
     PyObject * server_cap;
     Py_buffer data;
 
+    // if (!self) return NULL;
+
     int ok = PyArg_ParseTuple(args, "Os*", &server_cap, &data);
     if (!ok) {
          PyBuffer_Release(&data);

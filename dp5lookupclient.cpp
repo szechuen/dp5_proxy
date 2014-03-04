@@ -372,6 +372,11 @@ int LookupRequest<BuddyKey,MyPrivKey>::lookup_reply(
                     ((char *) replies[s].data()) + (1 + EPOCH_BYTES);
                 unsigned int database_size = replies[s].length() - (1 + EPOCH_BYTES);
 
+                if (database_size == 0){
+                    // An empty database means no answer.
+                    return 0x18;
+                }
+
                 // Check it is a multiple of HASHKEY_BYTES + DATAENC_BYTES
                 if (database_size % (HASHKEY_BYTES + _metadata.dataenc_bytes) != 0)
                     return 0x15;
@@ -385,8 +390,10 @@ int LookupRequest<BuddyKey,MyPrivKey>::lookup_reply(
                             * (HASHKEY_BYTES + _metadata.dataenc_bytes);
 
                         // Is this still within bounds?
-                        if (idx + HASHKEY_BYTES + _metadata.dataenc_bytes > database_size)
+                        if (idx + HASHKEY_BYTES + _metadata.dataenc_bytes > database_size){
+                            cout << "DB out of bounds" << idx + HASHKEY_BYTES + _metadata.dataenc_bytes << " > " << database_size << "\n";
                             return 0x17;
+                        }
 
                         buckets[buddy.position].assign(database + idx,
                             _metadata.bucket_size  * (HASHKEY_BYTES + _metadata.dataenc_bytes));

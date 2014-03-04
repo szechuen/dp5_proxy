@@ -62,7 +62,7 @@ int DP5RegClient::start_reg(string &msgtosend, Epoch next_epoch,
         ad.append((char *) shared_key, sizeof(shared_key));
 
         if (current_buddy.data.size() != _config.dataplain_bytes())
-            return 0x01; // wrong data size
+            return 0x02; // wrong data size
         s += Enc(data_key, current_buddy.data, ad);
         to_sort.push_back(s);
     }

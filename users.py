@@ -20,7 +20,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # FIXME: parametrize?
-    numfriends = min(100, numusers)
+    numfriends = min(50, numusers)
 
     keys = [dp5.genkeypair() for _ in range(numusers)]
 

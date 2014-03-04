@@ -11,6 +11,9 @@ from twisted.web.client import Agent, ResponseDone
 from twisted.web.http_headers import Headers
 from twisted.web.client import FileBodyProducer
 
+from twisted.internet.defer import setDebugging
+setDebugging(True)
+
 from StringIO import StringIO
 import traceback
 import sys
@@ -45,7 +48,7 @@ def dp5twistedclientFactory(state):
     cli.agent = Agent(reactor)
 
     ## Define the networking for registration
-    def send_registration(cli, epoch, combined, msg, cb, fail):
+    def send_registration(cli, epoch, combined, msg, cb, xfail):
         if combined:
             ser = cli.state["combined"]["regServer"]
             surl = str("https://"+ser+"/register?epoch=%s" % (epoch-1))
@@ -62,8 +65,9 @@ def dp5twistedclientFactory(state):
             body)
 
         def err(*args):
-            print "REG ERROR", args
-            fail()
+            # print "REG ERROR", args
+            # print args
+            xfail(args[0])
 
         def cbRequest(response):
             finished = Deferred()
@@ -77,7 +81,7 @@ def dp5twistedclientFactory(state):
     cli.register_handlers += [send_registration]
 
     ## Define the networking for lookups
-    def send_lookup(cli, epoch, combined, seq, msg, cb, fail):
+    def send_lookup(cli, epoch, combined, seq, msg, cb, xfail):
         if msg == "":
             #print "No need to relay lookup"
             return cb("")
@@ -98,13 +102,13 @@ def dp5twistedclientFactory(state):
             body)
 
         def err(*args):
-            print "LOOKUP ERROR", args
-            try:
-                args[0].raiseException()
-            except:
-                traceback.print_exc()
-
-            fail()
+            # print "LOOKUP ERROR", args
+            #try:
+            #    args[0].raiseException()
+            #except:
+            #    traceback.print_exc()
+            #finally:
+            xfail(args[0])
 
         def cbRequest(response):
             finished = Deferred()
@@ -112,6 +116,7 @@ def dp5twistedclientFactory(state):
             finished.addErrback(err)
             response.deliverBody(BufferedReception(finished))
             return finished
+
         d.addCallback(cbRequest)
         d.addErrback(err)
     cli.lookup_handlers += [send_lookup]
@@ -147,8 +152,9 @@ if __name__ == "__main__":
     ## --- Overwrite this modest function - ##
     ## --- for the client to do something - ##
     ## ------------------------------------ ##
-    def handler(state, event):              ##
-            print state["Name"], event      ##
+    def handler(state, event, hid):              ##
+            pass
+            # print state["Name"], event      ##
     ## ------------------------------------ ##
     ## ------------------------------------ ##
     ## ------------------------------------ ##

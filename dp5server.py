@@ -96,6 +96,7 @@ class RootServer:
             server = dp5.getnewserver(self.dp5config)
 
             dp5.serverinitlookup(server, epoch, metafile, datafile)
+            assert epoch not in self.lookup_handlers
             self.lookup_handlers[epoch] = server
             return server
 

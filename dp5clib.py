@@ -123,6 +123,7 @@ class DP5ClientReg:
             process_buffer)
 
         if err != 0:
+            print "Registraton error code: ", hex(err)
             raise DP5Exception(("Regisration error", err))
 
         return results[0]
@@ -223,6 +224,11 @@ class DP5lookup:
         self.live = [NativeBuf(x) for x in replies]
         data = [b.get() for b in self.live]
         err = C.LookupRequest_reply(self.req, len(replies), data, presence)
+        
+        # means DB was empty
+        if err == 0x18:
+            return []
+
         if err != 0:
             raise DP5Exception(("Lookup Error", err))
 
@@ -292,6 +298,11 @@ class DP5Combinedlookup:
 
         data = [h.get() for h in self.handles]
         err = C.LookupRequestCB_reply(self.req, len(replies), data, presence)
+
+        # means DB was empty
+        if err == 0x18:
+            return []
+
         if err != 0:
             raise DP5Exception(("Lookup Error (Lookup)", err))
 
