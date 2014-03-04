@@ -178,3 +178,4 @@ gtest(dp5combregclient_unittest "dp5combregclient_unittest.cpp;dp5combregclient.
 gtest(dp5lookupclient_unittest "dp5lookupclient_unittest.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp")
 gtest(pairing_unittest "pairing_unittest.cpp;dp5params.cpp")
 gtest(enc_test "enc_test.cpp;dp5params.cpp")
+gtest(dp5lookupserver_unittest "dp5lookupserver_unittest.cpp;dp5lookupserver.cpp;dp5params.cpp;dp5metadata.cpp")
