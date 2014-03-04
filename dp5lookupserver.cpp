@@ -50,6 +50,9 @@ void DP5LookupServer::init(const char *metadatafilename,
         _datastore = new FileDataStore(_datafilename, *_pirserverparams);
 
         _pirserver = new PercyServer(_datastore);
+    } else {
+        _pirserver = NULL;
+        _datastore = NULL;
     }
 }
 
@@ -93,9 +96,11 @@ DP5LookupServer& DP5LookupServer::operator=(DP5LookupServer other)
 // Destructor
 DP5LookupServer::~DP5LookupServer()
 {
-    delete _pirserver;
-    delete _datastore;
-    delete _pirserverparams;
+    if (_pirserver) {
+        delete _pirserver;
+        delete _datastore;
+        delete _pirserverparams;
+    }
 
     free(_datafilename);
     free(_metadatafilename);
@@ -183,9 +188,11 @@ void DP5LookupServer::process_request(string &reply, const string &request)
 	repmsg[0] = 0x82;
 	epoch_num_to_bytes(repmsg+1, _metadata.epoch);
 	reply.assign((char *) repmsg, 5);
-	reply.append((const char *)(_datastore->get_data()),
-	    _metadata.num_buckets * _metadata.bucket_size *
-	    (HASHKEY_BYTES + _metadata.dataenc_bytes));
+    if (_datastore) {
+    	reply.append((const char *)(_datastore->get_data()),
+    	    _metadata.num_buckets * _metadata.bucket_size *
+    	    (HASHKEY_BYTES + _metadata.dataenc_bytes));
+    }
 	return;
     }
 
