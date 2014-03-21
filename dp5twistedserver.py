@@ -21,11 +21,21 @@ if cherrypy.__version__.startswith('3.0') and cherrypy.engine.state == 0:
 config = json.load(file(sys.argv[1]))
 print "Using config file:", sys.argv[1]
 cherrypy.config.update(dict(map(fromUnicode,x) for x in config["server"].items()))
+
+cherrypy.config.update({
+    'log.access_file': "logs/log-{0}-cherrypy-access.log".format(sys.argv[1]),
+    'log.error_file': "logs/log-{0}-cherrypy-error.log".format(sys.argv[1])
+})
+
+cherrypy.config.update({
+                                'log.screen': False
+                              })
+
+
 application = cherrypy.Application(RootServer(config), script_name=None, config=None)
 
-
+reactor.suggestThreadPoolSize(30)
 TP = reactor.getThreadPool()
-TP. adjustPoolsize(10, 20)
 resource = WSGIResource(reactor, TP, application)
 reactor.listenSSL(config["server"]["server.socket_port"], Site(resource),ssl.DefaultOpenSSLContextFactory(
             'testcerts/server.key', 'testcerts/server.crt'))

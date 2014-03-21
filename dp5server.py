@@ -226,14 +226,15 @@ class RootServer:
     def download(self, epoch, metadata=False):
 
         try:
-            self.check_epoch()
-            metaname, dataname = self.filenames(int(epoch))
-            if metadata:
-                f = open(metaname)
-            else:
-                f = open(dataname)
-            cherrypy.response.headers["Content-Type"] = "application/octet-stream"
-            return f.read()
+            with self.lookup_lock:
+                self.check_epoch()
+                metaname, dataname = self.filenames(int(epoch))
+                if metadata:
+                    f = open(metaname)
+                else:
+                    f = open(dataname)
+                cherrypy.response.headers["Content-Type"] = "application/octet-stream"
+                return f.read()
         except:
             raise cherrypy.HTTPError(403)
 

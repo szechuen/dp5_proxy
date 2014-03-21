@@ -222,6 +222,7 @@ class AsyncDP5Client:
             if not self.check_active(label, reqID):
                 self.fire_event(("REGID","INACTIVE_FAIL"), aID)
                 return
+            print exp
             self.remove_active(label, reqID)
             self.fire_event(("REGID","NETFAIL"), aID)
 
@@ -268,6 +269,7 @@ class AsyncDP5Client:
         def fail_callback(exp):
             if not self.check_active(label, reqID):
                 return
+            print exp
             self.remove_active(label, reqID)
             self.fire_event(("REGCB","NETFAIL"), aID)
 
@@ -308,6 +310,7 @@ class AsyncDP5Client:
         def metafail_callback(exp):
             if not self.check_active(label, reqID):
                 return
+            print exp
             self.remove_active(label, reqID)
             self.fire_event(("LOOKID","NETFAIL"), aID)
 
@@ -405,7 +408,7 @@ class AsyncDP5Client:
             if not self.check_active(label, reqID):
                 self.fire_event(("LOOKCB","INACTIVE"), aID)
                 return
-
+            print exp
             self.remove_active(label, reqID)
             self.fire_event(("LOOKCB","NETFAIL"), aID)
 
