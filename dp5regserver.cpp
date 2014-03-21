@@ -34,7 +34,7 @@ static char *construct_fname(const char *dir, unsigned int epoch,
     const char *extension)
 {
     char *fname = (char *)malloc(strlen(dir) + 1 + 8 + 1 +
-				    strlen(extension) + 1);
+                    strlen(extension) + 1);
     if (fname == NULL) throw runtime_error("Cannot allocate filename");
 
     sprintf(fname, "%s/%08x.%s", dir, epoch, extension);
@@ -49,8 +49,8 @@ void DP5RegServer::create_nextreg_file(unsigned int useepoch)
     free(fname);
 
     if (fd < 0) {
-	perror("open");
-	throw runtime_error("Cannot create registration file");
+    perror("open");
+    throw runtime_error("Cannot create registration file");
     }
 
     close(fd);
@@ -133,23 +133,23 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
     // at that point.
     int lockedfd = -1;
     do {
-	unsigned int my_next_epoch = _epoch + 1;
-	char *fname = construct_fname(_regdir, my_next_epoch, "reg");
-	if (lockedfd >= 0) {
-	    close(lockedfd);
-	}
-	lockedfd = open(fname, O_WRONLY | O_APPEND);
-	free(fname);
-	if (lockedfd < 0) {
-	    continue;
-	}
-	int res = flock(lockedfd, LOCK_SH | LOCK_NB);
-	if (res == 0) {
-	    // We have the lock
-	    next_epoch = my_next_epoch;
-	}
-	// If we didn't get the lock, try again.  Note that the value of
-	// _epoch may have changed in the meantime.
+    unsigned int my_next_epoch = _epoch + 1;
+    char *fname = construct_fname(_regdir, my_next_epoch, "reg");
+    if (lockedfd >= 0) {
+        close(lockedfd);
+    }
+    lockedfd = open(fname, O_WRONLY | O_APPEND);
+    free(fname);
+    if (lockedfd < 0) {
+        continue;
+    }
+    int res = flock(lockedfd, LOCK_SH | LOCK_NB);
+    if (res == 0) {
+        // We have the lock
+        next_epoch = my_next_epoch;
+    }
+    // If we didn't get the lock, try again.  Note that the value of
+    // _epoch may have changed in the meantime.
     } while (next_epoch == 0);
     //printf("Locked %d SH\n", lockedfd);
 
@@ -185,17 +185,17 @@ void DP5RegServer::client_reg(string &msgtoreply, const string &regmsg)
         if (_config.combined) {
             hash_key_from_sig(outrecord, indata);
         } else {
-    	    // Hash the key, copy the data
-    	    H3(outrecord, next_epoch, indata);
+            // Hash the key, copy the data
+            H3(outrecord, next_epoch, indata);
         }
-    	memmove(outrecord + HASHKEY_BYTES,
+        memmove(outrecord + HASHKEY_BYTES,
             indata + inrecord_size - _config.dataenc_bytes,
             _config.dataenc_bytes);
 
-    	// Append the record to the registration file
-    	write(lockedfd, outrecord, outrecord_size);
+        // Append the record to the registration file
+        write(lockedfd, outrecord, outrecord_size);
 
-    	indata += inrecord_size;
+        indata += inrecord_size;
     }
 
     // We're done.  Indicate success.
@@ -227,20 +227,20 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     int lockedfd = -1;
     char *oldfname = NULL;
     while (1) {
-	free(oldfname);
-	oldfname = construct_fname(_regdir, _epoch + 1, "reg");
-	if (lockedfd >= 0) {
-	    close(lockedfd);
-	}
-	lockedfd = open(oldfname, O_RDONLY);
-	if (lockedfd < 0) {
-	    continue;
-	}
-	int res = flock(lockedfd, LOCK_EX);
-	if (res == 0) break;
+    free(oldfname);
+    oldfname = construct_fname(_regdir, _epoch + 1, "reg");
+    if (lockedfd >= 0) {
+        close(lockedfd);
     }
-    // TODO: Deleteme.
-    printf("Locked %d EX\n", lockedfd);
+    lockedfd = open(oldfname, O_RDONLY);
+    if (lockedfd < 0) {
+        continue;
+    }
+    int res = flock(lockedfd, LOCK_EX);
+    if (res == 0) break;
+    }
+    // DONE: Deleteme.
+    // printf("Locked %d EX\n", lockedfd);
 
     // Now we have the lock
 
@@ -254,37 +254,51 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     create_nextreg_file(workingepoch+1);
     _epoch = workingepoch;
 
-    // TODO: Deleteme. We can release the lock now
-    printf("Unlocking %d\n", lockedfd);
+    // DONE: Deleteme. We can release the lock now
+    // printf("Unlocking %d\n", lockedfd);
     flock(lockedfd, LOCK_UN);
-
-    // Process the registration file from lockedfd
-    unsigned int recordsize = HASHKEY_BYTES + _config.dataenc_bytes;
-
-    struct stat regst;
-    int res = fstat(lockedfd, &regst);
-    if (res < 0) {
-	throw runtime_error("Cannot stat registration file");
-    }
-    size_t toread = regst.st_size;
-    if (toread % recordsize != 0) {
-	throw runtime_error("Corrupted registration file");
-    }
-    unsigned int numrecords = toread / recordsize;
     set<string> regdata;
-    char *recdata = new char[recordsize];
-    for (unsigned int i = 0; i < numrecords; i++) {
-        res = read(lockedfd, recdata, recordsize);
-	if (res < 0 || (unsigned int) res < recordsize) {
-	    delete[] recdata;
-	    if (res < 0) {
-		perror("reading registration file");
-	    }
-	    throw runtime_error("Error reading registration file");
-	}
-        regdata.insert(string(recdata, recordsize));
+
+    {
+        // Process the registration file from lockedfd
+        unsigned int recordsize = HASHKEY_BYTES + _config.dataenc_bytes;
+
+        struct stat regst;
+        int res = fstat(lockedfd, &regst);
+        if (res < 0) {
+        throw runtime_error("Cannot stat registration file");
+        }
+        size_t toread = regst.st_size;
+        if (toread % recordsize != 0) {
+        throw runtime_error("Corrupted registration file");
+        }
+        unsigned int numrecords = toread / recordsize;
+        
+        char *recdata = new char[recordsize];
+        for (unsigned int i = 0; i < numrecords; i++) {
+            res = read(lockedfd, recdata, recordsize);
+        if (res < 0 || (unsigned int) res < recordsize) {
+            delete[] recdata;
+            if (res < 0) {
+            perror("reading registration file");
+            }
+            throw runtime_error("Error reading registration file");
+        }
+            regdata.insert(string(recdata, recordsize));
+        }
+        delete [] recdata;
+        
+    
+
+        // Insert a number of dummy entries for testing
+        unsigned int DUMMY_RECORDS = 10000;
+        unsigned char * dummy_data  = new unsigned char[recordsize];
+        for(unsigned int dummyi = 0; dummyi < DUMMY_RECORDS; dummyi++){
+            random_bytes(dummy_data, recordsize);
+            regdata.insert(string((char *) dummy_data, recordsize));
+        }
+        delete [] dummy_data;
     }
-    delete [] recdata;
 
     // When we're done with the registration file, close it and unlink
     // it
@@ -299,11 +313,11 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     // Compute the number of PRF buckets we want to have
     unsigned int ostensible_numkeys = regdata.size();
     if (ostensible_numkeys < 1) {
-	ostensible_numkeys = 1;
+    ostensible_numkeys = 1;
     }
     uint64_t datasize = ostensible_numkeys *
-			(HASHKEY_BYTES + _config.dataenc_bytes) *
-			PIR_WORDS_PER_BYTE;
+            (HASHKEY_BYTES + _config.dataenc_bytes) *
+            PIR_WORDS_PER_BYTE;
 
     Metadata md(_config);
     md.epoch = _epoch;
@@ -314,65 +328,65 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
     PRFKey best_prfkey;
     unsigned int best_size = regdata.size()+1;
     for (unsigned int iter=0; iter<NUM_PRF_ITERS; ++iter) {
-	unsigned long count[md.num_buckets];
-	memset(count, 0, sizeof(count));
-	unsigned long largest_bucket_size = 0;
-    PRFKey cur_prfkey;
-	random_bytes((unsigned char *)cur_prfkey, sizeof(cur_prfkey));
-	PRF prf((const unsigned char *) cur_prfkey, md.num_buckets);
+        unsigned long count[md.num_buckets];
+        memset(count, 0, sizeof(count));
+        unsigned long largest_bucket_size = 0;
+        PRFKey cur_prfkey;
+        random_bytes((unsigned char *)cur_prfkey, sizeof(cur_prfkey));
+        PRF prf((const unsigned char *) cur_prfkey, md.num_buckets);
         for (set<string>::const_iterator k = regdata.begin();
-                k != regdata.end() && largest_bucket_size < best_size; k++) {
-	    unsigned int bucket = prf.M((const unsigned char*) (*k).data());
-	    count[bucket] += 1;
-	    if (count[bucket] > largest_bucket_size) {
-		largest_bucket_size = count[bucket];
-	    }
-	}
+                    k != regdata.end() && largest_bucket_size < best_size; k++) {
+            unsigned int bucket = prf.M((const unsigned char*) (*k).data());
+            count[bucket] += 1;
+            if (count[bucket] > largest_bucket_size) {
+            largest_bucket_size = count[bucket];
+        }
+    }
 
-	if (largest_bucket_size < best_size) {
-	    memmove(best_prfkey, cur_prfkey, PRFKEY_BYTES);
-	    best_size = largest_bucket_size;
-	}
+    if (largest_bucket_size < best_size) {
+        memmove(best_prfkey, cur_prfkey, PRFKEY_BYTES);
+        best_size = largest_bucket_size;
+    }
     }
     memcpy(md.prfkey, best_prfkey, sizeof(md.prfkey));
     md.bucket_size = best_size;
 
     cerr << md.num_buckets << " " << best_size << "*" << (HASHKEY_BYTES + _config.dataenc_bytes) << "=" << (best_size*(HASHKEY_BYTES + _config.dataenc_bytes)) << "\n";
 
-    unsigned char *datafile =
-	new unsigned char[md.num_buckets*best_size*(HASHKEY_BYTES+_config.dataenc_bytes)];
+    size_t datafile_size = md.num_buckets*best_size*(HASHKEY_BYTES+_config.dataenc_bytes);
+    unsigned char *datafile = new unsigned char[datafile_size];
+    
+
     if (!datafile) {
-	throw runtime_error("Out of memory allocating data file");
+    throw runtime_error("Out of memory allocating data file");
     }
-    memset(datafile, 0x00,
-	md.num_buckets*best_size*(HASHKEY_BYTES+_config.dataenc_bytes));
+    memset(datafile, 0x00, datafile_size);
     unsigned long count[md.num_buckets];
     memset(count, 0, sizeof(count));
     PRF prf(md.prfkey, md.num_buckets);
 
     for (set<string>::const_iterator k = regdata.begin(); k != regdata.end(); k++) {
-	unsigned int bucket = prf.M((const unsigned char *) k->data());
-	if (count[bucket] >= best_size) {
-	    delete[] datafile;
-	    cerr << bucket << " " << count[bucket] << " " << best_size << "\n";
-	    throw runtime_error("Inconsistency creating buckets");
-	}
-	memmove(datafile+bucket*(best_size*(HASHKEY_BYTES+_config.dataenc_bytes))
-		+ (best_size-count[bucket]-1)*(HASHKEY_BYTES+_config.dataenc_bytes),
-		k->data(), HASHKEY_BYTES+_config.dataenc_bytes);
-	count[bucket] += 1;
+        unsigned int bucket = prf.M((const unsigned char *) k->data());
+        if (count[bucket] >= best_size) {
+            delete[] datafile;
+            cerr << bucket << " " << count[bucket] << " " << best_size << "\n";
+            throw runtime_error("Inconsistency creating buckets");
+        }
+        memmove(datafile+bucket*(best_size*(HASHKEY_BYTES+_config.dataenc_bytes))
+            + (best_size-count[bucket]-1)*(HASHKEY_BYTES+_config.dataenc_bytes),
+            k->data(), HASHKEY_BYTES+_config.dataenc_bytes);
+        count[bucket] += 1;
     }
 
     md.toStream(metadataos);
     metadataos.flush();
 
-    dataos.write((const char *)datafile,
-	    md.num_buckets*best_size*(HASHKEY_BYTES+_config.dataenc_bytes));
+    dataos.write((const char *)datafile, datafile_size);
     dataos.flush();
 
     delete[] datafile;
     return workingepoch;
-}
+    }
 }
 
 #ifdef TEST_RSCONST
@@ -416,7 +430,7 @@ static void *client_reg_thread(void *strp)
     string *data = (string *)strp;
     rs->client_reg(res, *data);
     printf("%02x %08x %08x\n", res.data()[0],
-	*(unsigned int*)(data->data()), *(unsigned int*)(res.data()+1));
+    *(unsigned int*)(data->data()), *(unsigned int*)(res.data()+1));
     return NULL;
 }
 
@@ -457,76 +471,76 @@ int main(int argc, char **argv)
     vector<string> submits[2];
 
     for (int subflag=0; subflag<2; ++subflag) {
-    	for (int i=0; i<num_clients; ++i) {
-    		size_t datasize = EPOCH_BYTES;
+        for (int i=0; i<num_clients; ++i) {
+            size_t datasize = EPOCH_BYTES;
             if (combined) {
-        		datasize += num_buddies * (EPOCH_SIG_BYTES +
+                datasize += num_buddies * (EPOCH_SIG_BYTES +
                     config.dataenc_bytes);
             } else {
                 datasize += num_buddies * (SHAREDKEY_BYTES +
                     config.dataenc_bytes);
             }
 
-    	    unsigned char data[datasize];
-    	    unsigned char *thisdata = data;
+            unsigned char data[datasize];
+            unsigned char *thisdata = data;
 
-    	    epoch_num_to_bytes(thisdata,epoch+1+subflag);
-    	    thisdata += EPOCH_BYTES;
+            epoch_num_to_bytes(thisdata,epoch+1+subflag);
+            thisdata += EPOCH_BYTES;
 
-    	    for (int j=0; j<num_buddies; ++j) {
+            for (int j=0; j<num_buddies; ++j) {
                 if (combined) {
                        G2 g2(false); // initialized to random
                        g2.toBin((char *) thisdata);
                        thisdata += EPOCH_SIG_BYTES;
                 } else {
-        			random_bytes(thisdata, SHAREDKEY_BYTES);
+                    random_bytes(thisdata, SHAREDKEY_BYTES);
                     thisdata += SHAREDKEY_BYTES;
                 }
-        		// Identifiable data
-        		thisdata[0] = '[';
-        		thisdata[1] = 'P'+subflag;
-        		thisdata[2] = '0'+i;
-        		int bytesout;
-        		sprintf((char *)thisdata+3, "%u%n",
-        		    j, &bytesout);
-        		memset(thisdata+3+bytesout,
-        			' ', config.dataenc_bytes-4-bytesout);
-        		thisdata[config.dataenc_bytes-1]
-        		    = ']';
+                // Identifiable data
+                thisdata[0] = '[';
+                thisdata[1] = 'P'+subflag;
+                thisdata[2] = '0'+i;
+                int bytesout;
+                sprintf((char *)thisdata+3, "%u%n",
+                    j, &bytesout);
+                memset(thisdata+3+bytesout,
+                    ' ', config.dataenc_bytes-4-bytesout);
+                thisdata[config.dataenc_bytes-1]
+                    = ']';
 
-        		thisdata += config.dataenc_bytes;
-    	    }
-    	    submits[subflag].push_back(string((char *)data, datasize));
-    	}
+                thisdata += config.dataenc_bytes;
+            }
+            submits[subflag].push_back(string((char *)data, datasize));
+        }
     }
 
     vector<pthread_t> children;
 
     for (int subflag=0; subflag<2; ++subflag) {
-    	for (int i=0; i<num_clients; ++i) {
-    	    if (multithread) {
-        		pthread_t thr;
-        		pthread_create(&thr, NULL, client_reg_thread,
-        				&submits[subflag][i]);
-        		children.push_back(thr);
-    	    } else {
-        		client_reg_thread(&submits[subflag][i]);
-    	    }
-    	}
-    	if (subflag == 0) {
-    	    if (multithread) {
-        		pthread_t thr;
-        		pthread_create(&thr, NULL, epoch_change_thread, NULL);
-        		children.push_back(thr);
-    	    } else {
-        		epoch_change_thread(NULL);
-    	    }
-    	}
+        for (int i=0; i<num_clients; ++i) {
+            if (multithread) {
+                pthread_t thr;
+                pthread_create(&thr, NULL, client_reg_thread,
+                        &submits[subflag][i]);
+                children.push_back(thr);
+            } else {
+                client_reg_thread(&submits[subflag][i]);
+            }
+        }
+        if (subflag == 0) {
+            if (multithread) {
+                pthread_t thr;
+                pthread_create(&thr, NULL, epoch_change_thread, NULL);
+                children.push_back(thr);
+            } else {
+                epoch_change_thread(NULL);
+            }
+        }
     }
 
     int numchildren = children.size();
     for (int i=0; i<numchildren; ++i) {
-    	pthread_join(children[i], NULL);
+        pthread_join(children[i], NULL);
     }
 
     delete rs;

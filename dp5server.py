@@ -162,7 +162,7 @@ class RootServer:
         self.aid += 1
         self.log.log(("START REG",), myaID)
 
-        print "Register request for epoch %s" % epoch
+        # print "Register request for epoch %s" % epoch
         ## First check if we are a registration server in a valid state        
         try:
             self.check_epoch()
@@ -189,12 +189,12 @@ class RootServer:
 
             ## Reply with the raw data
             cherrypy.response.headers["Content-Type"] = "application/octet-stream"
-            print "Register request (epoch = %s) done." % epoch
+            # print "Register request (epoch = %s) done." % epoch
             self.log.log(("END REG",), myaID)
 
             return reply_msg
         except Exception as e:
-            print "Register request (epoch = %s) fail." % epoch
+            # print "Register request (epoch = %s) fail." % epoch
             traceback.print_exc()
             raise e
 
@@ -203,9 +203,9 @@ class RootServer:
     def lookup(self, epoch):
         assert self.is_lookup
         assert cherrypy.request.process_request_body
-        print "Lookup request for epoch %s" % epoch
+        # print "Lookup request for epoch %s" % epoch
 
-    # Lazily set up lookup server
+        # Lazily set up lookup server
         myaID = self.aid 
         self.aid += 1
         self.log.log(("START LOOK",), myaID)

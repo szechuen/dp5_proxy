@@ -111,7 +111,7 @@ if(PYTHON)
     endif(CMAKE_HOST_APPLE)
     add_custom_command(OUTPUT dp5.so
                            COMMAND ${PYTHONCMD}
-                           DEPENDS dp5py.cpp dp5 ${PROJECT_BINARY_DIR}/setup.py relicwrapper)
+                           DEPENDS Percy++ dp5py.cpp dp5 ${PROJECT_BINARY_DIR}/setup.py relicwrapper)
     add_custom_target(python ALL DEPENDS dp5.so)
 endif(PYTHON)
 
