@@ -8,7 +8,7 @@ import threading
 import dp5
 import os
 import fcntl
-
+from dp5logs import logger
 
 
 SSLVERIFY = False
@@ -43,6 +43,12 @@ class RootServer:
         self.lookup_lock = threading.Lock()
 
         self.check_epoch()
+        name = "LOOKUP" if config["isLookupServer"] else "REG"
+        name += "CB" if config["combined"] else "NORM"
+
+        self.log = logger(name, name)
+        self.aid = 0
+        print "Load logger"
 
 
     def filenames(self, epoch):
@@ -136,7 +142,7 @@ class RootServer:
         params = {}
         params["epoch"] = self.epoch
         params["register"] = (self.epoch in self.register_handlers)
-
+        self.log.log(("SERVE EPOCH",), 0)
         return json.dumps(params)
 
     @cherrypy.expose
@@ -152,7 +158,11 @@ class RootServer:
     def register(self, epoch):
         "Register a number of friends"
 
-	print "Register request for epoch %s" % epoch
+        myaID = self.aid 
+        self.aid += 1
+        self.log.log(("START REG",), myaID)
+
+        print "Register request for epoch %s" % epoch
         ## First check if we are a registration server in a valid state        
         try:
             self.check_epoch()
@@ -180,6 +190,8 @@ class RootServer:
             ## Reply with the raw data
             cherrypy.response.headers["Content-Type"] = "application/octet-stream"
             print "Register request (epoch = %s) done." % epoch
+            self.log.log(("END REG",), myaID)
+
             return reply_msg
         except Exception as e:
             print "Register request (epoch = %s) fail." % epoch
@@ -191,9 +203,13 @@ class RootServer:
     def lookup(self, epoch):
         assert self.is_lookup
         assert cherrypy.request.process_request_body
-	print "Lookup request for epoch %s" % epoch
+        print "Lookup request for epoch %s" % epoch
 
     # Lazily set up lookup server
+        myaID = self.aid 
+        self.aid += 1
+        self.log.log(("START LOOK",), myaID)
+
         server = self.lookup_server(int(epoch))
 
         post_body = cherrypy.request.body.read()
@@ -202,10 +218,13 @@ class RootServer:
         ## Reply with the raw data
         cherrypy.response.headers["Content-Type"] = "application/octet-stream"
         # print "Return length", len(reply_msg)
+        self.log.log(("END LOOK",), myaID)
+
         return reply_msg
 
     @cherrypy.expose
     def download(self, epoch, metadata=False):
+
         try:
             self.check_epoch()
             metaname, dataname = self.filenames(int(epoch))

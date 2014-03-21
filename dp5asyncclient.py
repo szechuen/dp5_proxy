@@ -18,7 +18,7 @@ class AsyncDP5Client:
         self.init_ID(data=self.state.get("ltID",None))
         self.init_BLS(data=self.state.get("bls",None))
 
-        self.log = logger(str(self.state.get("ltID","")).encode("hex")[:10])
+        self.log = logger(str(self.state.get("ltID","")).encode("hex")[:10], "client")
         
         try:
             self.state["numservers"] = len(state["standard"]["lookupServers"])
