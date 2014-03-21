@@ -7,7 +7,7 @@ from twisted.internet import reactor
 from twisted.internet import task
 from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, connectionDone
-from twisted.web.client import Agent, ResponseDone
+from twisted.web.client import Agent, ResponseDone, HTTPConnectionPool
 from twisted.web.http_headers import Headers
 from twisted.web.client import FileBodyProducer
 
@@ -22,6 +22,10 @@ import copy
 
 from users import User
 import cPickle
+
+## Common pool of HTTPs connection to
+## ensure that SSL is not the bottle neck.
+httppool = HTTPConnectionPool(reactor)
 
 class BufferedReception(Protocol):
     def __init__(self, finished):
@@ -45,7 +49,10 @@ class BufferedReception(Protocol):
 def dp5twistedclientFactory(state):
     ## Build an async client
     cli = AsyncDP5Client(state)
-    cli.agent = Agent(reactor)
+    
+    # Use a common pool of HTTPs connections    
+    cli.agent = Agent(reactor, pool=httppool)
+
 
     ## Define the networking for registration
     def send_registration(cli, epoch, combined, msg, cb, xfail):

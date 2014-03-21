@@ -24,7 +24,9 @@ cherrypy.config.update(dict(map(fromUnicode,x) for x in config["server"].items()
 application = cherrypy.Application(RootServer(config), script_name=None, config=None)
 
 
-resource = WSGIResource(reactor, reactor.getThreadPool(), application)
+TP = reactor.getThreadPool()
+TP. adjustPoolsize(10, 20)
+resource = WSGIResource(reactor, TP, application)
 reactor.listenSSL(config["server"]["server.socket_port"], Site(resource),ssl.DefaultOpenSSLContextFactory(
             'testcerts/server.key', 'testcerts/server.crt'))
 

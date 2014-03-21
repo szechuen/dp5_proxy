@@ -1,17 +1,19 @@
 import time
 
+LOG_FILE = file("logs/Log.log" , "a")
+
 class logger:
    def __init__(self, name):
       self.name = name
       self.basetime = time.clock()
       self.events = []
-      self.f = file("logs/%s.log" % name, "w")
+      self.f = LOG_FILE
       self.last = None
 
    def log(self, event, aID):
       now = time.clock()
       
-      self.events += ["%s -- [%s] %s\n" % (now, aID, ", ".join(event))]
+      self.events += ["%s -- %s -- [%s] %s\n" % (now, self.name,  aID, ", ".join(event))]
       if len(self.events) > 10:
         self.flush()
       
@@ -29,6 +31,7 @@ class logger:
       self.f.flush()
 
    def __del__(self):
-      self.f.close()
+      # self.f.close()
+      pass
          
         
