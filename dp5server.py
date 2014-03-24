@@ -58,7 +58,7 @@ class RootServer:
         self._add += add
         return dp5.getepoch(self.dp5config) + self._add
 
-    def lookup_server(self, epoch):
+    def lookup_server(self, epoch, asaid):
         if not self.is_lookup:
             return None
         if epoch in self.lookup_handlers:       # We're assuming element assignment and lookup is atomic so we can do this check without
@@ -93,11 +93,15 @@ class RootServer:
                         pass                    # File doesn't exist, continue
 
                     cherrypy.log("Downloading " + filename)
+                    self.log.log(("LOOK","DOWNLOAD", "START"), asaid)
                     r = requests.get(self.config["regServer"] + "/download/%d%s" % (epoch, filename == metafile and "/meta" or ""), verify=SSLVERIFY)
                     r.raise_for_status()        # Throw exception if download failed
-
+                    
+                    self.log.log(("LOOK","DOWNLOAD", "SIZE", str(len(r.content))), asaid)
                     with file(filename, 'w') as f:
                         f.write(r.content)
+
+                    self.log.log(("LOOK","DOWNLOAD", "SUCCESS"), asaid)
 
             server = dp5.getnewserver(self.dp5config)
 
@@ -160,7 +164,7 @@ class RootServer:
 
         myaID = self.aid 
         self.aid += 1
-        self.log.log(("START REG",), myaID)
+        self.log.log(("REG", "START", str(int(epoch))), myaID)
 
         # print "Register request for epoch %s" % epoch
         ## First check if we are a registration server in a valid state        
@@ -177,6 +181,8 @@ class RootServer:
             print "Handlers", self.epoch in self.register_handlers
             print "POST", cherrypy.request.process_request_body
             print "Register request (epoch = %s) fail." % epoch
+            self.log.log(("REG", "FAIL", str(self.epoch)), myaID)
+
             raise cherrypy.HTTPError(403)
 
         try:
@@ -185,17 +191,22 @@ class RootServer:
             server = self.register_handlers[self.epoch]
 
             post_body = cherrypy.request.body.read()
+            self.log.log(("REG", "INSIZE", str(len(post_body))), myaID)
+
             reply_msg = dp5.serverclientreg(server, post_body)
+
+            self.log.log(("REG", "OUTSIZE", str(len(reply_msg))), myaID)
 
             ## Reply with the raw data
             cherrypy.response.headers["Content-Type"] = "application/octet-stream"
             # print "Register request (epoch = %s) done." % epoch
-            self.log.log(("END REG",), myaID)
+            self.log.log(("REG", "SUCCESS",), myaID)
 
             return reply_msg
         except Exception as e:
             # print "Register request (epoch = %s) fail." % epoch
             traceback.print_exc()
+            self.log.log(("REG", "FAIL", str(e)), myaID)
             raise e
 
 
@@ -208,23 +219,28 @@ class RootServer:
         # Lazily set up lookup server
         myaID = self.aid 
         self.aid += 1
-        self.log.log(("START LOOK",), myaID)
+        self.log.log(("LOOK","START"), myaID)
 
-        server = self.lookup_server(int(epoch))
+        server = self.lookup_server(int(epoch), asaid = myaID)
 
         post_body = cherrypy.request.body.read()
+        self.log.log(("LOOK","INSIZE", str(len(post_body))), myaID)
+
         reply_msg = dp5.serverprocessrequest(server, post_body)
+        self.log.log(("LOOK","OUTSIZE", str(len(reply_msg))), myaID)
 
         ## Reply with the raw data
         cherrypy.response.headers["Content-Type"] = "application/octet-stream"
         # print "Return length", len(reply_msg)
-        self.log.log(("END LOOK",), myaID)
+        self.log.log(("LOOK","SUCCESS"), myaID)
 
         return reply_msg
 
     @cherrypy.expose
     def download(self, epoch, metadata=False):
-
+        myaID = self.aid 
+        self.aid += 1
+        self.log.log(("DOWNLOAD","START"), myaID)
         try:
             with self.lookup_lock:
                 self.check_epoch()
@@ -234,8 +250,10 @@ class RootServer:
                 else:
                     f = open(dataname)
                 cherrypy.response.headers["Content-Type"] = "application/octet-stream"
+                self.log.log(("DOWNLOAD","SUCESS"), myaID)
                 return f.read()
         except:
+            self.log.log(("DOWNLOAD","FAIL"), myaID)
             raise cherrypy.HTTPError(403)
 
 def fromUnicode(x):

@@ -27,17 +27,15 @@ cherrypy.config.update({
     'log.error_file': "logs/log-{0}-cherrypy-error.log".format(sys.argv[1])
 })
 
-cherrypy.config.update({
-                                'log.screen': False
-                              })
+cherrypy.config.update( {'log.screen': False})
 
 
 application = cherrypy.Application(RootServer(config), script_name=None, config=None)
 
-reactor.suggestThreadPoolSize(30)
+reactor.suggestThreadPoolSize(10)
 TP = reactor.getThreadPool()
 resource = WSGIResource(reactor, TP, application)
-reactor.listenSSL(config["server"]["server.socket_port"], Site(resource),ssl.DefaultOpenSSLContextFactory(
+reactor.listenSSL(config["server"]["server.socket_port"], Site(resource), ssl.DefaultOpenSSLContextFactory(
             'testcerts/server.key', 'testcerts/server.crt'))
 
 if __name__ == "__main__":

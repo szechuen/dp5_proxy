@@ -28,20 +28,22 @@ SSLPOOL = True
 ## Common pool of HTTPs connection to
 ## ensure that SSL is not the bottle neck.
 if SSLPOOL:
-    httppool = HTTPConnectionPool(reactor, persistent=True)
-    httppool.maxPersistentPerHost = 2
+    commonhttppool = HTTPConnectionPool(reactor, persistent=True)
+    commonhttppool.maxPersistentPerHost = 5
+    commonhttppool.retryAutomatically = False
+else:
+    commonhttppool = None
+
 
 class BufferedReception(Protocol):
     def __init__(self, finished):
         self.finished = finished
         self.bytes = None
 
-    def dataReceived(self, bytes):
-        
+    def dataReceived(self, bytes):        
         if self.bytes == None:
             self.bytes = StringIO()
         self.bytes.write(bytes)
-
 
     def connectionLost(self, reason):
         if reason.type == ResponseDone and self.bytes != None:
@@ -51,17 +53,21 @@ class BufferedReception(Protocol):
             self.finished.errback(reason)
 
 def dp5twistedclientFactory(state):
+    global commonhttppool
     ## Build an async client
     cli = AsyncDP5Client(state)
     
     # Use a common pool of HTTPs connections
-    if not SSLPOOL:
+    if commonhttppool is None:
         httppool = HTTPConnectionPool(reactor, persistent=True)
-        httppool.maxPersistentPerHost = 2
+        httppool.maxPersistentPerHost = 5
+        httppool.retryAutomatically = False
     else:
-        global httppool
-    cli.agent = Agent(reactor, pool=httppool)
+        httppool = commonhttppool
 
+    cli.pool = httppool
+    cli.agent = Agent(reactor, pool=httppool)
+    cli.inflight = 0
 
     ## Define the networking for registration
     def send_registration(cli, epoch, combined, msg, cb, xfail):
@@ -72,28 +78,37 @@ def dp5twistedclientFactory(state):
             ser = cli.state["standard"]["regServer"]
             surl = str("https://" + ser + "/register?epoch=%s" % (epoch-1))
 
-        body = FileBodyProducer(StringIO(msg))
+        cli.inflight += 1
+        try:
+            body = FileBodyProducer(StringIO(msg))
 
-        d = cli.agent.request(
-            'POST',
-            surl,
-            Headers({'User-Agent': ['DP5 Twisted Client']}),
-            body)
+            d = cli.agent.request(
+                'POST',
+                surl,
+                Headers({'User-Agent': ['DP5 Twisted Client']}),
+                body)
 
-        def err(*args):
-            # print "REG ERROR", args
-            # print args
-            xfail(args[0])
+            def err(*args):
+                # print "REG ERROR", args
+                # print args
+                cli.inflight -= 1
+                xfail(args[0])
 
-        def cbRequest(response):
-            finished = Deferred()
-            finished.addCallback(cb)
-            finished.addErrback(err)
-            response.deliverBody(BufferedReception(finished))
-            return finished
+            def cbRequest(response):
+                finished = Deferred()
+                finished.addCallback(cb)
+                finished.addErrback(err)
+                response.deliverBody(BufferedReception(finished))
+                cli.inflight -= 1
+                return finished
 
-        d.addCallback(cbRequest)
-        d.addErrback(err)
+            d.addCallback(cbRequest)
+            d.addErrback(err)
+        except Exception as e:
+            print e
+            cli.inflight -= 1
+            err(e)
+
     cli.register_handlers += [send_registration]
 
     ## Define the networking for lookups
@@ -109,32 +124,37 @@ def dp5twistedclientFactory(state):
             ser = cli.state["standard"]["lookupServers"][seq]
             surl = str("https://" + ser + "/lookup?epoch=%s" % epoch)
 
-        body = FileBodyProducer(StringIO(msg))
+        cli.inflight += 1
+        try:
+            body = FileBodyProducer(StringIO(msg))
 
-        d = cli.agent.request(
-            'POST',
-            surl,
-            Headers({'User-Agent': ['DP5 Twisted Client']}),
-            body)
+            d = cli.agent.request(
+                'POST',
+                surl,
+                Headers({'User-Agent': ['DP5 Twisted Client']}),
+                body)
 
-        def err(*args):
-            # print "LOOKUP ERROR", args
-            #try:
-            #    args[0].raiseException()
-            #except:
-            #    traceback.print_exc()
-            #finally:
-            xfail(args[0])
+            def err(*args):
+                cli.inflight -= 1
+                xfail(args[0])
 
-        def cbRequest(response):
-            finished = Deferred()
-            finished.addCallback(cb)
-            finished.addErrback(err)
-            response.deliverBody(BufferedReception(finished))
-            return finished
+            def cbRequest(response):
+                finished = Deferred()
+                finished.addCallback(cb)
+                finished.addErrback(err)
+                response.deliverBody(BufferedReception(finished))
+                cli.inflight -= 1
+                return finished
+            
+            d.addCallback(cbRequest)
+            d.addErrback(err)
+        except Exception as e:
+            print e
+            cli.inflight -= 1
+            err(e)
 
-        d.addCallback(cbRequest)
-        d.addErrback(err)
+
+
     cli.lookup_handlers += [send_lookup]
 
     def loopupdate():

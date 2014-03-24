@@ -93,6 +93,8 @@ class AsyncDP5Client:
         self.cbhandlerID = {}
         self.actionID = 0
 
+        self.pool = None
+
     def next_actionID(self):
         aID = self.actionID
         self.actionID += 1
@@ -102,6 +104,9 @@ class AsyncDP5Client:
         # self.seq_requests += 1
         self.active_requests += [(label, aID)]
 
+        conn_num = sum([len(x) for x in self.pool.__dict__["_connections"]])
+        self.log.log(("CONNECTION POOL", str(conn_num)), aID)
+        self.log.log(("INFLIGHT", str(self.inflight)), aID)
         self.log.log(("ACTIVE ON", str(len(self.active_requests))), aID)
         return aID
 
@@ -293,6 +298,16 @@ class AsyncDP5Client:
             # print "Is already active", label
             return
 
+        ## Now check if any previous epochs are active
+        ## Only allow one epoch lookup in flight!
+        last_epoch = self.state.get("last_lookup_epoch")
+        if last_epoch is not None:
+            for prev_epoch in range(last_epoch, epoch):
+                prev_label = ("LOOKID", prev_epoch)
+                if self.check_active(prev_label):
+                    # print "Is already active", label
+                    return
+
         aID = self.next_actionID()            
         reqID = self.set_active(label, aID)
 
@@ -331,6 +346,7 @@ class AsyncDP5Client:
                                 assert len(friends[kx]["cbID"]) == len(self.bls.pub())
                                 friends[kx]["epoch_cbID"] = epoch
                     self.remove_active(label, reqID)
+                    self.fire_event(("LOOKID","EPOCH", str(epoch), str(self.config.current_epoch())), aID)
                     self.fire_event(("LOOKID","SUCCESS"), aID)
 
                 except DP5Exception as e:
@@ -501,6 +517,10 @@ class AsyncDP5Client:
             ## TODO: Log error
             traceback.print_exc()
             ## ... and the show goes on ...
+
+        ## Rudimentary cap on the in-flight requests
+        if self.inflight > 5:
+            return
 
         ## Then read the stuff from this epoch
         if self.state.get("last_lookup_epoch",0) < epoch:
