@@ -193,7 +193,7 @@ class DP5TestCase(unittest.TestCase):
         cli = AsyncDP5Client(state)
 
         event_cnt = Counter()
-        def handler(state, event):
+        def handler(state, event, hid):
             event_cnt.update([event])
 
         cli.set_event_handler(handler)
@@ -226,7 +226,7 @@ class DP5TestCase(unittest.TestCase):
         
         # Expected order of event for this test
         event_list = [("REGID","START"),("REGID","SEND"),("REGID","FAIL")]
-        def handler(state, event):
+        def handler(state, event, hid):
             exp_event = event_list.pop(0)
             self.assertEqual( event , exp_event)
 
@@ -261,7 +261,7 @@ class DP5TestCase(unittest.TestCase):
         cli = AsyncDP5Client(state)
 
         event_cnt = Counter()
-        def handler(state, event):
+        def handler(state, event, hid):
             event_cnt.update([event])
 
         cli.set_event_handler(handler)
@@ -307,7 +307,7 @@ class DP5TestCase(unittest.TestCase):
 
 
         event_cnt = Counter()
-        def handler(state, event):
+        def handler(state, event, hid):
             event_cnt.update([event])
 
         cli0.set_event_handler(handler)
@@ -368,7 +368,7 @@ class DP5TestCase(unittest.TestCase):
             cli.register_handlers += [send_registration]
 
         event_cnt = Counter()
-        def handler(state, event):
+        def handler(state, event, hid):
             event_cnt.update([event])
 
         cli0.set_event_handler(handler)
@@ -460,7 +460,7 @@ class DP5TestCase(unittest.TestCase):
             clients[i].lookup_handlers += [send_lookup]        
 
         event_cnt = Counter()
-        def handler(state, event):
+        def handler(state, event, hid):
             event_cnt.update([event])
             
             #self.assertEqual( event[1] , "SUCCESS")
