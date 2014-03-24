@@ -23,12 +23,13 @@ import copy
 from users import User
 import cPickle
 
-SSLPOOL = False
+SSLPOOL = True
 
 ## Common pool of HTTPs connection to
 ## ensure that SSL is not the bottle neck.
 if SSLPOOL:
-    httppool = HTTPConnectionPool(reactor)
+    httppool = HTTPConnectionPool(reactor, persistent=True)
+    httppool.maxPersistentPerHost = 2
 
 class BufferedReception(Protocol):
     def __init__(self, finished):
@@ -55,7 +56,10 @@ def dp5twistedclientFactory(state):
     
     # Use a common pool of HTTPs connections
     if not SSLPOOL:
-        httppool = HTTPConnectionPool(reactor)
+        httppool = HTTPConnectionPool(reactor, persistent=True)
+        httppool.maxPersistentPerHost = 2
+    else:
+        global httppool
     cli.agent = Agent(reactor, pool=httppool)
 
 
