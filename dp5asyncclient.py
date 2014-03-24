@@ -357,7 +357,7 @@ class AsyncDP5Client:
 
                 messages = lookup.lookup_request(SERVER_NUM)
                 for seq, mx in enumerate(messages):
-                    self.fire_event(("LOOKID","SEND%02d" % seq), aID)
+                    self.fire_event(("LOOKID","SEND%02d" % seq, "LEN%04d" % len(mx)), aID)
                     self.send_lookup(epoch, False, seq, mx, lookup_callback, metafail_callback)
 
                 return messages, lookup_callback, metafail_callback
@@ -449,7 +449,7 @@ class AsyncDP5Client:
                 # print "message lengths",  messages
 
                 for seq, mx in enumerate(messages):
-                    self.fire_event(("LOOKCB","SEND%02d" % seq), aID)
+                    self.fire_event(("LOOKCB","SEND%02d" % seq, "LEN%06d" % len(mx)), aID)
                     self.send_lookup(epoch, True, seq, str(mx), lookup_callback, metafail_callback)
 
                 return messages, lookup_callback, metafail_callback
