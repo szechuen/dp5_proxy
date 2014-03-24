@@ -233,7 +233,8 @@ class AsyncDP5Client:
         else:
             self.remove_active(label, reqID)
             self.fire_event(("REGID","TOOLATE"), aID)
-        return
+        
+        return req, reply_callback, fail_callback
 
     def register_combined(self, userdata, epoch = None):
         if epoch == None:
@@ -279,7 +280,7 @@ class AsyncDP5Client:
         else:
             self.remove_active(label, reqID)
             self.fire_event(("REGCB","TOOLATE"), aID)
-        return
+        return msg, reply_callback, fail_callback
 
     def lookup_ID(self, epoch = None):
         if epoch == None:
