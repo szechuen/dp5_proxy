@@ -5,7 +5,7 @@ LOG_FILE = {}
 class logger:
    def __init__(self, name, ltype):
       self.name = name
-      self.basetime = time.clock()
+      self.basetime = time.time()
 
       fname = "logs/Log-%s.log" % ltype
       if fname not in LOG_FILE:
@@ -16,7 +16,7 @@ class logger:
       self.last = None
 
    def log(self, event, aID):
-      now = time.clock()
+      now = time.time() - self.basetime
       log_line = "%s -- %s -- [%s] %s\n" % (now, self.name,  aID, ", ".join(event))
 
       self.events += [log_line]
