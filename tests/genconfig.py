@@ -83,24 +83,25 @@ for servertype in ["standard", "combined"]:
 with open('client.cfg', 'w') as client_file:
     json.dump(client_config, client_file)
 
-with open('hosts.py', 'w') as hosts_file:
-    code = """
-from fabric.api import env
+with open('fabfile.py', 'w') as fab_file, \
+    open("../fabfile.py") as fab_file_source:
+    for l in fab_file_source:
+        fab_file.write(l)
 
+    code = """
 env.roledefs = {{
-    "regserver" : {},
-    "lookupservers": {},
-    "regserverCB" : {},
-    "lookupserversCB": {},
+    "regserver" : {!r},
+    "lookupservers": {!r},
+    "regserverCB" : {!r},
+    "lookupserversCB": {!r},
 }}
 
 env.roledefs["servers"] = [ s for v in env.roledefs.values() for s in v ]
 
 """
-    hosts_file.write(code.format(*map(repr, [
-    [ config["standard"]["regserver"] ],
-    config["standard"]["lookupservers"],
-    [ config["combined"]["regserver"] ],
-    config["combined"]["lookupservers"]
-    ])))
+    fab_file.write(code.format(
+        [ config["standard"]["regserver"] ],
+        config["standard"]["lookupservers"],
+        [ config["combined"]["regserver"] ],
+        config["combined"]["lookupservers"]))
 
