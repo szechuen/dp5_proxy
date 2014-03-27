@@ -1,10 +1,6 @@
 from fabric.api import run, task, cd, env, shell_env, settings
 
-#env.hostdefs = dict( ('grunt{}'.format(n), 'grunt{}.cs.uwaterloo.ca'.format(n)) for n in range(8) )
 env.use_ssh_config = True
-env.roledefs = {
-	'grunts' : ["grunt{}".format(n) for n in range(1,8)]
-}
 
 def pythonpath(path):
     home=run('echo $HOME')
