@@ -1,4 +1,4 @@
-from fabric.api import run, task, cd, env, shell_env, settings, put, roles, execute
+from fabric.api import run, task, cd, env, shell_env, settings, put, roles, execute, prefix
 
 env.use_ssh_config = True
 
@@ -92,4 +92,28 @@ def setup(path='dp5'):
     execute("setup_ls", path)
 
 
+@task
+def virtualenv(path="dp5"):    
+    # clean up existing venv
+    run("rm -rf {}/venv".format(path))
+
+    home = run("echo $HOME")
+
+    # install virtualenv
+    # FIXME: this assumes that we are running python2.7. Also, we can skip this
+    # in places where virtualenv is already installed
+    with shell_env(PYTHONPATH="{}/{}/.python/lib/python2.7/site-packages:".format(home, path)):
+        run("easy_install --prefix=~/{}/.python virtualenv".format(path))
+        run("{0}/.python/bin/virtualenv {0}/venv".format(path))
        
+    with prefix("source ~/{}/venv/bin/activate".format(path)):
+        run("pip install requests twisted pyopenssl cherrypy")
+
+@roles("regserver")
+@task
+def run_rs(path='dp5'):
+    with cd(path+"/test"), prefix("source ~/{}/venv/bin/activate".format(path)), \
+        shell_env(PYTHONPATH="../build:"):
+        run("python ../code/dp5twistedserver.py regserver.cfg")
+
+    
