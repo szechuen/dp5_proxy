@@ -106,3 +106,9 @@ env.roledefs["servers"] = list({{ s for v in env.roledefs.values() for s in v }}
         [ config["combined"]["regserver"] ],
         config["combined"]["lookupservers"]))
 
+with open('servers', 'w') as server_list:
+    for comb, cb in [("standard", ""), ("combined", "CB")]:
+        print(config[comb]["regserver"], "regserver" + cb + ".cfg", file=server_list)
+        for i in range(len(config[comb]["lookupservers"])):
+            print(config[comb]["lookupservers"][i], "lookupserver{0}{1}.cfg".format(cb, i),
+                file=server_list)
