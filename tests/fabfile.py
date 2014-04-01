@@ -102,8 +102,9 @@ def virtualenv(path="dp5"):
     # install virtualenv
     # FIXME: this assumes that we are running python2.7. Also, we can skip this
     # in places where virtualenv is already installed
-    with shell_env(PYTHONPATH="{}/{}/.python/lib/python2.7/site-packages:".format(home, path)):
-        run("easy_install --prefix=~/{}/.python virtualenv".format(path))
+    run("mkdir -p {0}/.python/lib {0}/.python/bin".format(path))
+    with shell_env(PYTHONPATH="{}/{}/.python/lib:".format(home, path)):
+        run("easy_install -d ~/{0}/.python/lib -s ~/{0}/.python/bin virtualenv".format(path))
         run("{0}/.python/bin/virtualenv {0}/venv".format(path))
        
     with prefix("source ~/{}/venv/bin/activate".format(path)):
