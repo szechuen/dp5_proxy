@@ -74,10 +74,11 @@ for servertype in ["standard", "combined"]:
 
     client_config[servertype] = base_config
     client_config[servertype].update({
-        "lookupServers": [ "https://{}:{}".format(
+        "lookupServers": [ "{}:{}".format(
             cur_config["lookupservers"][i], port_base+1+i)
             for i in range(len(cur_config["lookupservers"]))],
         "privacyLevel": len(cur_config["lookupservers"])-1,
+	"regServer": "{}:{}".format(cur_config["regserver"], port_base)
     })
 
 with open('client.cfg', 'w') as client_file:
@@ -94,6 +95,7 @@ env.roledefs = {{
     "lookupservers": {!r},
     "regserverCB" : {!r},
     "lookupserversCB": {!r},
+    "client": [ {!r} ]
 }}
 
 # unique servers
@@ -104,7 +106,8 @@ env.roledefs["servers"] = list({{ s for v in env.roledefs.values() for s in v }}
         [ config["standard"]["regserver"] ],
         config["standard"]["lookupservers"],
         [ config["combined"]["regserver"] ],
-        config["combined"]["lookupservers"]))
+        config["combined"]["lookupservers"],
+	config["client"]))
 
 with open('servers', 'w') as server_list:
     for comb, cb in [("standard", ""), ("combined", "CB")]:

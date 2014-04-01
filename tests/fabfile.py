@@ -114,6 +114,28 @@ def virtualenv(path="dp5"):
     with prefix("source ~/{}/venv/bin/activate".format(path)):
         run("pip install requests twisted pyopenssl cherrypy")
 
+@roles('client')
+@task
+def setup_client(path='dp5'):
+    run("killall python && killall -9 python", warn_only=True)
+    run("mkdir -p {0}/test/logs".format(path))
+    with cd(path+"/test"):
+        run("ln -sfv ../build/libdp5clib.so .")
+    put("client.cfg", path+"/test/")
+
+@roles('client')
+@task
+def make_users(num_users, path='dp5'):
+    with cd(path+"/test"):
+        run("python ../code/users.py {0} users.{0}".format(num_users))
+    
+@roles('client')
+@task
+def run_client(users, path='dp5'):
+    with cd(path+"/test"), prefix("source ~/{}/venv/bin/activate".format(path)), \
+        shell_env(PYTHONPATH="../build:"):
+        run("python ../code/dp5twistedclient.py client.cfg " + users)
+
 
 @task
 def run_server(config_file, path='dp5'):
