@@ -31,6 +31,8 @@ class DP5Config:
         C.Config_delete(self._config)
 
 class CryptoKeys:
+    ptr = None
+    generated = False
     def __init__(self):
         self.fun_init = None
         self.fun_gen = None
@@ -38,21 +40,28 @@ class CryptoKeys:
         self.fun_psize = None
         self.fun_free = None
 
-        self.ptr = None
+        # self.ptr = None
 
     def _init(self):
         assert self.ptr == None
         self.ptr = self.fun_init()
 
     def gen(self):
+        assert not self.generated
         self.fun_gen(self.ptr)
+        self.generated = True
 
     def tobuffer(self):
-        return buffer(ffi.buffer(self.ptr,self.size())[0:self.size()])
+        assert self.generated
+        assert self.ptr is not None
+        return str(buffer(ffi.buffer(self.ptr,self.size())[0:self.size()]))
 
     def frombuffer(self, data):
         assert len(data) == self.size()
+        assert not self.generated
+        assert self.ptr is not None
         ffi.buffer(self.ptr,self.size())[:] = data[:]
+        self.generated = True
 
     def size(self):
         return int(self.fun_size())
@@ -61,13 +70,18 @@ class CryptoKeys:
         return int(self.fun_psize())
 
     def pub(self):
+        assert self.generated
+        assert self.ptr is not None
         b = ffi.buffer(self.ptr, self.size())[:self.pub_size()]
         return buffer(b)[:]
 
     def get_ptr(self):
+        assert self.generated
+        assert self.ptr is not None
         return self.ptr
 
     def __del__(self):
+        assert self.ptr is not None
         self.fun_free(self.ptr)
 
 class DHKeys(CryptoKeys):
@@ -78,7 +92,6 @@ class DHKeys(CryptoKeys):
         self.fun_psize = C.DHKey_pubsize
         self.fun_free = C.DHKey_free
 
-        self.ptr = None
         self._init()
 
 class BLSKeys(CryptoKeys):
@@ -89,7 +102,7 @@ class BLSKeys(CryptoKeys):
         self.fun_psize = C.BLSKey_pubsize
         self.fun_free = C.BLSKey_free
 
-        self.ptr = None
+        # self.ptr = None
         self._init()
 
 class DP5ClientReg:
