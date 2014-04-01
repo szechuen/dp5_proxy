@@ -96,7 +96,8 @@ env.roledefs = {{
     "lookupserversCB": {!r},
 }}
 
-env.roledefs["servers"] = [ s for v in env.roledefs.values() for s in v ]
+# unique servers
+env.roledefs["servers"] = list({{ s for v in env.roledefs.values() for s in v }})
 
 """
     fab_file.write(code.format(
