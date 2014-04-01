@@ -98,8 +98,10 @@ class DP5TestCase(unittest.TestCase):
         self.assertEqual( dhpy.pub_size(), 32)
         self.assertEqual( len(dhpy.pub()), 32)
         b =  dhpy.tobuffer()
-        dhpy.frombuffer(b)
-        b2 =  dhpy.tobuffer()
+
+        dhpy2 = DHKeys()
+        dhpy2.frombuffer(b)
+        b2 =  dhpy2.tobuffer()
         self.assertEqual( b, b2)
         del dhpy
 
@@ -118,6 +120,13 @@ class DP5TestCase(unittest.TestCase):
         self.assertEqual( blspy.size(), 96)
         self.assertEqual( blspy.pub_size(), 64)
         self.assertEqual( len(blspy.pub()), 64)
+
+        b =  blspy.tobuffer()
+        bls2 = BLSKeys()
+        bls2.frombuffer(b)
+        b2 =  bls2.tobuffer()
+        self.assertEqual( b, b2)
+
         del blspy
 
     def test_raw_config(self):

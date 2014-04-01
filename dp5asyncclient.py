@@ -171,12 +171,16 @@ class AsyncDP5Client:
         self.state["ltID"] = self.ltID.tobuffer()
 
     def init_BLS(self, data = None):
+        print "Init BLS key:"
         self.bls = BLSKeys()
         if data is None:
+            print " - fresh key"
             self.bls.gen()
         else:
+            print " - old key"
             self.bls.frombuffer(data)
-        self.state["bls"] = self.ltID.tobuffer()
+        self.state["bls"] = self.bls.tobuffer()
+        print "done."
 
     def get_pub(self):
         return self.ltID.pub()

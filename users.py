@@ -1,14 +1,19 @@
 #!/usr/bin/python
 
-import dp5
+from dp5clib import *
+from dp5cffi import *
+
+InitLib()
+
 import cPickle          
 import sys   
 import random    
 
 class User:
-    def __init__(self, pub, priv, buddies):
-        self.pub = pub
-        self.priv = priv
+    def __init__(self, keys, buddies):
+        dh, bls = keys
+        self.dh = dh.tobuffer()
+        self.bls = bls.tobuffer()
         self.buddies = buddies
 
 if __name__ == "__main__":
@@ -22,11 +27,14 @@ if __name__ == "__main__":
     # FIXME: parametrize?
     numfriends = min(50, numusers)
 
-    keys = [dp5.genkeypair() for _ in range(numusers)]
+    keys = [(DHKeys(), BLSKeys()) for _ in range(numusers)]
+    for k1,k2 in keys:
+        k1.gen()
+        k2.gen()
 
-    pubs = [pub for pub,_ in keys]
+    pubs = [dh.pub() for dh,_ in keys]
     
-    users = [User(pub,priv,random.sample(pubs, numfriends)) for pub,priv in keys] 
+    users = [User(K,random.sample(pubs, numfriends)) for K in keys] 
     
     cPickle.dump(users, output)
     
