@@ -41,7 +41,7 @@ for servertype in ["standard", "combined"]:
             "server.socket_port": port_base,
         },
         "isRegServer": True,
-        "isLookupserver": False,
+        "isLookupServer": False,
         "regdir": "store-reg"+cb+"/reg",
         "datadir": "store-reg" +cb+"/data",
     })
@@ -65,7 +65,7 @@ for servertype in ["standard", "combined"]:
                 "server.socket_port": port_base + i + 1,
             },
             "isRegServer": False,
-            "isLookupserver": True,
+            "isLookupServer": True,
             "datadir": "store-ls{}{}/data".format(cb, i),
         })
         lookupserver_config["server"].update(server_base)
