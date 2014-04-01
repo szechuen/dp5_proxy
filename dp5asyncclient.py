@@ -15,8 +15,8 @@ class AsyncDP5Client:
         if state == None:
             self.state = {}
 
-        self.init_ID(data=self.state.get("ltID",None))
-        self.init_BLS(data=self.state.get("bls",None))
+        self.init_ID(data=self.state.get("ltID", None))
+        self.init_BLS(data=self.state.get("bls", None))
 
         self.log = logger(str(self.state.get("ltID","")).encode("hex")[:10], "client")
         
@@ -37,7 +37,7 @@ class AsyncDP5Client:
         print self.state["numserversCB"]
 
         try:
-            self.state["epoch_length"] = len(state["standard"]["epochLength"])
+            self.state["epoch_length"] = int(state["standard"]["epochLength"])
             print "epoch_length: Using config ...",
         except:
             self.state["epoch_length"] = 60
@@ -45,7 +45,7 @@ class AsyncDP5Client:
         print self.state["epoch_length"]
 
         try:
-            self.state["epoch_lengthCB"] = len(state["combined"]["epochLength"])
+            self.state["epoch_lengthCB"] = int(state["combined"]["epochLength"])
             print "epoch_lengthCB: Using config ...",
         except:
             self.state["epoch_lengthCB"] = 10
@@ -72,6 +72,7 @@ class AsyncDP5Client:
 
         ## TODO: Remove magic number 16 (MAC length)
         ## TODO: Allow for configurable periods
+
         self.config = DP5Config(self.state["epoch_length"], self.state["data_length"], False)
         self.configCB = DP5Config(self.state["epoch_lengthCB"], self.state["data_lengthCB"], True)
         
@@ -94,6 +95,22 @@ class AsyncDP5Client:
         self.actionID = 0
 
         self.pool = None
+        self.inflight = None
+
+        aID = self.next_actionID()
+        self.fire_event(("CLIENT","START"), aID)
+
+    DEBUG_fake_epochCB = None
+    def epochCB(self):
+        if self.DEBUG_fake_epochCB:
+            return self.DEBUG_fake_epochCB
+        return self.configCB.current_epoch()
+
+    DEBUG_fake_epoch = None
+    def epoch(self):
+        if self.DEBUG_fake_epoch:
+            return self.DEBUG_fake_epoch
+        return self.config.current_epoch()
 
     def next_actionID(self):
         aID = self.actionID
@@ -104,8 +121,12 @@ class AsyncDP5Client:
         # self.seq_requests += 1
         self.active_requests += [(label, aID)]
 
-        conn_num = sum([len(x) for x in self.pool.__dict__["_connections"]])
-        self.log.log(("CONNECTION POOL", str(conn_num)), aID)
+        try:
+            conn_num = sum([len(x) for x in self.pool.__dict__["_connections"]])
+            self.log.log(("CONNECTION POOL", str(conn_num)), aID)
+        except:
+            self.log.log(("CONNECTION POOL", "???"""), aID)
+
         self.log.log(("INFLIGHT", str(self.inflight)), aID)
         self.log.log(("ACTIVE ON", str(len(self.active_requests))), aID)
         return aID
@@ -189,7 +210,7 @@ class AsyncDP5Client:
     def register_ID(self, epoch = None):
         if epoch == None:
             # By default we register for the next epoch
-            epoch = self.config.current_epoch()
+            epoch = self.epoch()
         epoch = epoch + 1
 
         ## Do not re-enter
@@ -213,7 +234,6 @@ class AsyncDP5Client:
             if not self.check_active(label, reqID):
                 self.fire_event(("REGID","INACTIVE"), aID)
                 return
-
             try:
                 reg.finish(msg)
                 self.state["last_register_epoch"] = epoch
@@ -227,15 +247,17 @@ class AsyncDP5Client:
             if not self.check_active(label, reqID):
                 self.fire_event(("REGID","INACTIVE_FAIL"), aID)
                 return
+            ## We do want to see this exception
             print exp
             self.remove_active(label, reqID)
             self.fire_event(("REGID","NETFAIL"), aID)
 
         # Call the network handlers
-        if epoch == self.config.current_epoch() + 1:
+        if epoch == self.epoch() + 1:
             self.fire_event(("REGID","SEND"), aID)
             self.send_registration(epoch, False, req, reply_callback, fail_callback)
         else:
+            print "ERROR:", epoch, self.epoch() + 1
             self.remove_active(label, reqID)
             self.fire_event(("REGID","TOOLATE"), aID)
         
@@ -244,7 +266,7 @@ class AsyncDP5Client:
     def register_combined(self, userdata, epoch = None):
         if epoch == None:
             # By default we register for the next epoch
-            epoch = self.configCB.current_epoch()
+            epoch = self.epochCB()
         epoch = epoch + 1
 
         ## Do not re-enter
@@ -275,11 +297,12 @@ class AsyncDP5Client:
         def fail_callback(exp):
             if not self.check_active(label, reqID):
                 return
+            ## We do want to see this exception
             print exp
             self.remove_active(label, reqID)
             self.fire_event(("REGCB","NETFAIL"), aID)
 
-        if epoch == self.configCB.current_epoch() + 1:    
+        if epoch == self.epochCB() + 1:    
             self.fire_event(("REGCB","SEND"), aID)
             self.send_registration(epoch, True, msg, reply_callback, fail_callback)
         else:
@@ -290,7 +313,7 @@ class AsyncDP5Client:
     def lookup_ID(self, epoch = None):
         if epoch == None:
             # By default we register for the next epoch
-            epoch = self.config.current_epoch()
+            epoch = self.epoch()
 
         ## Do not re-enter
         label = ("LOOKID", epoch)
@@ -326,6 +349,7 @@ class AsyncDP5Client:
         def metafail_callback(exp):
             if not self.check_active(label, reqID):
                 return
+            # We do want to see this exception
             print exp
             self.remove_active(label, reqID)
             self.fire_event(("LOOKID","NETFAIL"), aID)
@@ -341,12 +365,12 @@ class AsyncDP5Client:
                     self.state["last_lookup_epoch"] = epoch
                     for (kx, online, msg) in presence:
                         if kx in friends:
-                            if online:
+                            if online:                                
                                 friends[kx]["cbID"] = str(msg)
                                 assert len(friends[kx]["cbID"]) == len(self.bls.pub())
                                 friends[kx]["epoch_cbID"] = epoch
                     self.remove_active(label, reqID)
-                    self.fire_event(("LOOKID","EPOCH", str(epoch), str(self.config.current_epoch())), aID)
+                    self.fire_event(("LOOKID","EPOCH", str(epoch), str(self.epoch())), aID)
                     self.fire_event(("LOOKID","SUCCESS"), aID)
 
                 except DP5Exception as e:
@@ -392,7 +416,7 @@ class AsyncDP5Client:
     def lookup_combined(self, epoch = None):
         if epoch == None:
             # By default we register for the next epoch
-            epoch = self.configCB.current_epoch()
+            epoch = self.epochCB()
 
         ## Do not re-enter
         label = ("LOOKCB", epoch)
@@ -496,10 +520,10 @@ class AsyncDP5Client:
             assert len(self.state["data"]) == self.configCB.dataplain_bytes()
 
         if epochcb == None:
-            epochcb = self.configCB.current_epoch()
+            epochcb = self.epochCB()
 
         if epoch == None:
-            epoch = self.config.current_epoch()
+            epoch = self.epoch()
         
         ## First check whether we have registered for the next epoch.
         try:

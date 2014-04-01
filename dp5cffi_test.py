@@ -400,17 +400,23 @@ class DP5TestCase(unittest.TestCase):
         bls = BLSKeys()
         config = DP5Config(1800, 16 + bls.pub_size(), False)
         configCB = DP5Config(1800 / 6, 16 + 16, True)
-        #epoch = config.current_epoch() + 1000
-        #epochCB = configCB.current_epoch() + 1000
+        epoch = config.current_epoch() # + 1000
+        epochCB = configCB.current_epoch() # + 1000
 
-        epoch = 9000
-        epochCB = 10000
+        #epoch = 9000
+        #epochCB = 10000
 
         ## Make some clients
         clients = []
         for i in range(10):
-            state = {}
+            state = {"standard":{}, "combined":{}}
+
+            state["standard"]["epochLength"] = 1800
+            state["combined"]["epochLength"] = 1800 / 6 
             cli = AsyncDP5Client(state)
+            cli.DEBUG_fake_epochCB = epochCB-1
+            cli.DEBUG_fake_epoch = epoch-1
+
             cli.online = False
             clients += [cli]
 
@@ -422,6 +428,8 @@ class DP5TestCase(unittest.TestCase):
         ## First create the ID infrastructure
         server = RegServer(config, "regdirpy", "datadirpy", epoch-1)
         serverCB = RegServer(configCB, "regdirCBpy", "datadirCBpy", epochCB-1)
+
+
 
         def send_registration(cli, epoch, combined, msg, cb, fail):
             if combined:
@@ -436,8 +444,13 @@ class DP5TestCase(unittest.TestCase):
             cli.online = True
             cli.register_handlers += [send_registration]
 
-            cli.register_ID(epoch-1)
-            cli.register_combined(" "*16, epochCB-1)
+            cli.register_ID()
+            cli.register_combined(" "*16)
+
+        ## Advance the client epochs
+        for cli in clients:
+            cli.DEBUG_fake_epochCB = epochCB
+            cli.DEBUG_fake_epoch = epoch
 
         server.epoch_change("metadatapy.dat", "datapy.dat")
         serverCB.epoch_change("metadataCBpy.dat", "dataCBpy.dat")
@@ -469,7 +482,7 @@ class DP5TestCase(unittest.TestCase):
                     for i in range(10):
                             pk = clients[i].get_pub()
                             if pk in state["friends"]:
-                                #print "ID Key:", (state["friends"][pk]["cbID"] != None), clients[i].online
+                                # print "ID Key:", (state["friends"][pk]["cbID"] != None), clients[i].online
                                 self.assertEqual((state["friends"][pk]["cbID"] != None), clients[i].online)
 
                 if event[0] == "LOOKCB":
@@ -477,7 +490,7 @@ class DP5TestCase(unittest.TestCase):
                             pk = clients[i].get_pub()
                             if pk in state["friends"]:
                                 if clients[i].online:
-                                    self.assertEqual(state["friends"][pk].get("last_on_line", None), 10000)
+                                    self.assertEqual(state["friends"][pk].get("last_on_line", None), epochCB)
                                 else:
                                     self.assertEqual(state["friends"][pk].get("last_on_line", None), None)
 
@@ -486,7 +499,6 @@ class DP5TestCase(unittest.TestCase):
 
         for i in range(10):
             clients[i].set_event_handler(handler)
-
 
         for i in range(4,8):
             clients[i].update(epoch, epochCB)   
