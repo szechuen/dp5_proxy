@@ -38,10 +38,13 @@ class RootServer:
         self.lookup_handlers = {}
 
 	# Make sure directories exist
-	os.makedirs(config["datadir"])
-	if config.has_key("regdir"):
+        if not os.path.exists(config["datadir"]):
+            os.makedirs(config["datadir"])
+
+	if config.has_key("regdir") and not os.path.exists(config["regdir"]):
             os.makedirs(config["regdir"])
-        os.makedirs("logs/")
+        if not os.path.exists("logs/"):
+            os.makedirs("logs/")
 
         # For debugging
         self._add = 0
