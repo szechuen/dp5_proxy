@@ -79,10 +79,14 @@ def setup_ls(path='dp5'):
 @roles('servers')
 @task
 def clean(path='dp5'):
-    run("mkdir -p {}/test".format(path))
+    run("killall python && killall -9 python", warn_only=True)
+    run("mkdir -p {0}/test/testcerts {0}/test/logs".format(path))
+    put("../testcerts/*", "{}/test/testcerts/".format(path))
+
     with cd(path+"/test"):
         run("rm -rf {}/test/store-*".format(path))
         run("ln -sfv ../build/libdp5clib.so .")
+
 
 @task
 def setup(path='dp5'):
@@ -110,11 +114,12 @@ def virtualenv(path="dp5"):
     with prefix("source ~/{}/venv/bin/activate".format(path)):
         run("pip install requests twisted pyopenssl cherrypy")
 
-@roles("regserver")
+
 @task
-def run_rs(path='dp5'):
+def run_server(config_file, path='dp5'):
     with cd(path+"/test"), prefix("source ~/{}/venv/bin/activate".format(path)), \
         shell_env(PYTHONPATH="../build:"):
-        run("python ../code/dp5twistedserver.py regserver.cfg")
+        run("python ../code/dp5twistedserver.py " + config_file)
+
 
     
