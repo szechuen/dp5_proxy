@@ -37,6 +37,12 @@ class RootServer:
         self.is_lookup = config["isLookupServer"]
         self.lookup_handlers = {}
 
+	# Make sure directories exist
+	os.makedirs(config["datadir"])
+	if config.has_key("regdir"):
+            os.makedirs(config["regdir"])
+        os.makedirs("logs/")
+
         # For debugging
         self._add = 0
 
