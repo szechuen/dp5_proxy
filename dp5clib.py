@@ -333,7 +333,7 @@ class RegServer:
         if epoch == None:
             epoch = config.current_epoch()
         self.epoch = epoch
-        self.server = C.RegServer_alloc(config.get_ptr(), self.epoch, "regdirpy", "datadirpy")
+        self.server = C.RegServer_alloc(config.get_ptr(), self.epoch, regdir, datadir)
 
     def register(self, msg):
         datax, process_buffer = callbackbuffer()
