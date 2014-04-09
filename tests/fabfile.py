@@ -1,4 +1,4 @@
-from fabric.api import run, task, cd, env, shell_env, settings, put, roles, execute, prefix
+from fabric.api import run, task, cd, env, shell_env, settings, put, roles, execute, prefix, get
 
 env.use_ssh_config = True
 
@@ -145,3 +145,23 @@ def run_server(config_file, path='dp5'):
 
 
     
+@task
+def fake_epoch(users, path='dp5'):
+  execute(create_fake_epoch, users, path)
+  execute(deploy_fake_epoch, path)
+
+@roles('client')
+@task
+def create_fake_epoch(users, path='dp5'):
+  with cd(path+"/test"):
+    run("python ../code/fakeprevepoch.py client.cfg " + users)
+    get("fake", "%(path)s")
+
+@roles('regserver')
+@task
+def deploy_fake_epoch(path='dp5'):
+  put("fake/*", path+"/test/store-reg/data/")
+  
+
+  
+
