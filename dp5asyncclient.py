@@ -22,52 +22,34 @@ class AsyncDP5Client:
         
         try:
             self.state["numservers"] = len(state["standard"]["lookupServers"])
-            print "Numservers: Using config ...",
         except:
             self.state["numservers"] = numservers
-            print "Numservers: Using default ...",
-        print self.state["numservers"]
 
         try:
             self.state["numserversCB"] = len(state["combined"]["lookupServers"])
-            print "NumserversCB: Using config ...",
         except:
             self.state["numserversCB"] = numservers
-            print "NumserversCB: Using default ...",
-        print self.state["numserversCB"]
 
         try:
             self.state["epoch_length"] = int(state["standard"]["epochLength"])
-            print "epoch_length: Using config ...",
         except:
             self.state["epoch_length"] = 60
-            print "epoch_length: Using default ...",
-        print self.state["epoch_length"]
 
         try:
             self.state["epoch_lengthCB"] = int(state["combined"]["epochLength"])
-            print "epoch_lengthCB: Using config ...",
         except:
             self.state["epoch_lengthCB"] = 10
-            print "epoch_lengthCB: Using default ...",
-        print self.state["epoch_lengthCB"]
 
         try:
             self.state["data_length"] = len(state["standard"]["dataEncSize"])
-            print "data_length: Using config ...",
         except:
             self.state["data_length"] = 16 + self.bls.pub_size()
-            print "data_length: Using default ...",
-        print self.state["data_length"]
         assert (16 + self.bls.pub_size()) == self.state["data_length"]
 
         try:
             self.state["data_lengthCB"] = len(state["combined"]["dataEncSize"])
-            print "data_length: Using config ...",
         except:
             self.state["data_lengthCB"] = 32
-            print "data_lengthCB: Using default ...",
-        print self.state["data_lengthCB"]
         assert self.state["data_lengthCB"] > 16
 
         ## TODO: Remove magic number 16 (MAC length)
@@ -171,16 +153,12 @@ class AsyncDP5Client:
         self.state["ltID"] = self.ltID.tobuffer()
 
     def init_BLS(self, data = None):
-        print "Init BLS key:"
         self.bls = BLSKeys()
         if data is None:
-            print " - fresh key"
             self.bls.gen()
         else:
-            print " - old key"
             self.bls.frombuffer(data)
         self.state["bls"] = self.bls.tobuffer()
-        print "done."
 
     def get_pub(self):
         return self.ltID.pub()
