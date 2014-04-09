@@ -189,6 +189,72 @@ index 5c85d48..09750c7 100644
      if (goodservers.size() < num_servers) {
          std::cerr << "Not enough servers responded." << std::endl;
  	return num_queries;
+diff --git c/percyclient_impl.h w/percyclient_impl.h
+index e020e5a..01a7fa7 100644
+--- c/percyclient_impl.h
++++ w/percyclient_impl.h
+@@ -228,7 +228,7 @@ int PercyClient_GF2E<GF2E_Element>::send_request(vector<dbsize_t> block_numbers,
+             for (nqueries_t i = 0; i < num_queries; ++i) {
+                 for (dbsize_t j = 0; j < num_blocks; ++j) {
+ 		    dbsize_t index = (i * num_blocks + j) * num_servers + p;
+-		    shares[index] = 
++		    shares[index] =
+                         multiply_GF2E<GF2E_Element>(shares[index],
+                                 randmults[i+previous_queries][p]);
+                 }
+@@ -336,8 +336,6 @@ nservers_t PercyClient_GF2E<GF2E_Element>::receive_replies (
+ 	randmults.clear();
+     }
+ 
+-    std::cerr << "Got replies...\n";
+-
+     return goodservers.size();
+ }
+ 
+@@ -369,7 +367,7 @@ void PercyClient_GF2E<GF2E_Element>::construct_lagrange_coeffs(GF2E_Element *coe
+ // coefficients coeffs[0..t]
+ template <typename GF2E_Element>
+ inline GF2E_Element PercyClient_GF2E<GF2E_Element>::interpolate(
+-	const GF2E_Element *word_answers, const GF2E_Element *coeffs, 
++	const GF2E_Element *word_answers, const GF2E_Element *coeffs,
+ 	nservers_t firstpoint, nservers_t numpoints)
+ {
+     GF2E_Element res = 0;
+@@ -418,7 +416,7 @@ bool PercyClient_GF2E<GF2E_Element>::try_fast_recover(nservers_t h,
+ 		GF2E_Element expectedans =
+ 			answers[q][word*num_servers + goodservers[a]];
+ 		GF2E_Element actualans = interpolate(
+-			answers[q] + word*num_servers, lagrange_coeffs + (a+1) * (t+1), 
++			answers[q] + word*num_servers, lagrange_coeffs + (a+1) * (t+1),
+ 			k-t-1, t+1);
+ 
+ 		if (expectedans != actualans) {
+@@ -432,10 +430,10 @@ bool PercyClient_GF2E<GF2E_Element>::try_fast_recover(nservers_t h,
+ 		results.clear();
+ 		return false;
+ 	    }
+-	    resblock[word] = interpolate(answers[q] + word*num_servers, 
++	    resblock[word] = interpolate(answers[q] + word*num_servers,
+ 		    lagrange_coeffs, k-t-1, t+1);
+ 	}
+-	PercyResult thisresult(goodservers, string((char *)resblock, 
++	PercyResult thisresult(goodservers, string((char *)resblock,
+ 		words_per_block*sizeof(GF2E_Element)));
+ 	results.back().results.push_back(thisresult);
+     }
+@@ -508,10 +506,10 @@ nqueries_t PercyClient_GF2E<GF2E_Element>::process_replies (
+ 	    for (dbsize_t i = 0; i < unfinished_results[q].size(); ++i) {
+ 		for (dbsize_t j = 0; j < words_per_block; ++j) {
+ 		    BytesFromGF2X((unsigned char *)(sigma + j),
+-			    rep(unfinished_results[q][i].recovered[j]), 
++			    rep(unfinished_results[q][i].recovered[j]),
+ 			    sizeof(GF2E_Element));
+ 		}
+-		block_results.push_back(PercyResult(unfinished_results[q][i].G, 
++		block_results.push_back(PercyResult(unfinished_results[q][i].G,
+ 			string((char *)sigma, words_per_block * sizeof(GF2E_Element))));
+ 	    }
+ 	    delete[] sigma;
 diff --git c/percyserver.cc w/percyserver.cc
 index f9b56fb..5be4376 100644
 --- c/percyserver.cc
