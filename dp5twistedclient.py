@@ -23,6 +23,8 @@ import sys
 import json
 import copy
 
+from resource import getrlimit, setrlimit, RLIMIT_NOFILE
+
 from users import User
 import cPickle
 
@@ -165,11 +167,14 @@ def dp5twistedclientFactory(state):
 
     cli.l = task.LoopingCall(loopupdate)
     period = float(cli.state["epoch_lengthCB"] / 4.0)
-    print "Update every %2.2f secs" % period
     cli.l.start(period) # call every second
     return cli
 
 if __name__ == "__main__":
+    # bump up our file limits as much as we can
+    (soft, hard) = getrlimit(RLIMIT_NOFILE)
+    setrlimit(RLIMIT_NOFILE, (hard, hard))
+	
     try:
         config = json.load(file(sys.argv[1]))
         print "Loading config from file \"%s\"" % sys.argv[1]
