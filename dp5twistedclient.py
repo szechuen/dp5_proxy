@@ -1,5 +1,8 @@
 from dp5asyncclient import *
+# from dp5cffi import *
+from dp5clib import *
 from dp5cffi import *
+InitLib()
 
 from pprint import pformat
 
@@ -199,7 +202,8 @@ if __name__ == "__main__":
     for x, u in enumerate(uxs):
         state = copy.deepcopy(config)
         state["Name"] = ("Client%07d" % x)
-        state["ltID"] = u.pub + u.priv
+        state["ltID"] = u.dh
+        state["bls"] = u.bls
 
         xcli = dp5twistedclientFactory(state)
         for i,f in enumerate(u.buddies):
