@@ -190,7 +190,7 @@ index 5c85d48..09750c7 100644
          std::cerr << "Not enough servers responded." << std::endl;
  	return num_queries;
 diff --git c/percyclient_impl.h w/percyclient_impl.h
-index e020e5a..01a7fa7 100644
+index e020e5a..b321fc8 100644
 --- c/percyclient_impl.h
 +++ w/percyclient_impl.h
 @@ -228,7 +228,7 @@ int PercyClient_GF2E<GF2E_Element>::send_request(vector<dbsize_t> block_numbers,
@@ -242,7 +242,16 @@ index e020e5a..01a7fa7 100644
  		words_per_block*sizeof(GF2E_Element)));
  	results.back().results.push_back(thisresult);
      }
-@@ -508,10 +506,10 @@ nqueries_t PercyClient_GF2E<GF2E_Element>::process_replies (
+@@ -460,8 +458,6 @@ nqueries_t PercyClient_GF2E<GF2E_Element>::process_replies (
+ 	return false;
+     }
+ 
+-    std::cerr << goodservers.size() << " of " << num_servers << " servers responded.\n";
+-
+     if (try_fast_recover(h, results)) {
+ 	// Clean up
+ 	received_blocks.clear();
+@@ -508,10 +504,10 @@ nqueries_t PercyClient_GF2E<GF2E_Element>::process_replies (
  	    for (dbsize_t i = 0; i < unfinished_results[q].size(); ++i) {
  		for (dbsize_t j = 0; j < words_per_block; ++j) {
  		    BytesFromGF2X((unsigned char *)(sigma + j),
