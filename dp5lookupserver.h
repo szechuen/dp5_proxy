@@ -5,6 +5,7 @@
 #include "dp5params.h"
 #include "dp5metadata.h"
 #include "percyserver.h"
+#include "threadedserver.h"
 
 namespace dp5 {
 
@@ -59,15 +60,15 @@ private:
     PercyServerParams *_pirserverparams;
 
     // The DataStore, filled in from the data file
-    FileDataStore *_datastore;
+    ThreadedDataStore *_datastore;
 
     // The PercyServer used to serve requests
-    PercyServer *_pirserver;
+    PercyThreadedServer *_pirserver;
 
     internal::Metadata _metadata;
 
 #ifdef TEST_PIRGLUE
-    friend void test_pirglue();
+    friend void test_pirglue(int num_blocks_to_fetch);
 #endif
 #ifdef TEST_PIRGLUEMT
     friend void test_pirgluemt();

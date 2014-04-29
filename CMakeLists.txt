@@ -15,6 +15,8 @@ else(GMP)
     set(RELIC_ARITH "-DARITH=easy")
 endif(GMP)
 
+find_library(PTHREAD pthread)
+
 if(${CMAKE_SYSTEM_PROCESSOR} MATCHES i.86)
   if(${CMAKE_SIZEOF_VOID_P} EQUAL 4)
     set(RELIC_ARCH -DARCH=X86 -DWORD=32)
@@ -63,7 +65,7 @@ set(PERCYCLIENT ${binary_dir}/libpercyclient.a)
 find_library(NTL ntl)
 find_file(NTL_INCLUDE_DIR "NTL/" "/usr/local/include/")
 
-set(PERCY_LIBRARIES ${PERCYSERVER} ${PERCYCLIENT} ${NTL})
+set(PERCY_LIBRARIES ${PERCYSERVER} ${PERCYCLIENT} ${NTL} ${PTHREAD})
 if(GMP)
 # NTL might be compiled with GMP, so link with it just in case
     set(PERCY_LIBRARIES ${PERCY_LIBRARIES} ${GMP})
