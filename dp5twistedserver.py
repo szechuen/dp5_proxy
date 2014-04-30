@@ -12,6 +12,9 @@ from twisted.web.wsgi import WSGIResource
 from twisted.web.server import Site
 from twisted.internet import ssl, reactor
 
+import limits
+limits.set_limits()
+
 cherrypy.config.update({'environment': 'embedded'})
 
 if cherrypy.__version__.startswith('3.0') and cherrypy.engine.state == 0:
