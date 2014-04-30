@@ -206,6 +206,10 @@ if __name__ == "__main__":
     ## ------------------------------------ ##
     ## ------------------------------------ ##
 
+    if len(sys.argv) > 3:
+	slicenum, slicesize = map(int,sys.argv[3:5])
+        uxs = uxs[slicenum*slicesize:slicenum*(slicesize+1)]
+
     clients = []
     for x, u in enumerate(uxs):
         state = copy.deepcopy(config)
