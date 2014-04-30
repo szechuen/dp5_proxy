@@ -1,5 +1,7 @@
 import time
 
+import fcntl
+
 LOG_FILE = {}
 
 class logger:
@@ -9,7 +11,7 @@ class logger:
 
       fname = "logs/Log-%s.log" % ltype
       if fname not in LOG_FILE:
-        LOG_FILE[fname] = file(fname, "w")
+        LOG_FILE[fname] = file(fname, "a")
        
       self.events = []
       self.f = LOG_FILE[fname]
@@ -34,12 +36,14 @@ class logger:
 
         
    def flush(self):
+      fcntl.flock(self.f, fcntl.LOCK_EX)
       self.f.write("".join(self.events))
-      self.events = []
       self.f.flush()
+      fcntl.flock(self.f, fcntl.LOCK_UN)
+
+      self.events = []
+
 
    def __del__(self):
       # self.f.close()
       pass
-         
-        
