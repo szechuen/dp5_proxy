@@ -232,12 +232,15 @@ class DP5TestCase(unittest.TestCase):
     def test_client_nosync(self):
         state = {}
         cli = AsyncDP5Client(state)
+        event_cnt = Counter()
         
         # Expected order of event for this test
         event_list = [("REGID","START"),("REGID","SEND"),("REGID","FAIL")]
         def handler(state, event, hid):
-            exp_event = event_list.pop(0)
-            self.assertEqual( event , exp_event)
+            event_cnt.update([event])
+
+            # exp_event = event_list.pop(0)
+            # self.assertEqual( event , exp_event)
 
         cli.set_event_handler(handler)
 
@@ -264,6 +267,10 @@ class DP5TestCase(unittest.TestCase):
         cb(reply)
 
         C.RegServer_delete(server)
+
+        for ev in event_list:
+            self.assertEqual( event_cnt[ev] , 1)
+
 
     def test_client_reg_combined(self):
         state = {}

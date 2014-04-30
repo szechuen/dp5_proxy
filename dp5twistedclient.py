@@ -22,6 +22,7 @@ import traceback
 import sys
 import json
 import copy
+import random
 
 from resource import getrlimit, setrlimit, RLIMIT_NOFILE
 
@@ -167,7 +168,9 @@ def dp5twistedclientFactory(state):
 
     cli.l = task.LoopingCall(loopupdate)
     period = float(cli.state["epoch_lengthCB"] / 4.0)
-    cli.l.start(period) # call every second
+    # cli.l.start(period) # call every second
+    delay = 0.1 # random.random() * 10.0
+    reactor.callLater(delay, cli.l.start, period)
     return cli
 
 if __name__ == "__main__":
