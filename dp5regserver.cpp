@@ -273,7 +273,7 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
         throw runtime_error("Corrupted registration file");
         }
         unsigned int numrecords = toread / recordsize;
-        
+
         char *recdata = new char[recordsize];
         for (unsigned int i = 0; i < numrecords; i++) {
             res = read(lockedfd, recdata, recordsize);
@@ -287,17 +287,9 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
             regdata.insert(string(recdata, recordsize));
         }
         delete [] recdata;
-        
-    
 
-        // Insert a number of dummy entries for testing
-        unsigned int DUMMY_RECORDS = 10000;
-        unsigned char * dummy_data  = new unsigned char[recordsize];
-        for(unsigned int dummyi = 0; dummyi < DUMMY_RECORDS; dummyi++){
-            random_bytes(dummy_data, recordsize);
-            regdata.insert(string((char *) dummy_data, recordsize));
-        }
-        delete [] dummy_data;
+
+
     }
 
     // When we're done with the registration file, close it and unlink
@@ -355,7 +347,7 @@ unsigned int DP5RegServer::epoch_change(ostream &metadataos, ostream &dataos)
 
     size_t datafile_size = md.num_buckets*best_size*(HASHKEY_BYTES+_config.dataenc_bytes);
     unsigned char *datafile = new unsigned char[datafile_size];
-    
+
 
     if (!datafile) {
     throw runtime_error("Out of memory allocating data file");
