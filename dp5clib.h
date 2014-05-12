@@ -38,8 +38,7 @@ extern "C" {
 
     /* Init functions */
 
-    void * Init_init();
-    void Init_cleanup(void * p);
+    void Init_init();
 
     /* DH functions */
 
@@ -73,13 +72,13 @@ extern "C" {
 
     /* Registration client */
     struct DP5RegClient * RegClient_alloc(
-        struct DP5Config * config, 
+        struct DP5Config * config,
         DHKey * keys);
 
     void RegClient_delete(struct DP5RegClient * p);
 
     int RegClient_start(
-        struct DP5RegClient * reg, 
+        struct DP5RegClient * reg,
         struct DP5Config * config,
         unsigned int epoch,
         unsigned int friends_num,
@@ -98,7 +97,7 @@ extern "C" {
     void RegClientCB_delete(struct DP5CombinedRegClient * p);
 
     int RegClientCB_start(
-        DP5CombinedRegClient * reg, 
+        DP5CombinedRegClient * reg,
         unsigned int epoch,
         nativebuffer data,
         void processbuf(size_t, const void*));
@@ -136,7 +135,7 @@ extern "C" {
     void LookupServer_delete(DP5LookupServer * p);
 
     void LookupServer_process(
-        DP5LookupServer * ser, 
+        DP5LookupServer * ser,
         nativebuffer data,
         void processbuf(size_t, const void*));
 
@@ -153,7 +152,7 @@ extern "C" {
     int LookupClientCB_metadata_rep(
         DP5CombinedLookupClient * cli,
         nativebuffer data);
-    
+
     DP5CombinedLookupClient::Request * LookupRequestCB_lookup(
         DP5CombinedLookupClient * cli,
         unsigned int buds_len,
@@ -183,7 +182,7 @@ extern "C" {
     int LookupClient_metadata_rep(
         DP5LookupClient * cli,
         nativebuffer data);
-    
+
     DP5LookupClient::Request * LookupRequest_lookup(
         DP5LookupClient * cli,
         unsigned int buds_len,

@@ -471,7 +471,7 @@ static PyObject* pyserverclientreg(PyObject* self, PyObject* args){
     }
     if (!PyCapsule_CheckExact(server_cap)){
         PyBuffer_Release(&data);
-        cout << "Error 2" << "\n";       
+        cout << "Error 2" << "\n";
         return NULL;
     }
 
@@ -610,7 +610,7 @@ initdp5(void)
      (void) Py_InitModule("dp5", dp5Methods);
      printf("ZZ init\n");
      ZZ_p::init(to_ZZ(256));
-     Pairing p; // initialize core
+     initPairing();
 }
 
 }
