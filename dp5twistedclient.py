@@ -22,8 +22,10 @@ import traceback
 import sys
 import json
 import copy
+import random
 
-from resource import getrlimit, setrlimit, RLIMIT_NOFILE
+import limits
+limits.set_limits()
 
 from users import User
 import cPickle
@@ -167,14 +169,12 @@ def dp5twistedclientFactory(state):
 
     cli.l = task.LoopingCall(loopupdate)
     period = float(cli.state["epoch_lengthCB"] / 4.0)
-    cli.l.start(period) # call every second
+    # cli.l.start(period) # call every second
+    delay = 0.1 # random.random() * 10.0
+    reactor.callLater(delay, cli.l.start, period)
     return cli
 
 if __name__ == "__main__":
-    # bump up our file limits as much as we can
-    (soft, hard) = getrlimit(RLIMIT_NOFILE)
-    setrlimit(RLIMIT_NOFILE, (hard, hard))
-	
     try:
         config = json.load(file(sys.argv[1]))
         print "Loading config from file \"%s\"" % sys.argv[1]
@@ -202,6 +202,12 @@ if __name__ == "__main__":
     ## ------------------------------------ ##
     ## ------------------------------------ ##
     ## ------------------------------------ ##
+
+    if len(sys.argv) > 3:
+	slicenum, slicesize = map(int,sys.argv[3:5])
+        uxs = uxs[slicenum*slicesize:(slicenum+1)*(slicesize)]
+	print "Working with %d users" % len(uxs)
+	
 
     clients = []
     for x, u in enumerate(uxs):

@@ -209,6 +209,9 @@ class AsyncDP5Client:
         pks = [self.ltID.pub()] ## Always include our own
         for f in friends:
             pks += [friends[f]["ltID"]]
+        self.fire_event(("REGID","DEBUG", "FRIENDS%03d" % len(pks)), aID)
+
+
         reg = DP5ClientReg(self.config, self.ltID, pks, epoch)
         req = reg.register(self.bls.pub())
 
@@ -321,6 +324,8 @@ class AsyncDP5Client:
         pks = [self.ltID.pub()] ## Always include our own
         for f in friends:
                 pks += [friends[f]["ltID"]]
+        self.fire_event(("LOOKID","DEBUG", "FRIENDS%03d" % len(pks)), aID)
+
 
         lookup = DP5lookup( self.ltID, pks, epoch )
         meta_msg = lookup.metadata_request()
