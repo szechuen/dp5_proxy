@@ -8,10 +8,10 @@ using namespace dp5::internal;
 
 class CombRegClient : public ::testing::Test {
 protected:
-	Pairing pairing; // this will make sure core is initialized
 	unsigned char blskey_bytes[BLS_PRIV_BYTES];
 	BLSPrivKey blskey;
 	virtual void SetUp(void) {
+		initPairing();
 		Zr keyzr(23);
 		keyzr.toBin((char *) blskey_bytes);
 		blskey.assign(blskey_bytes, BLS_PRIV_BYTES);
@@ -20,6 +20,15 @@ protected:
 
 TEST_F(CombRegClient, Constructor) {
 	DP5CombinedRegClient client(blskey);
+}
+
+TEST_F(CombRegClient, BadKey) {
+	BLSPrivKey badkey;
+	DP5CombinedRegClient client(badkey);
+
+	string result;
+	string data(16, 0x0);
+	client.start_reg(result, 1234, data);
 }
 
 TEST_F(CombRegClient, StartReg) {
