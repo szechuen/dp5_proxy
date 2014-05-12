@@ -320,6 +320,7 @@ int main(int argc, char **argv){
     mainfunc<PubKey,PrivKey,DP5LookupClient,false>(NUMBEROFCLIENTS,
         NUMBEROFFRIENDS);
     cout << "New school test" << endl;
+    initPairing();
     return mainfunc<BLSPubKey,BLSPrivKey,DP5CombinedLookupClient,true>(
         NUMBEROFCLIENTS, NUMBEROFFRIENDS);
 }
