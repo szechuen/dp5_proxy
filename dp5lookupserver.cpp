@@ -45,11 +45,14 @@ void DP5LookupServer::init(const char *metadatafilename,
         _pirserverparams = new PercyServerParams(
     	   _metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes),
             _metadata.num_buckets,
-        	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0, 0);
+        	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0,
+		// The first number on the next line is the number of
+		// threads to use.  It should probably be a parameter.
+		32, THREADING_QUERIES);
 
-        _datastore = new FileDataStore(_datafilename, *_pirserverparams);
+        _datastore = new ThreadedDataStore(_datafilename, *_pirserverparams);
 
-        _pirserver = new PercyServer(_datastore);
+        _pirserver = new PercyThreadedServer(_datastore);
     } else {
         _pirserver = NULL;
         _datastore = NULL;
@@ -79,11 +82,11 @@ DP5LookupServer& DP5LookupServer::operator=(DP5LookupServer other)
     other._pirserverparams = _pirserverparams;
     _pirserverparams = tmppsp;
 
-    FileDataStore *tmpfds = other._datastore;
+    ThreadedDataStore *tmpfds = other._datastore;
     other._datastore = _datastore;
     _datastore = tmpfds;
 
-    PercyServer *tmpps = other._pirserver;
+    PercyThreadedServer *tmpps = other._pirserver;
     other._pirserver = _pirserver;
     _pirserver = tmpps;
 
@@ -243,7 +246,7 @@ int main()
 
 namespace dp5 {
     using namespace dp5::internal;
-void test_pirglue()
+void test_pirglue(int num_blocks_to_fetch)
 {
     unsigned int num_servers = 5;
 
@@ -260,10 +263,12 @@ void test_pirglue()
     req.init(num_servers, 2, servers[0].getMetadata(),
         servers[0].getConfig().dataenc_bytes + HASHKEY_BYTES);
 
+    unsigned int numbuckets = servers[0].getMetadata().num_buckets;
+
     vector<unsigned int> bucketnums;
-    bucketnums.push_back(3);
-    bucketnums.push_back(1);
-    bucketnums.push_back(6);
+    for (int i=0; i<num_blocks_to_fetch; ++i) {
+	bucketnums.push_back(lrand48()%numbuckets);
+    }
 
     vector<string> requests;
 
@@ -303,10 +308,12 @@ void test_pirglue()
 }
 }
 
-int main()
+int main(int argc, char **argv)
 {
+    int num_blocks_to_fetch = argc > 1 ? atoi(argv[1]) : 3;
+
     ZZ_p::init(to_ZZ(256));
-    dp5::test_pirglue();
+    dp5::test_pirglue(num_blocks_to_fetch);
 
     return 0;
 }

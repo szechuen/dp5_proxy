@@ -36,15 +36,18 @@ TEST(H5Test, ZeroInput) {
 
 class BLSTest : public ::testing::Test {
 protected:
-	Pairing pairing;
 	unsigned char E[EPOCH_BYTES];
 	unsigned char epoch_sig_bytes[EPOCH_SIG_BYTES];
 	unsigned char pubkey_bytes[BLS_PUB_BYTES];
 	BLSPubKey pubkey2;
 
 	virtual void SetUp() {
+		initPairing();
+
 		Zr exponent(23);
 		epoch_num_to_bytes(E, 0);
+		Pairing pairing;
+
 
 		G2 epoch_hash(pairing, E, EPOCH_BYTES);
 

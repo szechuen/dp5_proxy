@@ -1,5 +1,5 @@
 
-#include "dp5clib.h" 
+#include "dp5clib.h"
 
 using namespace std;
 using namespace dp5;
@@ -14,14 +14,9 @@ void nativebuffer_purge(nativebuffer buf){
 }
 
 // Initialize libraries
-void * Init_init(){
+void Init_init(){
     ZZ_p::init(to_ZZ(256));
-    Pairing * p = new Pairing(); // initialize core
-    return (void *) p;
-}
-
-void Init_cleanup(void * p){
-    delete (Pairing *) p;
+    initPairing();
 }
 
 // --------- DH Key functions -----------------------
@@ -33,7 +28,7 @@ typedef struct _DHKey {
 
 DHKey * DHKey_alloc(){
     DHKey * keys = new DHKey();
-    return keys; 
+    return keys;
 }
 
 void DHKey_free(DHKey * keys){
@@ -61,7 +56,7 @@ typedef struct _BLSKey {
 
 BLSKey * BLSKey_alloc(){
     BLSKey * keys = new BLSKey();
-    return keys; 
+    return keys;
 }
 
 void BLSKey_free(BLSKey * keys){
@@ -119,7 +114,7 @@ void RegClient_delete(struct DP5RegClient * p){
 }
 
 int RegClient_start(
-    DP5RegClient * reg, 
+    DP5RegClient * reg,
     DP5Config * config,
     unsigned int epoch,
     unsigned int friends_num,
@@ -170,7 +165,7 @@ void RegClientCB_delete(struct DP5CombinedRegClient * p){
 }
 
 int RegClientCB_start(
-    DP5CombinedRegClient * reg, 
+    DP5CombinedRegClient * reg,
     unsigned int epoch,
     nativebuffer data,
     void processbuf(size_t, const void*)){
@@ -223,7 +218,7 @@ void RegServer_register(
     input.append((char*) data.buf, data.len);
     string output;
     reg->client_reg(output, input);
-    
+
     processbuf(output.size(), output.data());
 }
 
@@ -341,8 +336,8 @@ int LookupRequestCB_reply(
         presence[j].data.size(),
         presence[j].data.data());
     }
-    
-    return 0;  
+
+    return 0;
 }
 
 void LookupRequestCB_delete(DP5CombinedLookupClient::Request * p){
@@ -449,8 +444,8 @@ int LookupRequest_reply(
         presence[j].data.size(),
         presence[j].data.data());
     }
-    
-    return 0;  
+
+    return 0;
 }
 
 void LookupRequest_delete(DP5LookupClient::Request * p){
@@ -470,7 +465,7 @@ void LookupServer_delete(DP5LookupServer * p){
     delete p;
 }
 
-void LookupServer_process(DP5LookupServer * ser, 
+void LookupServer_process(DP5LookupServer * ser,
     nativebuffer data,
     void processbuf(size_t, const void*)){
 

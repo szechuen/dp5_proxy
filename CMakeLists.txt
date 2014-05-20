@@ -15,6 +15,8 @@ else(GMP)
     set(RELIC_ARITH "-DARITH=easy")
 endif(GMP)
 
+find_library(PTHREAD pthread)
+
 if(${CMAKE_SYSTEM_PROCESSOR} MATCHES i.86)
   if(${CMAKE_SIZEOF_VOID_P} EQUAL 4)
     set(RELIC_ARCH -DARCH=X86 -DWORD=32)
@@ -63,7 +65,7 @@ set(PERCYCLIENT ${binary_dir}/libpercyclient.a)
 find_library(NTL ntl)
 find_file(NTL_INCLUDE_DIR "NTL/" "/usr/local/include/")
 
-set(PERCY_LIBRARIES ${PERCYSERVER} ${PERCYCLIENT} ${NTL})
+set(PERCY_LIBRARIES ${PERCYSERVER} ${PERCYCLIENT} ${NTL} ${PTHREAD})
 if(GMP)
 # NTL might be compiled with GMP, so link with it just in case
     set(PERCY_LIBRARIES ${PERCY_LIBRARIES} ${GMP})
@@ -107,7 +109,7 @@ if(PYTHON)
 
     set(PYTHONCMD ${PYTHON} setup.py install --install-platlib=${PROJECT_BINARY_DIR})
     if(CMAKE_HOST_APPLE)
-        set(PYTHONCMD env "ARCHFLAGS=-arch x86_64" ${PYTHONCMD})
+      set(PYTHONCMD env "ARCHFLAGS=-arch x86_64 -Wno-unused-command-line-argument-hard-error-in-future" ${PYTHONCMD})
     endif(CMAKE_HOST_APPLE)
     add_custom_command(OUTPUT dp5.so
                            COMMAND ${PYTHONCMD}
@@ -145,15 +147,15 @@ set_tests_properties (test_epoch PROPERTIES FAIL_REGULAR_EXPRESSION "NO MATCH;fa
 
 testdef(test_rsconst "dp5regserver.cpp;dp5params.cpp;dp5metadata.cpp")
 
-testdef(test_rsreg "dp5regserver.cpp;dp5params.cpp;dp5metadata.cpp" pthread)
+testdef(test_rsreg "dp5regserver.cpp;dp5params.cpp;dp5metadata.cpp" ${PTHREAD})
 
-testdef(test_client "dp5regclient.cpp;dp5params.cpp" pthread)
+testdef(test_client "dp5regclient.cpp;dp5params.cpp" ${PTHREAD})
 set_tests_properties (test_client PROPERTIES FAIL_REGULAR_EXPRESSION "False")
 
 testdef(test_lscd "dp5lookupserver.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES})
 testdef(test_reqcd "dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES})
 testdef(test_pirglue "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES})
-testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES} pthread)
+testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES} ${PTHREAD} )
 
 add_executable(test_integrate dp5integrationtest.cpp)
 target_link_libraries(test_integrate dp5 curve25519-donna ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES}

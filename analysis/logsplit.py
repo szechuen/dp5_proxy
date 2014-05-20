@@ -5,7 +5,7 @@ assert sys.version_info[0] == 3
 
 import re
 
-linefmt = re.compile("(\d+\.?\d*) -- ([a-f0-9]+) -- \[(\d+)\] ([^,]+), (.*)")
+linefmt = re.compile("(\d+\.?\d*(e.\d+)?) -- ([a-f0-9]+) -- \[(\d+)\] ([^,]+), (.*)")
 
 commands = {}
 outputs = {}
@@ -16,7 +16,7 @@ with open(sys.argv[1]) as logfile:
         if not m:
             print("Can't match: "+ line, end='')
 
-        (timestamp,client,tid,command,state) = m.groups()
+        (timestamp,_,client,tid,command,state) = m.groups()
 
         print("Time: {}, Client: {}, TID: {}, Command: {}, State: {}".format(
             timestamp,client,tid,command,state))
@@ -28,15 +28,12 @@ with open(sys.argv[1]) as logfile:
 
         timeval = float(timestamp) - commands[client+tid]
         if state == "START":
-            timeval = -timeval
-            # reset start time
             commands[client+tid] = float(timestamp)
-        elif state == "SEND" or state == "SEND00":
-            timeval = -3 - timeval
+            continue
         elif state == "SUCCESS":
             pass
         elif state == "FAIL":
-            timeval = -7 - timeval
+            timeval = -timeval
         else:
             continue
         if command not in outputs:

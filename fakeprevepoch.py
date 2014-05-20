@@ -68,7 +68,6 @@ if __name__ == "__main__":
         if combined:
             raise Exception("Should not trigger CB registration")
         else:
-            print "Register ..."
             reply = server.register(msg)
             cb(reply)
 
