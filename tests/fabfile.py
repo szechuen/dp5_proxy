@@ -20,9 +20,11 @@ def clone(path='dp5'):
 
 
 @task
-def pull(path='dp5'):
+def pull(path='dp5', branch='master'):
     with cd(path+"/code"):
-        run("git pull")
+        run("git fetch")
+        run("git checkout "+branch)
+        run("git submodule update")
 
 @task
 def build(path='dp5', rebuild='no'):
@@ -34,7 +36,6 @@ def build(path='dp5', rebuild='no'):
         run("cmake ../code")
         run("make")
         run("mkdir -p ../test")
-        run("ln -sfv libdp5clib.so ../test")
 
 @task
 def test(path='dp5'):
@@ -84,7 +85,7 @@ def clean(path='dp5'):
     put("../testcerts/*", "{}/test/testcerts/".format(path))
 
     with cd(path+"/test"):
-        run("rm -rf {}/test/store-*".format(path))
+        run("rm -rf store-*".format(path))
         run("ln -sfv ../build/libdp5clib.so .")
 
 
@@ -143,6 +144,11 @@ def run_server(config_file, path='dp5'):
         shell_env(PYTHONPATH="../build:"):
         run("python ../code/dp5twistedserver.py " + config_file)
 
+@task
+def ulimit():
+  run("ulimit -c")
+  run("ulimit -c unlimited")
+  run("ulimit -c")
 
     
 @task
@@ -156,12 +162,18 @@ def create_fake_epoch(users, path='dp5'):
   with cd(path+"/test"):
     run("python ../code/fakeprevepoch.py client.cfg " + users)
     get("fake", "%(path)s")
+    run("rm fake/*")
 
 @roles('regserver')
 @task
 def deploy_fake_epoch(path='dp5'):
+  run("mkdir -p {}/test/store-reg/data/".format(path))
   put("fake/*", path+"/test/store-reg/data/")
   
-
-  
-
+import time
+@roles('servers', 'client')
+@task
+def fetch_logs(path='dp5'):
+  with cd(path+"/test"):
+    get("logs", "logs/%(host)s/%(basename)s-"+str(time.time()))
+    run("rm -f logs/*")
