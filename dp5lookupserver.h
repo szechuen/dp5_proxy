@@ -5,7 +5,6 @@
 #include "dp5params.h"
 #include "dp5metadata.h"
 #include "percyserver.h"
-#include "threadedserver.h"
 
 namespace dp5 {
 
@@ -18,7 +17,7 @@ public:
 
     // Default constructor
     DP5LookupServer() : _metadatafilename(NULL),
-	    _datafilename(NULL), _pirserverparams(NULL),
+	    _datafilename(NULL), _pirparams(NULL), _pirserverparams(NULL),
 	    _datastore(NULL), _pirserver(NULL), _metadata() {}
 
     // Copy constructor
@@ -57,13 +56,14 @@ private:
     char *_datafilename;
 
     // The PercyServerParams, filled in from the metadata file
+    GF2EParams *_pirparams;
     PercyServerParams *_pirserverparams;
 
     // The DataStore, filled in from the data file
-    ThreadedDataStore *_datastore;
+    FileDataStore *_datastore;
 
     // The PercyServer used to serve requests
-    PercyThreadedServer *_pirserver;
+    PercyServer *_pirserver;
 
     internal::Metadata _metadata;
 

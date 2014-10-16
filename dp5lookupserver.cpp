@@ -42,18 +42,21 @@ void DP5LookupServer::init(const char *metadatafilename,
     }
 
     if (_metadata.num_buckets > 0 && _metadata.bucket_size > 0) {
-        _pirserverparams = new PercyServerParams(
-    	   _metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes),
+	_pirparams = new GF2EParams(
             _metadata.num_buckets,
-        	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0,
+    	    _metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes),
+	    8, false);
+        _pirserverparams = new PercyServerParams(_pirparams, 0,
 		// The first number on the next line is the number of
 		// threads to use.  It should probably be a parameter.
-		32, THREADING_QUERIES);
+		32, DIST_SPLIT_QUERIES);
 
-        _datastore = new ThreadedDataStore(_datafilename, *_pirserverparams);
+        _datastore = new FileDataStore(_datafilename, _pirserverparams);
 
-        _pirserver = new PercyThreadedServer(_datastore);
+        _pirserver = PercyServer::make_server(_datastore, _pirserverparams);
     } else {
+	_pirparams = NULL;
+	_pirserverparams = NULL;
         _pirserver = NULL;
         _datastore = NULL;
     }
@@ -78,15 +81,19 @@ DP5LookupServer& DP5LookupServer::operator=(DP5LookupServer other)
     other._datafilename = _datafilename;
     _datafilename = tmp;
 
+    GF2EParams *tmpp = other._pirparams;
+    other._pirparams = _pirparams;
+    _pirparams = tmpp;
+
     PercyServerParams *tmppsp = other._pirserverparams;
     other._pirserverparams = _pirserverparams;
     _pirserverparams = tmppsp;
 
-    ThreadedDataStore *tmpfds = other._datastore;
+    FileDataStore *tmpfds = other._datastore;
     other._datastore = _datastore;
     _datastore = tmpfds;
 
-    PercyThreadedServer *tmpps = other._pirserver;
+    PercyServer *tmpps = other._pirserver;
     other._pirserver = _pirserver;
     _pirserver = tmpps;
 
@@ -103,6 +110,7 @@ DP5LookupServer::~DP5LookupServer()
         delete _pirserver;
         delete _datastore;
         delete _pirserverparams;
+        delete _pirparams;
     }
 
     free(_datafilename);
@@ -114,14 +122,14 @@ DP5LookupServer::~DP5LookupServer()
 // pir_response.  Return 0 on success, non-0 on failure.
 int DP5LookupServer::pir_process(string &response, const string &request)
 {
-    if (!_pirserver || !_pirserverparams) {
+    if (!_pirserver || !_pirparams || !_pirserverparams) {
 	return -1;
     }
 
     stringstream ins(request);
     stringstream outs;
 
-    bool ret = _pirserver->handle_request(*_pirserverparams, ins, outs);
+    bool ret = _pirserver->handle_request(ins, outs);
 
     if (!ret) {
 	return -1;
@@ -266,9 +274,13 @@ void test_pirglue(int num_blocks_to_fetch)
     unsigned int numbuckets = servers[0].getMetadata().num_buckets;
 
     vector<unsigned int> bucketnums;
+    cerr << "Fetching bucket numbers";
     for (int i=0; i<num_blocks_to_fetch; ++i) {
-	bucketnums.push_back(lrand48()%numbuckets);
+	unsigned int b = lrand48()%numbuckets;
+	cerr << " " << b;
+	bucketnums.push_back(b);
     }
+    cerr << "\n";
 
     vector<string> requests;
 
