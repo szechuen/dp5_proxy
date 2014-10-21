@@ -598,3 +598,17 @@ index 0e77e1c..c9fc3f9 100644
  
      const RecursiveServerParams * serverparams;
      const RecursiveParams * params;
+diff --git a/itclient_impl.h b/itclient_impl.h
+index ff525f1..5e08ee8 100644
+--- a/itclient_impl.h
++++ b/itclient_impl.h
+@@ -357,7 +357,8 @@ dbsize_t PercyClient_GF2E<GF2E_Element>::send_request_impl (
+     delete[] shares;
+     stored_shares.erase(request_identifier);
+ 
+-    return num_servers * num_queries * num_virtual_blocks * sizeof(GF2E_Element);
++    return num_servers * ((send_num_queries ? 2 : 0) + num_queries *
++			    num_virtual_blocks * sizeof(GF2E_Element));
+ }
+ 
+ // Receive the server's replies, and return a number of servers that
