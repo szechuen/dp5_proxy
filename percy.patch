@@ -18,3 +18,583 @@ diff -urN percy++-1.0.0/CMakeLists.txt percy++-1.0.0-dp5/CMakeLists.txt
 +	percyio.cc gf2e.cc agparams.cc agserver.cc percystats.cc
 +	streams.cc recursiveparams.cc recursiveserver.cc
 +	hybridparams.cc)
+diff --git a/agserver.cc b/agserver.cc
+index ed2b048..2b6cc99 100644
+--- a/agserver.cc
++++ b/agserver.cc
+@@ -52,8 +52,9 @@ PercyAGServer::~PercyAGServer () {}
+ 
+ // Handle a request.  Returns true if successfully completed, and false
+ // otherwise.
+-bool PercyAGServer::handle_request_impl (std::vector<unsigned char*> requests,
+-	std::vector<unsigned char*> responses)
++bool PercyAGServer::handle_request_impl (
++	const std::vector<unsigned char*> &requests,
++	const std::vector<unsigned char*> &responses)
+ {
+     nqueries_t num_queries = requests.size();
+     if (responses.size() != num_queries) {
+@@ -317,7 +318,7 @@ bool PercyAGServer::handle_request_20 (unsigned char * request,
+ }
+ 
+ void PercyAGServer::combine_results (unsigned char * result, 
+-	std::vector<unsigned char*> worker_results)
++	const std::vector<unsigned char*> &worker_results)
+ {
+     dbsize_t response_size = params->response_size();
+     dbsize_t word_size = params->word_size();
+@@ -331,7 +332,7 @@ void PercyAGServer::combine_results (unsigned char * result,
+     // Add results
+     switch (word_size) {
+     case 16: {
+-	std::vector<unsigned char*>::iterator writ;
++	std::vector<unsigned char*>::const_iterator writ;
+ 	mask <<= 48;
+ 	mask -= 1;
+ 	for (writ = worker_results.begin(); writ != worker_results.end(); ++writ) {
+@@ -342,7 +343,7 @@ void PercyAGServer::combine_results (unsigned char * result,
+ 	}
+     } break;
+     case 20: {
+-	std::vector<unsigned char*>::iterator writ;
++	std::vector<unsigned char*>::const_iterator writ;
+ 	mask <<= 60;
+ 	mask -= 1;
+ 	for (writ = worker_results.begin(); writ != worker_results.end(); ++writ) {
+diff --git a/agserver.h b/agserver.h
+index cf98f3e..4dee428 100644
+--- a/agserver.h
++++ b/agserver.h
+@@ -45,11 +45,12 @@ public:
+     virtual ~PercyAGServer ();
+ 
+ private:
+-    virtual bool handle_request_impl (std::vector<unsigned char*> requests, 
+-	    std::vector<unsigned char*> responses);
++    virtual bool handle_request_impl (
++	    const std::vector<unsigned char*> &requests,
++	    const std::vector<unsigned char*> &responses);
+ 
+-    virtual void combine_results (unsigned char * result, 
+-	    std::vector<unsigned char*> worker_results);
++    virtual void combine_results (unsigned char * result,
++	    const std::vector<unsigned char*> &worker_results);
+ 
+     const AGParams * params;
+     const AG_Element p;
+diff --git a/docs/main.dox b/docs/main.dox
+index bdd095b..d7559e5 100644
+--- a/docs/main.dox
++++ b/docs/main.dox
+@@ -63,7 +63,7 @@ interested in.</p>
+ <p>These protocols provide <b>t-private v-Byzantine-robust &tau;-independent
+ k-out-of-l private information retrieval</b>.  This means:</p>
+ 
+-<dd>
++<dl>
+ <dt><b>k-out-of-l:</b></dt>
+ <dd>there are l distributed database servers, and we only need
+             to receive replies from k of them (the rest might be down,
+diff --git a/itserver.cc b/itserver.cc
+index 291c1c6..894d028 100644
+--- a/itserver.cc
++++ b/itserver.cc
+@@ -45,8 +45,9 @@ PercyServer_ZZ_p::~PercyServer_ZZ_p ()
+ {}
+ 
+ // TODO: Fix SPIR to match new function call.
+-bool PercyServer_ZZ_p::handle_request_impl (std::vector<unsigned char*> requests,
+-	std::vector<unsigned char*> responses)
++bool PercyServer_ZZ_p::handle_request_impl (
++	const std::vector<unsigned char*> &requests,
++	const std::vector<unsigned char*> &responses)
+ {
+     nqueries_t num_queries = requests.size();
+     if (responses.size() != num_queries) {
+@@ -689,7 +690,7 @@ void PercyServer_ZZ_p::compute_one(const unsigned char * data, ZZ_p * value,
+ }
+ 
+ void PercyServer_ZZ_p::combine_results (unsigned char * result, 
+-	std::vector<unsigned char*> worker_results)
++	const std::vector<unsigned char*> &worker_results)
+ {
+     nservers_t num_workers = worker_results.size();
+     dbsize_t word_bytes = params->modulus_bytes();
+@@ -721,8 +722,9 @@ PercyServer_Chor::PercyServer_Chor (DataStore * datastore,
+ PercyServer_Chor::~PercyServer_Chor ()
+ {}
+ 
+-bool PercyServer_Chor::handle_request_impl (std::vector<unsigned char*> requests,
+-	std::vector<unsigned char*> responses)
++bool PercyServer_Chor::handle_request_impl (
++	const std::vector<unsigned char*> &requests,
++	const std::vector<unsigned char*> &responses)
+ {
+     nqueries_t num_queries = requests.size();
+     if (responses.size() != num_queries) {
+@@ -803,7 +805,7 @@ bool PercyServer_Chor::handle_request_impl (std::vector<unsigned char*> requests
+ }
+ 
+ void PercyServer_Chor::combine_results (unsigned char * result, 
+-	std::vector<unsigned char*> worker_results)
++	const std::vector<unsigned char*> &worker_results)
+ {
+     dbsize_t block_size = params->block_size() * params->virtual_block_size();
+     for (nservers_t i = 0; i < worker_results.size(); ++i) {
+diff --git a/itserver.h b/itserver.h
+index 64490c9..3960147 100644
+--- a/itserver.h
++++ b/itserver.h
+@@ -54,11 +54,12 @@ public:
+     virtual ~PercyServer_ZZ_p ();
+ 
+ private:
+-    virtual bool handle_request_impl (std::vector<unsigned char*> requests, 
+-	    std::vector<unsigned char*> responses);
++    virtual bool handle_request_impl (
++	    const std::vector<unsigned char*> &requests,
++	    const std::vector<unsigned char*> &responses);
+ 
+-    virtual void combine_results (unsigned char * result, 
+-	    std::vector<unsigned char*> worker_results);
++    virtual void combine_results (unsigned char * result,
++	    const std::vector<unsigned char*> &worker_results);
+ 
+     const ZZ_pParams * params;
+ 
+@@ -115,11 +116,12 @@ public:
+     virtual ~PercyServer_Chor ();
+ 
+ private:
+-    virtual bool handle_request_impl (std::vector<unsigned char*> requests, 
+-	    std::vector<unsigned char*> responses);
++    virtual bool handle_request_impl (
++	    const std::vector<unsigned char*> &requests,
++	    const std::vector<unsigned char*> &responses);
+ 
+-    virtual void combine_results (unsigned char * result, 
+-	    std::vector<unsigned char*> worker_results);
++    virtual void combine_results (unsigned char * result,
++	    const std::vector<unsigned char*> &worker_results);
+ 
+     const ChorParams * params;
+ };
+@@ -172,11 +174,12 @@ private:
+ 
+     nqueries_t strassen_real_max_depth;
+ 
+-    virtual bool handle_request_impl (std::vector<unsigned char*> requests, 
+-	    std::vector<unsigned char*> responses);
++    virtual bool handle_request_impl (
++	    const std::vector<unsigned char*> &requests,
++	    const std::vector<unsigned char*> &responses);
+ 
+-    virtual void combine_results (unsigned char * result, 
+-	    std::vector<unsigned char*> worker_results);
++    virtual void combine_results (unsigned char * result,
++	    const std::vector<unsigned char*> &worker_results);
+ 
+     const GF2EParams * params;
+ };
+diff --git a/itserver_impl.h b/itserver_impl.h
+index f1a798d..5ce3a45 100644
+--- a/itserver_impl.h
++++ b/itserver_impl.h
+@@ -675,8 +675,8 @@ nqueries_t PercyServer_GF2E<GF2E_Element>::optimal_strassen_num_queries(nqueries
+ 
+ template <typename GF2E_Element>
+ bool PercyServer_GF2E<GF2E_Element>::handle_request_impl (
+-	std::vector<unsigned char*> requests, 
+-	std::vector<unsigned char*> responses)
++	const std::vector<unsigned char*> &requests,
++	const std::vector<unsigned char*> &responses)
+ {
+     nqueries_t num_queries = requests.size();
+     if (responses.size() != num_queries) {
+@@ -783,7 +783,7 @@ bool PercyServer_GF2E<GF2E_Element>::handle_request_impl (
+ 
+ template <typename GF2E_Element>
+ void PercyServer_GF2E<GF2E_Element>::combine_results (unsigned char * result, 
+-	std::vector<unsigned char*> worker_results)
++	const std::vector<unsigned char*> &worker_results)
+ {
+     dbsize_t block_size = params->block_size() * params->virtual_block_size();
+     for (nservers_t i = 0; i < worker_results.size(); ++i) {
+diff --git a/percyserver.cc b/percyserver.cc
+index 1e9e04a..468a4ab 100644
+--- a/percyserver.cc
++++ b/percyserver.cc
+@@ -47,7 +47,8 @@ PercyServer::PercyServer (DataStore * datastore,
+     datastore(datastore),
+     serverparams(serverparams),
+     stats(stats),
+-    strassen_max_depth(PercyServer::STRASSEN_OPTIMAL)
++    strassen_max_depth(PercyServer::STRASSEN_OPTIMAL),
++    strassen_level_reached(0)
+ {
+     if (serverparams->is_threaded() && !(serverparams->is_recursive())) {
+ 	nservers_t num_threads = serverparams->num_threads();
+@@ -111,6 +112,12 @@ void PercyServer::be_byzantine ()
+ void PercyServer::set_strassen_max_depth (nqueries_t depth)
+ {
+     strassen_max_depth = depth;
++    if (serverparams->is_threaded() && !(serverparams->is_recursive())) {
++	nservers_t num_subservers = subservers.size();
++	for (nservers_t i = 0; i < num_subservers; ++i) {
++	    subservers[i]->set_strassen_max_depth(depth);
++	}
++    }
+ }
+ 
+ nqueries_t PercyServer::get_strassen_max_depth ()
+@@ -118,60 +125,89 @@ nqueries_t PercyServer::get_strassen_max_depth ()
+     return strassen_max_depth;
+ }
+ 
+-// Handle a request.
++// Handle a request from a single client
+ bool PercyServer::handle_request(istream &is, ostream &os, 
+-	std::vector<std::iostream*> workers)
++	const std::vector<std::iostream*> &workers)
++{
++    std::vector<std::istream *> isv(1, &is);
++    std::vector<std::ostream *> osv(1, &os);
++
++    return handle_request(isv, osv, workers);
++}
++
++// Handle a request from a number of clients simultaneously
++bool PercyServer::handle_request (const std::vector<std::istream *> &isv,
++				  const std::vector<std::ostream *> &osv,
++				  const std::vector<std::iostream*> &workers)
+ {
+-    // Read number of queries
+-    nqueries_t num_queries;
+-    percy_read_le_uint16(is, num_queries);
+-    if (is.eof() || num_queries == 0) {
++    size_t num_clients = isv.size();
++    if (num_clients != osv.size()) {
+ 	return false;
+     }
+ 
++    // Read number of queries from each client
++    vector<nqueries_t> num_queries_vec;
++    nqueries_t tot_num_queries = 0;
++    for (size_t c=0; c<num_clients; ++c) {
++	nqueries_t client_num_queries;
++	percy_read_le_uint16(*(isv[c]), client_num_queries);
++	if (isv[c]->eof()) {
++	    client_num_queries = 0;
++	}
++	num_queries_vec.push_back(client_num_queries);
++	tot_num_queries += client_num_queries;
++    }
++
+     // Not distributed
+     nqueries_t batch_number = 0;
+     if (stats) {
+-	batch_number = stats->start_query_batch(num_queries);
++	batch_number = stats->start_query_batch(tot_num_queries);
+ 	stats->client_to_server_start(batch_number);
+     }
+ 
+-    // Read request
++    // Read requests
+     const PercyParams * params = serverparams->percy_params();
+     dbsize_t query_request_size = params->request_size();
+-    dbsize_t request_size = num_queries * query_request_size;
+-    unsigned char * request = new unsigned char[request_size];
+-    // read in chunks to compensate for bug in socket++
+-    dbsize_t read_chunks = request_size / READ_SIZE;
+-    dbsize_t read_leftover = request_size % READ_SIZE;
+-    for (dbsize_t i = 0; i < read_chunks; ++i) {
+-	is.read((char*)request + i * READ_SIZE, READ_SIZE);
+-    }
+-    if (read_leftover > 0) {
+-	is.read((char*)request + read_chunks * READ_SIZE, read_leftover);
+-    }
+-    if (is.eof()) {
+-	std::cerr << "Request not large enough.\n";
+-	if (stats) {
+-	    stats->decode_done(batch_number, num_queries);
+-	    stats->finish_query_batch(batch_number);
++    dbsize_t tot_request_size = tot_num_queries * query_request_size;
++    unsigned char * request = new unsigned char[tot_request_size];
++    char * request_readptr = (char *) request;
++    for (size_t c=0; c<num_clients; ++c) {
++	// read in chunks to compensate for bug in socket++
++	dbsize_t client_request_size = num_queries_vec[c] *
++					query_request_size;
++	dbsize_t read_chunks = client_request_size / READ_SIZE;
++	dbsize_t read_leftover = client_request_size % READ_SIZE;
++	for (dbsize_t i = 0; i < read_chunks; ++i) {
++	    isv[c]->read(request_readptr, READ_SIZE);
++	    request_readptr += READ_SIZE;
++	}
++	if (read_leftover > 0) {
++	    isv[c]->read(request_readptr, read_leftover);
++	    request_readptr += read_leftover;
++	}
++	if (isv[c]->eof()) {
++	    std::cerr << "Request not large enough.\n";
++	    if (stats) {
++		stats->decode_done(batch_number, tot_num_queries);
++		stats->finish_query_batch(batch_number);
++	    }
++	    delete[] request;
++	    return false;
+ 	}
+-	delete[] request;
+-	return false;
+     }
+ 
+     if (stats) {
+-	stats->client_to_server_done(batch_number, request_size);
++	stats->client_to_server_done(batch_number, tot_request_size);
+     }
+ 
+     // Run the correct implementation functions
+     dbsize_t query_response_size = params->response_size();
+-    dbsize_t response_size = num_queries * query_response_size;
+-    unsigned char * response = new unsigned char[response_size];
+-    memset(response, 0, response_size);
++    dbsize_t tot_response_size = tot_num_queries * query_response_size;
++    unsigned char * response = new unsigned char[tot_response_size];
++    memset(response, 0, tot_response_size);
+ 
+     std::vector<unsigned char*> requests, responses;
+-    for (nqueries_t q = 0; q < num_queries; ++q) {
++    for (nqueries_t q = 0; q < tot_num_queries; ++q) {
+ 	requests.push_back(request + q * query_request_size);
+ 	responses.push_back(response + q * query_response_size);
+     }
+@@ -189,13 +225,19 @@ bool PercyServer::handle_request(istream &is, ostream &os,
+ 	stats->server_to_client_start(batch_number);
+     }
+ 
+-    // Send response
+-    os.write((char*)response, response_size);
+-    os.flush();
++    // Send responses
++    char *response_writeptr = (char *)response;
++    for (size_t c=0; c<num_clients; ++c) {
++	dbsize_t client_response_size = num_queries_vec[c] *
++					query_response_size;
++	osv[c]->write(response_writeptr, client_response_size);
++	osv[c]->flush();
++	response_writeptr += client_response_size;
++    }
+ 
+     if (stats) {
+-	stats->server_to_client_done(batch_number, response_size);
+-	stats->decode_done(batch_number, ( ret ? 0 : num_queries ));
++	stats->server_to_client_done(batch_number, tot_response_size);
++	stats->decode_done(batch_number, ( ret ? 0 : tot_num_queries ));
+ 	stats->strassen_level_reached(batch_number,
+ 		strassen_level_reached);
+ 	stats->finish_query_batch(batch_number);
+@@ -260,8 +302,9 @@ static void close_highfds_except(int exceptfd)
+     }
+ }
+ 
+-bool PercyServer::handle_request_threaded (std::vector<unsigned char*> requests,
+-	std::vector<unsigned char*> responses)
++bool PercyServer::handle_request_threaded (
++	const std::vector<unsigned char*> &requests,
++	const std::vector<unsigned char*> &responses)
+ {
+     nqueries_t num_queries = requests.size();
+     if (responses.size() != requests.size()) {
+@@ -553,6 +596,15 @@ bool PercyServer::handle_request_threaded (std::vector<unsigned char*> requests,
+ 		}
+ 	    }
+ 	}
++
++	// Log maximum strassen depth of subservers
++	for (nservers_t i = 0; i < num_threads; ++i) {
++	    nqueries_t subserver_strassen_level_reached = subservers[i]->strassen_level_reached;
++	    if (subserver_strassen_level_reached > strassen_level_reached) {
++		strassen_level_reached = subserver_strassen_level_reached;
++	    }
++	}
++
+     }
+ 
+     if (intermediate) delete[] intermediate;
+@@ -567,8 +619,10 @@ bool PercyServer::handle_request_threaded (std::vector<unsigned char*> requests,
+ }
+ 
+ // Do distributed computation
+-bool PercyServer::handle_request_distributed (std::vector<unsigned char*> requests, 
+-	std::vector<unsigned char*> responses, std::vector<std::iostream*> workers)
++bool PercyServer::handle_request_distributed (
++	const std::vector<unsigned char*> &requests,
++	const std::vector<unsigned char*> &responses,
++	const std::vector<std::iostream*> &workers)
+ {
+     nqueries_t num_queries = requests.size();
+     if (responses.size() != num_queries) {
+diff --git a/percyserver.h b/percyserver.h
+index 1da0ca5..93e7eda 100644
+--- a/percyserver.h
++++ b/percyserver.h
+@@ -60,14 +60,26 @@ public:
+     /// @return	    The strassen max level being used.
+     nqueries_t get_strassen_max_depth();
+ 
+-    /// Handle a request.
++    /// Handle a request from a single client.
+     /// @param is	Input stream from the client.
+     /// @param os	Output stream to the client.
+-    /// @param workers	When the server is a master server, a list of 
++    /// @param workers	When the server is a master server, a list of
+     ///			input/output streams to/from the workers.
+     /// @return		Returns false if there is an error, true otherwise.
+     virtual bool handle_request (std::istream &is, std::ostream &os,
+-	    std::vector<std::iostream*> workers = std::vector<std::iostream*>());
++				 const std::vector<std::iostream*> &workers =
++				    std::vector<std::iostream*>());
++
++    /// Handle a request from a number of clients simultaneously.
++    /// @param isv	Input vector of streams from the clients.
++    /// @param osv	Output vector of streams to the clients.
++    /// @param workers	When the server is a master server, a list of
++    ///			input/output streams to/from the workers.
++    /// @return		Returns false if there is an error, true otherwise.
++    virtual bool handle_request (const std::vector<std::istream *> &isv,
++				 const std::vector<std::ostream *> &osv,
++				 const std::vector<std::iostream*> &workers =
++				    std::vector<std::iostream*>());
+ 
+ protected:
+     friend class RecursiveServer;
+@@ -78,8 +90,9 @@ protected:
+     /// @param requests	    A set of query requests, one for each query.
+     /// @param responses    Buffers that must be filled with the query responses.
+     /// @return		    Returns false is there is an error, true otherwise.
+-    virtual bool handle_request_impl (std::vector<unsigned char*> requests, 
+-	    std::vector<unsigned char*> responses) = 0;
++    virtual bool handle_request_impl (
++	    const std::vector<unsigned char*> &requests,
++	    const std::vector<unsigned char*> &responses) = 0;
+ 
+     /// Implementation of handle_request() used for master servers.  Must be
+     /// implemented in derived classes.
+@@ -88,17 +101,19 @@ protected:
+     /// @param workers	    When the server is a master server, a list of 
+     ///			    input/output streams to/from the workers.
+     /// @return		    Returns false is there is an error, true otherwise.
+-    virtual bool handle_request_distributed (std::vector<unsigned char*> requests,
+-	    std::vector<unsigned char*> responses, 
+-	    std::vector<std::iostream*> workers);
++    virtual bool handle_request_distributed (
++	    const std::vector<unsigned char*> &requests,
++	    const std::vector<unsigned char*> &responses,
++	    const std::vector<std::iostream*> &workers);
+ 
+     /// Implementation of handle_request() to be used when using multithreading.  
+     /// Must be implemented in derived classes.
+     /// @param requests	    A set of query requests, one for each query.
+     /// @param responses    Buffers that must be filled with the query responses.
+     /// @return		    Returns false is there is an error, true otherwise.
+-    virtual bool handle_request_threaded (std::vector<unsigned char*> requests,
+-	    std::vector<unsigned char*> responses);
++    virtual bool handle_request_threaded (
++	    const std::vector<unsigned char*> &requests,
++	    const std::vector<unsigned char*> &responses);
+ 
+     /// Combines the results of threads/workers when partitioning database
+     /// records (DIST_SPLIT_RECORDS).
+@@ -106,7 +121,7 @@ protected:
+     /// @param worker_results	The results from all threads/workers to be 
+     ///				combined.
+     virtual void combine_results (unsigned char * result, 
+-	    std::vector<unsigned char*> worker_results) = 0;
++	    const std::vector<unsigned char*> &worker_results) = 0;
+ 
+     /// Constructor.  Can only be called by derived classes.
+     /// @param datastore    Database the server will use.
+diff --git a/recursiveserver.cc b/recursiveserver.cc
+index 7bd7d29..5fac779 100644
+--- a/recursiveserver.cc
++++ b/recursiveserver.cc
+@@ -91,8 +91,9 @@ bool RecursiveServer::handle_request (std::istream &is, std::ostream &os,
+     return PercyServer::handle_request(is, os, workers);
+ }
+ 
+-bool RecursiveServer::handle_request_impl (std::vector<unsigned char*> requests, 
+-	std::vector<unsigned char*> responses)
++bool RecursiveServer::handle_request_impl (
++	const std::vector<unsigned char*> &requests,
++	const std::vector<unsigned char*> &responses)
+ {
+     nqueries_t num_queries = requests.size();
+     if (responses.size() != num_queries) {
+@@ -148,8 +149,9 @@ bool RecursiveServer::handle_request_impl (std::vector<unsigned char*> requests,
+     return good;
+ }
+ 
+-bool RecursiveServer::handle_request_threaded (std::vector<unsigned char*> requests, 
+-	std::vector<unsigned char*> responses)
++bool RecursiveServer::handle_request_threaded (
++	const std::vector<unsigned char*> &requests,
++	const std::vector<unsigned char*> &responses)
+ {
+     if (serverparams->thread_split() == DIST_SPLIT_QUERIES) {
+ 	return PercyServer::handle_request_threaded(requests, responses);
+@@ -209,8 +211,10 @@ bool RecursiveServer::handle_request_threaded (std::vector<unsigned char*> reque
+     return good;
+ }
+ 
+-bool RecursiveServer::handle_request_distributed (std::vector<unsigned char*> requests, 
+-	std::vector<unsigned char*> responses, std::vector<std::iostream*> workers)
++bool RecursiveServer::handle_request_distributed (
++	const std::vector<unsigned char*> &requests,
++	const std::vector<unsigned char*> &responses,
++	const std::vector<std::iostream*> &workers)
+ {
+     if (serverparams->worker_split() == DIST_SPLIT_QUERIES) {
+ 	return PercyServer::handle_request_distributed(requests, responses, workers);
+@@ -414,6 +418,6 @@ bool RecursiveServer::handle_request_worker (std::istream& is, std::ostream& os)
+ */
+ 
+ void RecursiveServer::combine_results (unsigned char * result, 
+-	std::vector<unsigned char*> worker_results)
++	const std::vector<unsigned char*> &worker_results)
+ {}
+ 
+diff --git a/recursiveserver.h b/recursiveserver.h
+index 0e77e1c..c9fc3f9 100644
+--- a/recursiveserver.h
++++ b/recursiveserver.h
+@@ -45,18 +45,21 @@ public:
+ 	    std::vector<std::iostream*> workers = std::vector<std::iostream*>());
+ 
+ private:
+-    virtual bool handle_request_impl (std::vector<unsigned char*> requests, 
+-	    std::vector<unsigned char*> responses);
++    virtual bool handle_request_impl (
++	    const std::vector<unsigned char*> &requests,
++	    const std::vector<unsigned char*> &responses);
+ 
+-    virtual bool handle_request_distributed (std::vector<unsigned char*> requests, 
+-	    std::vector<unsigned char*> responses, 
+-	    std::vector<std::iostream*> workers);
++    virtual bool handle_request_distributed (
++	    const std::vector<unsigned char*> &requests,
++	    const std::vector<unsigned char*> &responses,
++	    const std::vector<std::iostream*> &workers);
+ 
+-    virtual bool handle_request_threaded (std::vector<unsigned char*> requests, 
+-	    std::vector<unsigned char*> responses);
++    virtual bool handle_request_threaded (
++	    const std::vector<unsigned char*> &requests,
++	    const std::vector<unsigned char*> &responses);
+ 
+-    virtual void combine_results (unsigned char * result, 
+-	    std::vector<unsigned char*> worker_results);
++    virtual void combine_results (unsigned char * result,
++	    const std::vector<unsigned char*> &worker_results);
+ 
+     const RecursiveServerParams * serverparams;
+     const RecursiveParams * params;
