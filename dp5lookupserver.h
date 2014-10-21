@@ -96,6 +96,9 @@ private:
     friend void test_pirgluemt();
     friend void *test_pirgluemt_single(void *);
 #endif
+#ifdef TEST_PIRMULTIC
+    friend void test_pirmultic(int num_clients, int num_blocks_to_fetch);
+#endif
 };
 
 }
