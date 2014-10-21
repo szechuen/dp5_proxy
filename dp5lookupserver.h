@@ -10,15 +10,22 @@ namespace dp5 {
 
 class DP5LookupServer {
 public:
+    static const nservers_t DEFAULT_NUM_THREADS = 16;
+    static const DistSplit DEFAULT_SPLIT_TYPE = DIST_SPLIT_RECORDS;
+
     // The constructor consumes the current epoch number, and the
     // filenames of the current metadata and data files.
     DP5LookupServer(const char *metadatafilename,
-	const char *datafilename);
+	const char *datafilename,
+	nservers_t numthreads = DEFAULT_NUM_THREADS,
+	DistSplit splittype = DEFAULT_SPLIT_TYPE);
 
     // Default constructor
     DP5LookupServer() : _metadatafilename(NULL),
 	    _datafilename(NULL), _pirparams(NULL), _pirserverparams(NULL),
-	    _datastore(NULL), _pirserver(NULL), _metadata() {}
+	    _datastore(NULL), _pirserver(NULL), _metadata(),
+	    _numthreads(DEFAULT_NUM_THREADS),
+	    _splittype(DEFAULT_SPLIT_TYPE) {}
 
     // Copy constructor
     DP5LookupServer(const DP5LookupServer &other);
@@ -31,7 +38,9 @@ public:
 
     // Initialize the private members from the epoch and the filenames
     void init(const char *metadatafilename,
-	const char *datafilename);
+	const char *datafilename,
+	nservers_t numthreads = DEFAULT_NUM_THREADS,
+	DistSplit splittype = DEFAULT_SPLIT_TYPE);
 
     // Process a received request from a lookup client.  This may be
     // either a metadata or a data request.  Set reply to the reply to
@@ -72,6 +81,13 @@ private:
     PercyServer *_pirserver;
 
     internal::Metadata _metadata;
+
+    // The number of threads to use
+    nservers_t _numthreads;
+
+    // Split by query (DIST_SPLIT_QUERIES) or by record
+    // (DIST_SPLIT_RECORDS)?
+    DistSplit _splittype;
 
 #ifdef TEST_PIRGLUE
     friend void test_pirglue(int num_blocks_to_fetch);

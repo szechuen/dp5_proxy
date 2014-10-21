@@ -21,17 +21,22 @@ using namespace dp5::internal;
 
 // The constructor consumes the current epoch number, and the
 // filenames of the current metadata and data files.
-DP5LookupServer::DP5LookupServer(const char *metadatafilename, const char *datafilename)
+DP5LookupServer::DP5LookupServer(const char *metadatafilename,
+	const char *datafilename, nservers_t numthreads,
+	DistSplit splittype)
 {
-    init(metadatafilename, datafilename);
+    init(metadatafilename, datafilename, numthreads, splittype);
 }
 
 // Initialize the private members from the epoch and the filenames
 void DP5LookupServer::init(const char *metadatafilename,
-    const char *datafilename)
+    const char *datafilename, nservers_t numthreads,
+    DistSplit splittype)
 {
     _metadatafilename = strdup(metadatafilename);
     _datafilename = strdup(datafilename);
+    _numthreads = numthreads;
+    _splittype = splittype;
 
     ifstream metadatafile(metadatafilename);
     if (!metadatafile) {
@@ -47,9 +52,7 @@ void DP5LookupServer::init(const char *metadatafilename,
     	    _metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes),
 	    8, false);
         _pirserverparams = new PercyServerParams(_pirparams, 0,
-		// The first number on the next line is the number of
-		// threads to use.  It should probably be a parameter.
-		32, DIST_SPLIT_QUERIES);
+		numthreads, splittype);
 
         _datastore = new FileDataStore(_datafilename, _pirserverparams);
 
@@ -65,7 +68,8 @@ void DP5LookupServer::init(const char *metadatafilename,
 // Copy constructor
 DP5LookupServer::DP5LookupServer(const DP5LookupServer &other)
 {
-    init(other._metadatafilename, other._datafilename);
+    init(other._metadatafilename, other._datafilename,
+	    other._numthreads, other._splittype);
 }
 
 // Assignment operator
@@ -97,8 +101,10 @@ DP5LookupServer& DP5LookupServer::operator=(DP5LookupServer other)
     other._pirserver = _pirserver;
     _pirserver = tmpps;
 
-    // copy metadata
+    // copy other fields
     _metadata = other._metadata;
+    _numthreads = other._numthreads;
+    _splittype = other._splittype;
 
     return *this;
 }
