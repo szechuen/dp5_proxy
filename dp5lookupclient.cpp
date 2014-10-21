@@ -73,6 +73,20 @@ int PIRRequest::pir_response(vector<string> &buckets,
 	return err;
     }
 
+    // If all the responses are of 0 length, successfully return 0
+    // buckets
+    bool allzero = true;
+    for (unsigned int i=0; i<_num_servers;++i) {
+	if (responses[i].length() > 0) {
+	    allzero = false;
+	    break;
+	}
+    }
+    if (allzero) {
+	buckets.resize(0);
+	return 0;
+    }
+
     // Receive the replies
     vector<istream *> isvec;
     for (unsigned int i=0; i<_num_servers;++i) {
