@@ -43,11 +43,17 @@ public:
     const DP5Config & getConfig() { return _metadata; }
 
 private:
-    // The glue API to the PIR layer.  Pass a request string as produced
-    // by pir_query.  reponse is filled in with the reponse; pass it to
-    // pir_response.  Return 0 on success, non-0 on failure.
+    // The glue API to the PIR layer (single-client version).  Pass a
+    // request string as produced by pir_query.  reponse is filled in
+    // with the reponse; pass it to pir_response.  Return 0 on success,
+    // non-0 on failure.
     int pir_process(std::string &response, const std::string &request);
 
+    // The glue API to the PIR layer (multi-client version).  Pass a
+    // vector of request strings, each as produced by pir_query.
+    // reponse is filled in with the vector of reponses; pass each to
+    // pir_response.  Return 0 on success, non-0 on failure.
+    int pir_process(vector<string> &responses, const vector<string>&requests);
 
     // The metadata filename
     char *_metadatafilename;

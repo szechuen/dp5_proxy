@@ -117,9 +117,10 @@ DP5LookupServer::~DP5LookupServer()
     free(_metadatafilename);
 }
 
-// The glue API to the PIR layer.  Pass a request string as produced
-// by pir_query.  reponse is filled in with the reponse; pass it to
-// pir_response.  Return 0 on success, non-0 on failure.
+// The glue API to the PIR layer (single-client version).  Pass a
+// request string as produced by pir_query.  reponse is filled in with
+// the reponse; pass it to pir_response.  Return 0 on success, non-0 on
+// failure.
 int DP5LookupServer::pir_process(string &response, const string &request)
 {
     if (!_pirserver || !_pirparams || !_pirserverparams) {
@@ -138,6 +139,45 @@ int DP5LookupServer::pir_process(string &response, const string &request)
     response = outs.str();
 
     return 0;
+}
+
+// The glue API to the PIR layer (multi-client version).  Pass a vector
+// of request strings, each as produced by pir_query.  reponse is filled
+// in with the vector of reponses; pass each to pir_response.  Return 0
+// on success, non-0 on failure.
+int DP5LookupServer::pir_process(vector<string> &responses,
+	const vector<string>&requests)
+{
+    if (!_pirserver || !_pirparams || !_pirserverparams) {
+	return -1;
+    }
+
+    size_t num_clients = requests.size();
+    vector<istream *> insv;
+    vector<ostream *> outsv;
+
+    for (size_t c=0; c<num_clients; ++c) {
+	insv.push_back(new stringstream(requests[c]));
+	outsv.push_back(new stringstream);
+    }
+
+    bool ret = _pirserver->handle_request(insv, outsv);
+
+    if (!ret) {
+	goto clean;
+    }
+
+    for (size_t c=0; c<num_clients; ++c) {
+	stringstream *ss = (stringstream *)(outsv[c]);
+	responses.push_back(ss->str());
+    }
+
+clean:
+    for (size_t c=0; c<num_clients; ++c) {
+	delete insv[c];
+	delete outsv[c];
+    }
+    return ret ? 0 : -1;
 }
 
 // Process a received request from a lookup client.  This may be either
