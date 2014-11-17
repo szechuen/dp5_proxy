@@ -242,7 +242,7 @@ class RootServer:
         except:
            # We may have failed to download the database?
            self.log.log(("LOOK","FAIL",), myaID)
-           raise
+           raise cherrypy.HTTPError(403)
 
         post_body = cherrypy.request.body.read()
         self.log.log(("LOOK","INSIZE", str(len(post_body))), myaID)
