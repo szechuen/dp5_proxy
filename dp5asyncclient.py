@@ -502,10 +502,12 @@ class AsyncDP5Client:
         
         return meta_msg, metareply_callback, metafail_callback
 
+    # Send registration messages through the (twisted) network code
     def send_registration(self, epoch, combined, msg, cb, fail):
         for h in self.register_handlers:
             h(self, epoch, combined, msg, cb, fail)
 
+   # Send lookup messages through the (twisted) network code
     def send_lookup(self, epoch, combined, seq, msg, cb, fail):
         for h in self.lookup_handlers:
             h(self, epoch, combined, seq, msg, cb, fail)
@@ -543,9 +545,9 @@ class AsyncDP5Client:
             return
 
         ## Then read the stuff from this epoch
-        if self.state.get("last_lookup_epoch",0) < epoch:
+        if self.state.get("last_lookup_epoch", 0) < epoch:
 
-            ## Register a handler to triget the combined lookup
+            ## Register a handler to triger the combined lookup
             def handler(state, event, hid=None):
                 # print event
                 if self.cbhandlerID[epoch] == hid:
