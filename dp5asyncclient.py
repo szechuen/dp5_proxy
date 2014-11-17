@@ -13,6 +13,7 @@ class AsyncDP5Client:
 
         self.state = state
         if state == None:
+
             self.state = {}
 
         self.init_ID(data=self.state.get("ltID", None))
@@ -53,7 +54,7 @@ class AsyncDP5Client:
         assert self.state["data_lengthCB"] > 16
 
         ## TODO: Remove magic number 16 (MAC length)
-        ## TODO: Allow for configurable periods
+        ## TODO: Allow for configurable dynamic periods
 
         self.config = DP5Config(self.state["epoch_length"], self.state["data_length"], False)
         self.configCB = DP5Config(self.state["epoch_lengthCB"], self.state["data_lengthCB"], True)
@@ -277,13 +278,14 @@ class AsyncDP5Client:
                 self.fire_event(("REGCB","SUCCESS"), aID)
             except DP5Exception as e:
                 self.remove_active(label, reqID)
+                self.fire_event(("REGCB","EXCEPTION", e.msg), aID)
                 self.fire_event(("REGCB","FAIL"), aID)
 
         def fail_callback(exp):
             if not self.check_active(label, reqID):
                 return
             ## We do want to see this exception
-            print exp
+            ## print exp
             self.remove_active(label, reqID)
             self.fire_event(("REGCB","NETFAIL"), aID)
 
@@ -368,7 +370,9 @@ class AsyncDP5Client:
                     else:
                         print "Lookup Error", hex(e.msg[1])
                         print "Last Epoch", str(self.state.get("last_lookup_epoch",None)), "***"
-                        print "Current epoch", epoch
+                        print "Current epoch (in lookup)", epoch
+			print "Current epoch (fresh)", self.epoch()
+
                         traceback.print_exc()
                         self.remove_active(label, reqID)
                         self.fire_event(("LOOKID","FAIL"), aID)
@@ -391,7 +395,10 @@ class AsyncDP5Client:
 
             except DP5Exception as e:
                 print "Lookup Error (Meta ID)", e.msg
+                print "Request Epoch", epoch
+                print "Current Epoch", self.epoch()
                 traceback.print_exc()
+
                 self.remove_active(label, reqID)
                 self.fire_event(("METAID","FAIL"), aID)
 
@@ -436,6 +443,8 @@ class AsyncDP5Client:
             if not self.check_active(label, reqID):
                 self.fire_event(("LOOKCB","INACTIVE"), aID)
                 return
+            
+            print "META FAIL Exception:"
             print exp
             self.remove_active(label, reqID)
             self.fire_event(("LOOKCB","NETFAIL"), aID)

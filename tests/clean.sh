@@ -4,3 +4,4 @@ rm regdir/*
 rm regdirCB/*
 rm datadir/*
 rm datadirCB/*
+rm logs/*

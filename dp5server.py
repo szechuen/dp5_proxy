@@ -70,8 +70,10 @@ class RootServer:
     def lookup_server(self, epoch, asaid):
         if not self.is_lookup:
             return None
+
         if epoch in self.lookup_handlers:       # We're assuming element assignment and lookup is atomic so we can do this check without
             return self.lookup_handlers[epoch]  # acquiring the lock
+
         with self.lookup_lock:
             if epoch in self.lookup_handlers:   # Redo the check to avoid race conditions
                 return self.lookup_handlers[epoch]
@@ -103,8 +105,13 @@ class RootServer:
 
                     cherrypy.log("Downloading " + filename)
                     self.log.log(("LOOK","DOWNLOAD", "START"), asaid)
-                    r = requests.get(self.config["regServer"] + "/download/%d%s" % (epoch, filename == metafile and "/meta" or ""), verify=SSLVERIFY)
-                    r.raise_for_status()        # Throw exception if download failed
+
+                    try:
+                       r = requests.get(self.config["regServer"] + "/download/%d%s" % (epoch, filename == metafile and "/meta" or ""), verify=SSLVERIFY)
+                       r.raise_for_status()        # Throw exception if download failed
+                    except:
+                       self.log.log(("LOOK","DOWNLOAD", "FAIL"), asaid)
+                       raise
                     
                     self.log.log(("LOOK","DOWNLOAD", "SIZE", str(len(r.content))), asaid)
                     with file(filename, 'w') as f:
@@ -230,7 +237,12 @@ class RootServer:
         self.aid += 1
         self.log.log(("LOOK","START"), myaID)
 
-        server = self.lookup_server(int(epoch), asaid = myaID)
+        try:
+           server = self.lookup_server(int(epoch), asaid = myaID)
+        except:
+           # We may have failed to download the database?
+           self.log.log(("LOOK","FAIL",), myaID)
+           raise
 
         post_body = cherrypy.request.body.read()
         self.log.log(("LOOK","INSIZE", str(len(post_body))), myaID)

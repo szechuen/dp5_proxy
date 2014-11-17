@@ -160,15 +160,13 @@ def dp5twistedclientFactory(state):
             cli.inflight -= 1
             err(e)
 
-
-
     cli.lookup_handlers += [send_lookup]
 
     def loopupdate():
         cli.update()
 
     cli.l = task.LoopingCall(loopupdate)
-    period = float(cli.state["epoch_lengthCB"] / 4.0)
+    period = float(cli.state["epoch_lengthCB"] / 20.0)
     # cli.l.start(period) # call every second
     delay = 0.1 # random.random() * 10.0
     reactor.callLater(delay, cli.l.start, period)
