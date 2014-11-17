@@ -203,7 +203,8 @@ class AsyncDP5Client:
 
         aID = self.next_actionID()
         reqID = self.set_active(label, aID)
-        self.fire_event(("REGID","START"), aID)
+        self.fire_event(("REGID", "START"), aID)
+        self.fire_event(("REGID", "EPOCH", str(epoch)), aID)
 
         ## First of all generate a fresh BLS Key
         friends = self.state.get("friends", [])
@@ -263,6 +264,7 @@ class AsyncDP5Client:
         aID = self.next_actionID()
         reqID = self.set_active(label, aID)
         self.fire_event(("REGCB","START"), aID)
+        self.fire_event(("REGCB", "EPOCH", str(epoch)), aID)
 
 
         reg = DP5CombinedClientReg(self.configCB, self.bls, epoch)
@@ -322,6 +324,8 @@ class AsyncDP5Client:
         reqID = self.set_active(label, aID)
 
         self.fire_event(("METAID","START"), aID)
+        self.fire_event(("METAID", "EPOCH", str(epoch)), aID)
+
         friends = self.state.get("friends", [])
         pks = [self.ltID.pub()] ## Always include our own
         for f in friends:
@@ -385,6 +389,7 @@ class AsyncDP5Client:
                 self.state["last_meta_epoch"] = epoch
 
                 self.fire_event(("LOOKID","START"), aID)
+                self.fire_event(("LOOKID", "EPOCH", str(epoch)), aID)
 
                 messages = lookup.lookup_request(SERVER_NUM)
                 for seq, mx in enumerate(messages):
@@ -422,6 +427,8 @@ class AsyncDP5Client:
         reqID = self.set_active(label, aID)
 
         self.fire_event(("METACB","START"), aID)
+        self.fire_event(("METACB", "EPOCH", str(epoch)), aID)
+
         friends = self.state.get("friends", [])
         pks = [self.bls.pub()] ## Always include our own
         cbmap = {}
@@ -481,6 +488,8 @@ class AsyncDP5Client:
                 self.state["last_metacb_epoch"] = epoch
 
                 self.fire_event(("LOOKCB","START"), aID)
+                self.fire_event(("LOOKCB", "EPOCH", str(epoch)), aID)
+
                 messages = lookup.lookup_request(SERVER_NUM)
                 # print "message lengths",  messages
 

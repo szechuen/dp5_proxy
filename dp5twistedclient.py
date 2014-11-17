@@ -36,7 +36,7 @@ SSLPOOL = True
 ## ensure that SSL is not the bottle neck.
 if SSLPOOL:
     commonhttppool = HTTPConnectionPool(reactor, persistent=True)
-    commonhttppool.maxPersistentPerHost = 5
+    commonhttppool.maxPersistentPerHost = 50
     commonhttppool.retryAutomatically = False
 else:
     commonhttppool = None
