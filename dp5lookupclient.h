@@ -43,7 +43,7 @@ namespace dp5 {
                 if (other._pirparams) {
                     _pirparams = new GF2EParams(*other._pirparams);
                 }
-                if (other._pirparams) {
+                if (other._pircparams) {
                     _pircparams = new PercyClientParams(*other._pircparams);
                 }
                 if (other._pirclient) {
