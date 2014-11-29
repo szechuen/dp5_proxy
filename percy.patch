@@ -18,6 +18,98 @@ diff -urN percy++-1.0.0/CMakeLists.txt percy++-1.0.0-dp5/CMakeLists.txt
 +	percyio.cc gf2e.cc agparams.cc agserver.cc percystats.cc
 +	streams.cc recursiveparams.cc recursiveserver.cc
 +	hybridparams.cc)
+diff --git a/Makefile b/Makefile
+index 10efaee..5657e77 100644
+--- a/Makefile
++++ b/Makefile
+@@ -72,67 +72,67 @@ libpercyclient.a: $(CLIENT_O)
+ tests: $(TESTS)
+ 
+ pirserver: pirserver.o libpercyserver.a
+-	g++ -o $@ $^ $(LDLIBS)
++	$(CXX) -o $@ $^ $(LDLIBS)
+ 
+ pirserver_master: pirserver.cc libpercyserver.a
+-	g++ $(CXXFLAGS) -DDIST_MASTER -o $@ $^ $(LDLIBS)
++	$(CXX) $(CXXFLAGS) -DDIST_MASTER -o $@ $^ $(LDLIBS)
+ 
+ pirserver_mpi: pirserver.cc mpiserver.o libpercyserver.a
+ 	mpic++ $(CXXFLAGS) -DMPI_DIST_SERVER -o $@ $^ $(LDLIBS)
+ 
+ pirclient: pirclient.o libpercyclient.a
+-	g++ -o $@ $^ $(LDLIBS)
++	$(CXX) -o $@ $^ $(LDLIBS)
+ 
+ agclient: pirclient_ag.o libpercyclient.a
+-	g++ -o $@ $^ $(LDLIBS)
++	$(CXX) -o $@ $^ $(LDLIBS)
+ 
+ agserver: pirserver_ag.o libpercyserver.a
+-	g++ -o $@ $^ $(LDLIBS)
++	$(CXX) -o $@ $^ $(LDLIBS)
+ 
+ hybridclient: pirclient_hybrid.o libpercyclient.a
+-	g++ -o $@ $^ $(LDLIBS)
++	$(CXX) -o $@ $^ $(LDLIBS)
+ 
+ hybridserver: pirserver_hybrid.o libpercyserver.a
+-	g++ -o $@ $^ $(LDLIBS)
++	$(CXX) -o $@ $^ $(LDLIBS)
+ 
+ splitdatabase: splitdatabase.o percyio.o gf2e.o
+-	g++ -o $@ $^ $(LDLIBS)
++	$(CXX) -o $@ $^ $(LDLIBS)
+ 
+ time_findpolys: rsdecoder.cc FXY.o subset.o subset_iter.o portfolio.o
+-	g++ $(CXXFLAGS) -DTIME_FINDPOLYS -o $@ $^ $(LDLIBS) # w128
++	$(CXX) $(CXXFLAGS) -DTIME_FINDPOLYS -o $@ $^ $(LDLIBS) # w128
+ 
+ time_findpolys_gf28: rsdecoder.cc FXY.o subset.o subset_iter.o portfolio.o
+-	g++ -static $(CXXFLAGS) -DTIME_FINDPOLYS -DUSE_GF28 -o $@ $^ $(LDLIBS)
++	$(CXX) -static $(CXXFLAGS) -DTIME_FINDPOLYS -DUSE_GF28 -o $@ $^ $(LDLIBS)
+ 
+ time_findpolys_gf24: rsdecoder.cc FXY.o subset.o subset_iter.o portfolio.o
+-	g++ -static $(CXXFLAGS) -DTIME_FINDPOLYS -DUSE_GF24 -o $@ $^ $(LDLIBS)
++	$(CXX) -static $(CXXFLAGS) -DTIME_FINDPOLYS -DUSE_GF24 -o $@ $^ $(LDLIBS)
+ 
+ time_findpolys_w8: rsdecoder.cc FXY.o subset.o subset_iter.o portfolio.o
+-	g++ $(CXXFLAGS) -DTIME_FINDPOLYS -DUSE_W8 -o $@ $^ $(LDLIBS)
++	$(CXX) $(CXXFLAGS) -DTIME_FINDPOLYS -DUSE_W8 -o $@ $^ $(LDLIBS)
+ 
+ time_findpolys_w16: rsdecoder.cc FXY.o subset.o subset_iter.o portfolio.o
+-	g++ $(CXXFLAGS) -DTIME_FINDPOLYS -DUSE_W16 -o $@ $^ $(LDLIBS)
++	$(CXX) $(CXXFLAGS) -DTIME_FINDPOLYS -DUSE_W16 -o $@ $^ $(LDLIBS)
+ 
+ time_findpolys_w32: rsdecoder.cc FXY.o subset.o subset_iter.o portfolio.o
+-	g++ $(CXXFLAGS) -DTIME_FINDPOLYS -DUSE_W32 -o $@ $^ $(LDLIBS)
++	$(CXX) $(CXXFLAGS) -DTIME_FINDPOLYS -DUSE_W32 -o $@ $^ $(LDLIBS)
+ 
+ rr_test: rsdecoder.cc FXY.o gf2e.o
+-	g++ $(CXXFLAGS) -DTEST_RR -o $@ $^ $(LDLIBS)
++	$(CXX) $(CXXFLAGS) -DTEST_RR -o $@ $^ $(LDLIBS)
+ 
+ findpolys_test: rsdecoder.cc FXY.o gf2e.o subset_iter.o portfolio.o
+-	g++ $(CXXFLAGS) -DTEST_FINDPOLYS -o $@ $^ $(LDLIBS)
++	$(CXX) $(CXXFLAGS) -DTEST_FINDPOLYS -o $@ $^ $(LDLIBS)
+ 
+ testdistserver: testdistserver.cc cmdtools.o
+-	g++ -o $@ $^
++	$(CXX) -o $@ $^
+ 
+ agtest: agtest.o libpercyclient.a libpercyserver.a
+-	g++ -o $@ $^ $(LDLIBS)
++	$(CXX) -o $@ $^ $(LDLIBS)
+ 
+ hybridtest: hybridtest.o libpercyclient.a libpercyserver.a
+-	g++ -o $@ $^ $(LDLIBS)
++	$(CXX) -o $@ $^ $(LDLIBS)
+ 
+ gf2etest: gf2etest.cc gf2e.o
+-	g++ $(CXXFLAGS) -o $@ $^ $(LDLIBS)
++	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
+ 
+ .PHONY: docs
+ 
 diff --git a/agserver.cc b/agserver.cc
 index ed2b048..2b6cc99 100644
 --- a/agserver.cc
@@ -95,6 +187,46 @@ index bdd095b..d7559e5 100644
  <dt><b>k-out-of-l:</b></dt>
  <dd>there are l distributed database servers, and we only need
              to receive replies from k of them (the rest might be down,
+diff --git a/gf2e_matrix.h b/gf2e_matrix.h
+index d104d5b..597b946 100644
+--- a/gf2e_matrix.h
++++ b/gf2e_matrix.h
+@@ -51,10 +51,6 @@ public:
+     void is_sum_of(const SubMatrix<const GF2E_Element> &m1,
+ 	    const SubMatrix<const GF2E_Element> &m2);
+     void copy_from(const SubMatrix<const GF2E_Element> &src);
+-
+-    template <typename GF2E_Element_>
+-    friend std::ostream &operator<<(std::ostream &os,
+-	    const Matrix<GF2E_Element_> &m);
+ };
+ 
+ template <typename GF2E_Element>
+@@ -88,10 +84,6 @@ public:
+     inline void add_mult_of(
+ 	    const Col<const GF2E_Element> &col_a,
+ 	    const Row<const GF2E_Element> &row_b);
+-
+-    template <typename GF2E_Element_>
+-    friend std::ostream &operator<<(std::ostream &os,
+-	    const SubMatrix<GF2E_Element_> &m);
+ };
+ 
+ template <typename GF2E_Element>
+diff --git a/itclient_impl.h b/itclient_impl.h
+index ff525f1..5e08ee8 100644
+--- a/itclient_impl.h
++++ b/itclient_impl.h
+@@ -357,7 +357,8 @@ dbsize_t PercyClient_GF2E<GF2E_Element>::send_request_impl (
+     delete[] shares;
+     stored_shares.erase(request_identifier);
+ 
+-    return num_servers * num_queries * num_virtual_blocks * sizeof(GF2E_Element);
++    return num_servers * ((send_num_queries ? 2 : 0) + num_queries *
++			    num_virtual_blocks * sizeof(GF2E_Element));
+ }
+ 
+ // Receive the server's replies, and return a number of servers that
 diff --git a/itserver.cc b/itserver.cc
 index 291c1c6..894d028 100644
 --- a/itserver.cc
@@ -435,7 +567,7 @@ index 1e9e04a..468a4ab 100644
      nqueries_t num_queries = requests.size();
      if (responses.size() != num_queries) {
 diff --git a/percyserver.h b/percyserver.h
-index 1da0ca5..93e7eda 100644
+index 1da0ca5..42646af 100644
 --- a/percyserver.h
 +++ b/percyserver.h
 @@ -60,14 +60,26 @@ public:
@@ -514,10 +646,45 @@ index 1da0ca5..93e7eda 100644
  
      /// Constructor.  Can only be called by derived classes.
      /// @param datastore    Database the server will use.
+@@ -138,6 +153,12 @@ protected:
+     template <typename GF2E_Element> class Row;
+     template <typename GF2E_Element> class Elem;
+ 
++    template <typename GF2E_Element_>
++    friend std::ostream &operator<<(std::ostream &os,
++                const Matrix<GF2E_Element_> &m);
++    template <typename GF2E_Element_>
++    friend std::ostream &operator<<(std::ostream &os,
++                const SubMatrix<GF2E_Element_> &m);
+ };
+ 
+ std::vector<nqueries_t> split_queries (nqueries_t num_queries, 
+diff --git a/recursiveparams.h b/recursiveparams.h
+index 67a85b1..76f8333 100644
+--- a/recursiveparams.h
++++ b/recursiveparams.h
+@@ -49,7 +49,7 @@ public:
+ 
+     // Prints the mode-specfic paramaters.  Meant to be overloaded by
+     // mode-specific classes
+-    virtual void print_mode_specific (std::ostream& os, char sep = ',') const {}
++    virtual void print_mode_specific (std::ostream& os) const {}
+ 
+     // For use in distributed computation.
+     virtual std::vector<const PercyParams*> create_worker_params (
 diff --git a/recursiveserver.cc b/recursiveserver.cc
-index 7bd7d29..5fac779 100644
+index 7bd7d29..b677734 100644
 --- a/recursiveserver.cc
 +++ b/recursiveserver.cc
+@@ -83,7 +83,7 @@ RecursiveServer::~RecursiveServer ()
+ }
+ 
+ bool RecursiveServer::handle_request (std::istream &is, std::ostream &os,
+-	std::vector<std::iostream*> workers)
++	const std::vector<std::iostream*> &workers)
+ {
+     if (serverparams->is_worker()) {
+ 	return handle_request_worker(is, os);
 @@ -91,8 +91,9 @@ bool RecursiveServer::handle_request (std::istream &is, std::ostream &os,
      return PercyServer::handle_request(is, os, workers);
  }
@@ -564,11 +731,16 @@ index 7bd7d29..5fac779 100644
  {}
  
 diff --git a/recursiveserver.h b/recursiveserver.h
-index 0e77e1c..c9fc3f9 100644
+index 0e77e1c..da7da41 100644
 --- a/recursiveserver.h
 +++ b/recursiveserver.h
-@@ -45,18 +45,21 @@ public:
- 	    std::vector<std::iostream*> workers = std::vector<std::iostream*>());
+@@ -42,21 +42,25 @@ public:
+     virtual ~RecursiveServer ();
+ 
+     virtual bool handle_request (std::istream &is, std::ostream &os,
+-	    std::vector<std::iostream*> workers = std::vector<std::iostream*>());
++	    const std::vector<std::iostream*> &workers =
++		std::vector<std::iostream*>());
  
  private:
 -    virtual bool handle_request_impl (std::vector<unsigned char*> requests, 
@@ -598,17 +770,16 @@ index 0e77e1c..c9fc3f9 100644
  
      const RecursiveServerParams * serverparams;
      const RecursiveParams * params;
-diff --git a/itclient_impl.h b/itclient_impl.h
-index ff525f1..5e08ee8 100644
---- a/itclient_impl.h
-+++ b/itclient_impl.h
-@@ -357,7 +357,8 @@ dbsize_t PercyClient_GF2E<GF2E_Element>::send_request_impl (
-     delete[] shares;
-     stored_shares.erase(request_identifier);
- 
--    return num_servers * num_queries * num_virtual_blocks * sizeof(GF2E_Element);
-+    return num_servers * ((send_num_queries ? 2 : 0) + num_queries *
-+			    num_virtual_blocks * sizeof(GF2E_Element));
+diff --git a/streams.cc b/streams.cc
+index 9a95ef0..74ed542 100644
+--- a/streams.cc
++++ b/streams.cc
+@@ -142,7 +142,7 @@ std::streamsize MemoryStreamBuf::showmanyc ()
+     std::streamsize total = 0;
+     BufferList::iterator iter;
+     for (iter = inbuffers.begin(); iter != inbuffers.end(); ++iter) {
+-	total += ( iter->size < 0 ? 0 : iter->size );
++	total += ( iter->size <= 0 ? 0 : iter->size );
+     }
+     return total;
  }
- 
- // Receive the server's replies, and return a number of servers that
