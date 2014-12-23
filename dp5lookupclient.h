@@ -9,7 +9,8 @@
 #include <sstream>
 #include "dp5params.h"
 #include "dp5metadata.h"
-#include "percyparams.h"
+#include "itclient.h"
+#include "itparams.h"
 #include "percyclient.h"
 
 namespace dp5 {
@@ -22,9 +23,11 @@ namespace dp5 {
             typedef PercyClient_GF2E<GF28_Element> PercyClientGF28;
 
         public:
-            PIRRequest(): _pirparams(NULL), _pirclient(NULL) {}
+            PIRRequest(): _pirparams(NULL), _pircparams(NULL),
+	    _pirclient(NULL) {}
 
             ~PIRRequest() {
+               delete _pircparams;
                delete _pirparams;
                delete _pirclient;
             }
@@ -33,11 +36,15 @@ namespace dp5 {
                 _num_servers(other._num_servers),
                 _privacy_level(other._privacy_level),
                 _record_size(other._record_size),
-                _pirparams(NULL), _pirclient(NULL),
+                _pirparams(NULL), _pircparams(NULL), _pirclient(NULL),
+		_request_identifier(other._request_identifier),
                 _metadata_current(other._metadata_current)
             {
                 if (other._pirparams) {
-                    _pirparams = new PercyClientParams(*other._pirparams);
+                    _pirparams = new GF2EParams(*other._pirparams);
+                }
+                if (other._pircparams) {
+                    _pircparams = new PercyClientParams(*other._pircparams);
                 }
                 if (other._pirclient) {
                     _pirclient = new PercyClientGF28(*other._pirclient);
@@ -48,9 +55,13 @@ namespace dp5 {
                 // Swap the fields of the temporary "other" with ours
                 // so things get properly freed
 
-                PercyClientParams *tmpc = other._pirparams;
+                GF2EParams *tmpp = other._pirparams;
                 other._pirparams = _pirparams;
-                _pirparams = tmpc;
+                _pirparams = tmpp;
+
+                PercyClientParams *tmpc = other._pircparams;
+                other._pircparams = _pircparams;
+                _pircparams = tmpc;
 
                 PercyClientGF28 *tmpcl = other._pirclient;
                 other._pirclient = _pirclient;
@@ -61,6 +72,7 @@ namespace dp5 {
                 _privacy_level = other._privacy_level;
                 _metadata_current = other._metadata_current;
                 _record_size = other._record_size;
+                _request_identifier = other._request_identifier;
                 return *this;
             }
 
@@ -71,14 +83,14 @@ namespace dp5 {
                 _privacy_level = privacy_level;
                 _metadata_current = metadata;
                 _record_size = record_size;
-                _pirparams = new PercyClientParams(
-                  _metadata_current.bucket_size *
-                  _record_size,
-                  _metadata_current.num_buckets, 0, to_ZZ(256), MODE_GF28,
-                  NULL, false);
+		_request_identifier = 0;
+                _pirparams = new GF2EParams(
+                  _metadata_current.num_buckets,
+                  _metadata_current.bucket_size * _record_size, 8, 0);
+		_pircparams = new PercyClientParams(_pirparams, _num_servers);
 
                 _pirclient = (PercyClientGF28*)PercyClient::make_client(
-                   *_pirparams, _num_servers, _privacy_level);
+                   _pircparams, _num_servers, _privacy_level);
             }
 
 
@@ -108,10 +120,14 @@ namespace dp5 {
             unsigned int _record_size;
 
             // The PercyClientParams, constructed from the above pieces
-            PercyClientParams *_pirparams;
+            GF2EParams *_pirparams;
+            PercyClientParams *_pircparams;
 
             // The PercyClient in use
             PercyClientGF28 *_pirclient;
+
+	    // The current request number
+	    nqueries_t _request_identifier;
 
             Metadata _metadata_current;
         };

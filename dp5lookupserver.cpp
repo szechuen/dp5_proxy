@@ -21,17 +21,22 @@ using namespace dp5::internal;
 
 // The constructor consumes the current epoch number, and the
 // filenames of the current metadata and data files.
-DP5LookupServer::DP5LookupServer(const char *metadatafilename, const char *datafilename)
+DP5LookupServer::DP5LookupServer(const char *metadatafilename,
+	const char *datafilename, nservers_t numthreads,
+	DistSplit splittype)
 {
-    init(metadatafilename, datafilename);
+    init(metadatafilename, datafilename, numthreads, splittype);
 }
 
 // Initialize the private members from the epoch and the filenames
 void DP5LookupServer::init(const char *metadatafilename,
-    const char *datafilename)
+    const char *datafilename, nservers_t numthreads,
+    DistSplit splittype)
 {
     _metadatafilename = strdup(metadatafilename);
     _datafilename = strdup(datafilename);
+    _numthreads = numthreads;
+    _splittype = splittype;
 
     ifstream metadatafile(metadatafilename);
     if (!metadatafile) {
@@ -42,18 +47,19 @@ void DP5LookupServer::init(const char *metadatafilename,
     }
 
     if (_metadata.num_buckets > 0 && _metadata.bucket_size > 0) {
-        _pirserverparams = new PercyServerParams(
-    	   _metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes),
+	_pirparams = new GF2EParams(
             _metadata.num_buckets,
-        	0, to_ZZ(256), MODE_GF28, false, NULL, false, 0,
-		// The first number on the next line is the number of
-		// threads to use.  It should probably be a parameter.
-		32, THREADING_QUERIES);
+    	    _metadata.bucket_size * (HASHKEY_BYTES + _metadata.dataenc_bytes),
+	    8, false);
+        _pirserverparams = new PercyServerParams(_pirparams, 0,
+		numthreads, splittype);
 
-        _datastore = new ThreadedDataStore(_datafilename, *_pirserverparams);
+        _datastore = new FileDataStore(_datafilename, _pirserverparams);
 
-        _pirserver = new PercyThreadedServer(_datastore);
+        _pirserver = PercyServer::make_server(_datastore, _pirserverparams);
     } else {
+	_pirparams = NULL;
+	_pirserverparams = NULL;
         _pirserver = NULL;
         _datastore = NULL;
     }
@@ -62,7 +68,8 @@ void DP5LookupServer::init(const char *metadatafilename,
 // Copy constructor
 DP5LookupServer::DP5LookupServer(const DP5LookupServer &other)
 {
-    init(other._metadatafilename, other._datafilename);
+    init(other._metadatafilename, other._datafilename,
+	    other._numthreads, other._splittype);
 }
 
 // Assignment operator
@@ -78,20 +85,26 @@ DP5LookupServer& DP5LookupServer::operator=(DP5LookupServer other)
     other._datafilename = _datafilename;
     _datafilename = tmp;
 
+    GF2EParams *tmpp = other._pirparams;
+    other._pirparams = _pirparams;
+    _pirparams = tmpp;
+
     PercyServerParams *tmppsp = other._pirserverparams;
     other._pirserverparams = _pirserverparams;
     _pirserverparams = tmppsp;
 
-    ThreadedDataStore *tmpfds = other._datastore;
+    FileDataStore *tmpfds = other._datastore;
     other._datastore = _datastore;
     _datastore = tmpfds;
 
-    PercyThreadedServer *tmpps = other._pirserver;
+    PercyServer *tmpps = other._pirserver;
     other._pirserver = _pirserver;
     _pirserver = tmpps;
 
-    // copy metadata
+    // copy other fields
     _metadata = other._metadata;
+    _numthreads = other._numthreads;
+    _splittype = other._splittype;
 
     return *this;
 }
@@ -103,25 +116,27 @@ DP5LookupServer::~DP5LookupServer()
         delete _pirserver;
         delete _datastore;
         delete _pirserverparams;
+        delete _pirparams;
     }
 
     free(_datafilename);
     free(_metadatafilename);
 }
 
-// The glue API to the PIR layer.  Pass a request string as produced
-// by pir_query.  reponse is filled in with the reponse; pass it to
-// pir_response.  Return 0 on success, non-0 on failure.
+// The glue API to the PIR layer (single-client version).  Pass a
+// request string as produced by pir_query.  reponse is filled in with
+// the reponse; pass it to pir_response.  Return 0 on success, non-0 on
+// failure.
 int DP5LookupServer::pir_process(string &response, const string &request)
 {
-    if (!_pirserver || !_pirserverparams) {
+    if (!_pirserver || !_pirparams || !_pirserverparams) {
 	return -1;
     }
 
     stringstream ins(request);
     stringstream outs;
 
-    bool ret = _pirserver->handle_request(*_pirserverparams, ins, outs);
+    bool ret = _pirserver->handle_request(ins, outs);
 
     if (!ret) {
 	return -1;
@@ -130,6 +145,45 @@ int DP5LookupServer::pir_process(string &response, const string &request)
     response = outs.str();
 
     return 0;
+}
+
+// The glue API to the PIR layer (multi-client version).  Pass a vector
+// of request strings, each as produced by pir_query.  reponse is filled
+// in with the vector of reponses; pass each to pir_response.  Return 0
+// on success, non-0 on failure.
+int DP5LookupServer::pir_process(vector<string> &responses,
+	const vector<string>&requests)
+{
+    if (!_pirserver || !_pirparams || !_pirserverparams) {
+	return -1;
+    }
+
+    size_t num_clients = requests.size();
+    vector<istream *> insv;
+    vector<ostream *> outsv;
+
+    for (size_t c=0; c<num_clients; ++c) {
+	insv.push_back(new stringstream(requests[c]));
+	outsv.push_back(new stringstream);
+    }
+
+    bool ret = _pirserver->handle_request(insv, outsv);
+
+    if (!ret) {
+	goto clean;
+    }
+
+    for (size_t c=0; c<num_clients; ++c) {
+	stringstream *ss = (stringstream *)(outsv[c]);
+	responses.push_back(ss->str());
+    }
+
+clean:
+    for (size_t c=0; c<num_clients; ++c) {
+	delete insv[c];
+	delete outsv[c];
+    }
+    return ret ? 0 : -1;
 }
 
 // Process a received request from a lookup client.  This may be either
@@ -266,9 +320,13 @@ void test_pirglue(int num_blocks_to_fetch)
     unsigned int numbuckets = servers[0].getMetadata().num_buckets;
 
     vector<unsigned int> bucketnums;
+    cerr << "Fetching bucket numbers";
     for (int i=0; i<num_blocks_to_fetch; ++i) {
-	bucketnums.push_back(lrand48()%numbuckets);
+	unsigned int b = lrand48()%numbuckets;
+	cerr << " " << b;
+	bucketnums.push_back(b);
     }
+    cerr << "\n";
 
     vector<string> requests;
 
@@ -411,3 +469,164 @@ int main()
 }
 
 #endif // TEST_PIRGLUEMT
+
+#ifdef TEST_PIRMULTIC
+
+#include "dp5lookupclient.h"
+
+// Test the PIR multiclient processing
+
+// Run as: ./test_pirmultic
+
+namespace dp5 {
+    using namespace dp5::internal;
+void test_pirmultic(int num_clients, int num_blocks_to_fetch)
+{
+    unsigned int num_servers = 5;
+
+    // Create the right number of lookup servers
+    DP5LookupServer *servers = new DP5LookupServer[num_servers];
+
+    // Initialize them.  NOTE: You must have run test_rsreg prior to
+    // this to create the metadata.out and data.out files.
+    for(unsigned int s=0; s<num_servers; ++s) {
+	servers[s].init("metadata.out", "data.out");
+    }
+
+    vector<PIRRequest> reqs;
+    reqs.resize(num_clients);
+    for (int c=0; c<num_clients; ++c) {
+	reqs[c].init(num_servers, 2, servers[0].getMetadata(),
+	    servers[0].getConfig().dataenc_bytes + HASHKEY_BYTES);
+    }
+
+    unsigned int numbuckets = servers[0].getMetadata().num_buckets;
+
+    vector<vector<unsigned int> > bucketnumvecs;
+    vector<unsigned int> allbuckets;
+    bucketnumvecs.resize(num_clients);
+
+    for (int i=0; i<num_blocks_to_fetch; ++i) {
+	unsigned int b = lrand48()%numbuckets;
+	unsigned int c = lrand48()%num_clients;
+	bucketnumvecs[c].push_back(b);
+    }
+
+    cerr << "Fetching buckets";
+    for (int c=0; c<num_clients; ++c) {
+	cerr << " [";
+	int cb = bucketnumvecs[c].size();
+	for (int i=0; i<cb; ++i) {
+	    cerr << " " << bucketnumvecs[c][i];
+	    allbuckets.push_back(bucketnumvecs[c][i]);
+	}
+	cerr << " ]";
+    }
+    cerr << "\n";
+
+    // The multi-client version
+
+    vector<vector<string> > requestvecs;
+    requestvecs.resize(num_servers);
+
+    for (int c=0; c<num_clients; ++c) {
+	vector<string> requests;
+	int res = reqs[c].pir_query(requests, bucketnumvecs[c]);
+	if (res) {
+	    throw runtime_error("Calling pir_query");
+	}
+	cerr << "Client " << c+1 << " request length " <<
+		requests[0].length() << "\n";
+	for (unsigned int s=0; s<num_servers; ++s) {
+	    requestvecs[s].push_back(requests[s]);
+	}
+    }
+
+    vector<vector<string> > responsevecs;
+    responsevecs.resize(num_clients);
+    for(unsigned int s=0; s<num_servers; ++s) {
+	vector<string> resps;
+	int res = servers[s].pir_process(resps, requestvecs[s]);
+	if (res) {
+	    throw runtime_error("Calling pir_process");
+	}
+	for (int c=0; c<num_clients; ++c) {
+	    if (s==0) {
+		cerr << "Client " << c+1 << " response length " <<
+			resps[c].length() << "\n";
+	    }
+	    responsevecs[c].push_back(resps[c]);
+	}
+    }
+
+    string multians;
+
+    for (int c=0; c<num_clients; ++c) {
+	cerr << "Client " << c+1 << ": ";
+	vector<string> buckets;
+	int res = reqs[c].pir_response(buckets, responsevecs[c]);
+	if (res) {
+	    throw runtime_error("Calling pir_response");
+	}
+
+	size_t num_blocks = buckets.size();
+	cerr << num_blocks << " blocks retrieved\n";
+	for (size_t b=0; b<num_blocks; ++b) {
+	    multians += buckets[b];
+	}
+    }
+
+    // The all-in-one-client version, to check the results
+    vector<string> requests;
+
+    int res = reqs[0].pir_query(requests, allbuckets);
+    if (res) {
+	throw runtime_error("Calling pir_query");
+    }
+
+    vector<string> responses;
+    for(unsigned int s=0; s<num_servers; ++s) {
+	string resp;
+	cerr << "Query " << s+1 << " has length " <<
+		requests[s].length() << "\n";
+	res = servers[s].pir_process(resp, requests[s]);
+	if (res) {
+	    throw runtime_error("Calling pir_process");
+	}
+	cerr << "Reply " << s+1 << " has length " <<
+		resp.length() << "\n";
+	responses.push_back(resp);
+    }
+
+    vector<string> buckets;
+
+    res = reqs[0].pir_response(buckets, responses);
+    if (res) {
+	throw runtime_error("Calling pir_response");
+    }
+
+    string singleans;
+    size_t num_blocks = buckets.size();
+    cerr << num_blocks << " blocks retrieved\n";
+    for (size_t b=0; b<num_blocks; ++b) {
+	singleans += buckets[b];
+    }
+
+    cerr << ((multians == singleans) ? "MATCH" : "NO MATCH") << "\n";
+
+    delete[] servers;
+}
+}
+
+int main(int argc, char **argv)
+{
+    int num_clients = argc > 1 ? atoi(argv[1]) : 3;
+    int num_blocks_to_fetch = argc > 2 ? atoi(argv[2]) : 7;
+
+    ZZ_p::init(to_ZZ(256));
+    dp5::test_pirmultic(num_clients, num_blocks_to_fetch);
+
+    return 0;
+}
+
+#endif // TEST_PIRMULTIC

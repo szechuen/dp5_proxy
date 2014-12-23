@@ -40,14 +40,17 @@ int PIRRequest::pir_query(vector<string> &requeststrs,
 	osvec.push_back(new stringstream());
     }
 
-    int ret = _pirclient->send_request(pir_bucketnums, osvec);
-    if (!ret) {
+    nqueries_t queryblocksize = 1;
+    _request_identifier = _pirclient->encode_request(
+	    pir_bucketnums, queryblocksize);
+    dbsize_t ret = _pirclient->send_request(_request_identifier, osvec);
+    if (ret) {
 	err = 0;
     }
 
     requeststrs.clear();
     for (unsigned int j=0; j<_num_servers; ++j) {
-	if (!ret) {
+	if (!err) {
 	    requeststrs.push_back(((stringstream*)(osvec[j]))->str());
 	}
 	delete osvec[j];
@@ -70,13 +73,28 @@ int PIRRequest::pir_response(vector<string> &buckets,
 	return err;
     }
 
+    // If all the responses are of 0 length, successfully return 0
+    // buckets
+    bool allzero = true;
+    for (unsigned int i=0; i<_num_servers;++i) {
+	if (responses[i].length() > 0) {
+	    allzero = false;
+	    break;
+	}
+    }
+    if (allzero) {
+	buckets.resize(0);
+	return 0;
+    }
+
     // Receive the replies
     vector<istream *> isvec;
     for (unsigned int i=0; i<_num_servers;++i) {
 	isvec.push_back(new stringstream(responses[i]));
     }
 
-    unsigned int num_replies = _pirclient->receive_replies(isvec);
+    unsigned int num_replies = _pirclient->receive_replies(
+				    _request_identifier, isvec);
 
     for (unsigned int i=0; i<_num_servers;++i) {
 	delete isvec[i];
@@ -90,7 +108,8 @@ int PIRRequest::pir_response(vector<string> &buckets,
 
     // Process the replies.
     vector<PercyBlockResults> pirres;
-    _pirclient->process_replies(min_honest, pirres);
+    _pirclient->process_replies(min_honest);
+    _pirclient->get_result(_request_identifier, pirres);
 
     err = 0;
     buckets.clear();

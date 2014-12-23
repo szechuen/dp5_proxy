@@ -51,8 +51,8 @@ set(GTEST_LIBRARIES ${GTEST_LIBS_DIR}/libgtest.a ${GTEST_LIBS_DIR}/libgtest_main
 
 ExternalProject_Add(
     Percy++
-    URL http://downloads.sourceforge.net/percy/percy-0.9.0.tar.gz
-    URL_MD5 3f2a6e7507309f5e20d761586dfd0d5e
+    URL http://downloads.sourceforge.net/percy/percy++-1.0.0.tar.gz
+    URL_MD5 1cb88ba5b0288dfa601fb0f6bc899c2b
     CMAKE_ARGS "-DCMAKE_CXX_FLAGS=-g -O2 -fPIC"
     PATCH_COMMAND patch -t -N < ${CMAKE_CURRENT_SOURCE_DIR}/percy.patch || true
     INSTALL_COMMAND "")
@@ -155,6 +155,7 @@ set_tests_properties (test_client PROPERTIES FAIL_REGULAR_EXPRESSION "False")
 testdef(test_lscd "dp5lookupserver.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES})
 testdef(test_reqcd "dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES})
 testdef(test_pirglue "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES})
+testdef(test_pirmultic "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES})
 testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp;dp5metadata.cpp" ${PERCY_LIBRARIES} ${PTHREAD} )
 
 add_executable(test_integrate dp5integrationtest.cpp)
