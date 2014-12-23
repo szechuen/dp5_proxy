@@ -1,5 +1,4 @@
 import time
-
 import fcntl
 
 LOG_FILE = {}
