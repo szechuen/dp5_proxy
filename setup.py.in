@@ -2,10 +2,10 @@
 from distutils.core import setup, Extension
 import re
 
-liblists = "${PERCY_LIBRARIES};${OPENSSL_LIBRARIES};${RELIC_LIBRARIES}"
+liblists = "${PERCY_LIBRARIES};${OPENSSL_LIBRARIES};${RELIC_LIBRARIES};${RELICWRAPPER_LIBRARY}"
 libs = liblists.split(';')
 
-reallibs = ["dp5", "relicwrapper"]
+reallibs = ["dp5"]
 libdirs = { '${PROJECT_BINARY_DIR}', '${RelicWrapper_BINARY_DIR}' }
 for lib in libs:
     m = re.match(r'(.*)/lib([^.]+)\.[^.+]', lib)

@@ -1,0 +1,674 @@
+diff --git c/.gitignore w/.gitignore
+new file mode 100644
+index 0000000..668174f
+--- /dev/null
++++ w/.gitignore
+@@ -0,0 +1,6 @@
++*.o
++*_unittest
++*.a
++Testing
++Testing2
++*.dSYM
+diff --git c/CMakeLists.txt w/CMakeLists.txt
+new file mode 100644
+index 0000000..3e329a8
+--- /dev/null
++++ w/CMakeLists.txt
+@@ -0,0 +1,13 @@
++cmake_minimum_required (VERSION 2.8)
++
++project (RelicWrapper)
++
++set (RelicWrapper_VERSION_MAJOR 0)
++set (RelicWrapper_VERSION_MINOR 9)
++
++set(RELIC_INCLUDE "../../relic/include" CACHE STRING "Include path for Relic")
++include_directories(${RELIC_INCLUDE})
++
++set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error")
++
++add_library(relicwrapper G.cpp G1.cpp G2.cpp GT.cpp Pairing.cpp Zr.cpp)
+diff --git c/G.cpp w/G.cpp
+index 3ea60a7..53fd1ea 100644
+--- c/G.cpp
++++ w/G.cpp
+@@ -1,4 +1,4 @@
+-#include "G1.h"
++#include "G.h"
+ #include <iostream>
+ #include <sstream>
+ #include <stdlib.h>
+@@ -47,9 +47,9 @@ void FP_bin_write(char* c,int len,fp_t x) {
+   })
+ }
+ 
+-void FP_bin_read(fp_t x,char* c,int len) {
++void FP_bin_read(fp_t x,const unsigned char* c,int len) {
+   WITH_TEMP(bn,temp, {
+-    bn_read_bin(temp,(unsigned char*)c,len);
++    bn_read_bin(temp,(const unsigned char*)c,len);
+     if (bn_is_zero(temp)) { fp_zero(x); }
+     else {
+       if (temp->used == 1) fp_prime_conv_dig(x, temp->dp[0]);
+diff --git c/G.h w/G.h
+index 81a77e4..457a592 100644
+--- c/G.h
++++ w/G.h
+@@ -12,11 +12,12 @@
+ #define WITH_TEMP(tp, nm, cd) PPCAT(tp, _t) nm; PPCAT(tp, _new) (nm); cd; PPCAT(tp, _free) (nm);
+ #define WITH_TEMP_RETURN(tp, nm, cd, rtp, ans) rtp ans; PPCAT(tp, _t) nm; PPCAT(tp, _new) (nm); cd; PPCAT(tp, _free) (nm); return ans;
+ 
++#define __cplusplussave __cplusplus
+ #undef __cplusplus
+ extern "C" {
+ #include <relic/relic.h>
+ }
+-#define __cplusplus 1
++#define __cplusplus __cplusplussave
+ 
+ using namespace std;
+ 
+@@ -24,7 +25,7 @@ class Pairing;
+ 
+ vector<string> streamtok(istream &in);
+ void FP_bin_write(char* c,int len,fp_t x);
+-void FP_bin_read(fp_t x,char* c,int len);
++void FP_bin_read(fp_t x,const unsigned char* c,int len);
+ 
+ class G {
+   public:
+@@ -32,7 +33,7 @@ class G {
+   virtual string toString (unsigned short base=10) const { return ""; };
+   virtual void toBin (char* output) const { };
+   virtual short getElementSize (bool compressed=false) const { return 0; };
+-  virtual void fromString (string input, unsigned short base=10) const { };
++  virtual void fromString (string input, unsigned short base=10) = 0;
+   void dump(FILE *f, const char *label="",
+ 			 unsigned short base=10) const {
+     if (base < 256) {
+diff --git c/G1.cpp w/G1.cpp
+index 40e35d7..df3e214 100644
+--- c/G1.cpp
++++ w/G1.cpp
+@@ -1,4 +1,5 @@
+ #include "G1.h"
++#include <cassert>
+ 
+ extern "C" {
+ #include <relic/relic.h>
+@@ -139,30 +140,53 @@ string G1::toString(unsigned short base) const {
+ }
+ 
+ //Base-256 methods
+-void G1::fromBin(const char* input) {
+-    FP_bin_read(g->x,const_cast<char*>(input),32);
+-    FP_bin_read(g->y,const_cast<char*>(input+32),32);
+-    char buffer[32];
+-    for (int i = 0; i < 32; i++) buffer[i] = (i==31) ? '\x01' : '\x00';
+-    FP_bin_read(g->z,buffer,32);
++int G1::fromBin(const unsigned char* input, unsigned int len, bool compressed) {
++    if (compressed) {
++        return -1;  // not implemented yet
++    }
++    if (len < getElementSize(compressed)) {
++        return -2;
++    }
++    FP_bin_read(g->x, input, FP_BYTES);
++    FP_bin_read(g->y, input+FP_BYTES, FP_BYTES);
++    if (fp_is_zero(g->x) && fp_is_zero(g->y)) {
++      ep_set_infty(g);
++    } else {
++      fp_prime_conv_dig(g->z, 1);
++    }
++
++    if (!ep_is_valid(g)) {
++        ep_set_infty(g);  // reset point to infinity
++        return -3;
++    }
++    return 0;
+ }
++
++void G1::setGenerator(void) {
++    ep_curve_get_gen(g);
++}
++
+ void G1::toBin(char* output) const {
+     FP_bin_write(output,32,const_cast<dig_t*>(g->x));
+     FP_bin_write(output+32,32,const_cast<dig_t*>(g->y));
+ }
+ 
+ //Used to implement cout << G1 and fromString
+-void G1::fromStream(istream &in, int base) {
++int G1::fromStream(istream &in, int base) {
+     if (base < 256) {
+         vector<string> o = streamtok(in);
+         fp_read(g->x,o[0].c_str(),o[0].length(),base);
+         fp_read(g->y,o[1].c_str(),o[1].length(),base);
+         fp_read(g->z,o[2].c_str(),o[2].length(),base);
++        return 0;
+     }
+     else {
+-        char o[64];
+-        for (int i = 0; i < 64; i++) { o[i] = (char)in.get(); }
+-        fromBin(o);
++        char buf[FP_BYTES * 2];
++        in.read(buf, sizeof(buf));
++        if (!in) {
++            return -4;
++        }
++        return fromBin((unsigned char *) buf, sizeof(buf));
+     }
+ }
+ 
+diff --git c/G1.h w/G1.h
+index 87d95a6..f961748 100644
+--- c/G1.h
++++ w/G1.h
+@@ -5,14 +5,15 @@
+ #include "Zr.h"
+ #include "G.h"
+ 
++#define __cplusplussave __cplusplus
+ #undef __cplusplus
+ extern "C" {
+ #include <relic/relic.h>
+ }
+-#define __cplusplus 1
++#define __cplusplus __cplusplussave
+ 
+ 
+-class G1 : public G{
++class G1 : public G {
+ public:
+   G1();
+   ~G1();
+@@ -35,6 +36,8 @@ public:
+ 
+   bool isIdentity() const;
+ 
++  void setGenerator();
++
+   //Init from hash
+   G1(const Pairing &e, const void *data, unsigned short len);
+ 
+@@ -68,7 +71,7 @@ public:
+     fromStream(iss,base);
+   }
+ 
+-  void fromBin(const char* input);
++  int fromBin(const unsigned char *input, unsigned int len, bool compressed = false);
+   void toBin(char* output) const;
+ 
+   friend inline ostream& operator<<(ostream &out, const G1& x) {
+@@ -79,7 +82,7 @@ public:
+     out.fromStream(in,10);
+     return in;
+   }
+-  void fromStream(istream &in, int base);
++  int fromStream(istream &in, int base);
+ 
+   //Helper functions
+   void getElement (g1_t out) const {
+diff --git c/G1_unittest.cpp w/G1_unittest.cpp
+new file mode 100644
+index 0000000..9e1fb8c
+--- /dev/null
++++ w/G1_unittest.cpp
+@@ -0,0 +1,66 @@
++#include <string.h>
++#include "G1.h"
++
++#include "gtest/gtest.h"
++
++class G1FromBin : public ::testing::Test {
++protected:
++	virtual void SetUp() {
++		/* FIXME: this should be done automatically! */
++		core_init();
++		pc_param_set_any();
++	}
++};
++
++TEST_F(G1FromBin, ShortLen) {
++    G1 g1;               
++    unsigned char data[64];
++    
++    EXPECT_NE(g1.fromBin(data, 0), 0);
++    EXPECT_NE(g1.fromBin(data, 1),0);
++    EXPECT_NE(g1.fromBin(data, 63), 0);
++}
++
++TEST_F(G1FromBin, Invalid) {
++	G1 g1;
++	unsigned char data[64];
++	memset(data, 0, 64);
++	data[0] = 1;
++
++	EXPECT_NE(g1.fromBin(data, 64), 0);
++}
++
++TEST_F(G1FromBin, Infinity) {
++	G1 g1;	/* set to infinity */
++	ASSERT_TRUE(g1.isIdentity());
++
++	unsigned char data[64];
++	g1.toBin((char *) data);
++	G1 g2;
++	EXPECT_EQ(g2.fromBin(data, 64), 0);
++	EXPECT_TRUE(g2.isIdentity());
++	EXPECT_EQ(g1, g2);
++}
++
++TEST_F(G1FromBin, Generator) {
++	G1 g1;
++	g1.setGenerator();
++	
++	unsigned char data[64];
++	g1.toBin((char *) data);
++	G1 g2;
++	EXPECT_EQ(g2.fromBin(data, 64), 0);
++	EXPECT_EQ(g1, g2);
++}
++
++TEST_F(G1FromBin, Generatorx30) {
++	G1 g1;
++	g1.setGenerator();
++	g1 ^= Zr(30);
++
++	unsigned char data[64];
++	g1.toBin((char *) data);
++	G1 g2;
++	EXPECT_EQ(g2.fromBin(data, 64), 0);
++	EXPECT_EQ(g1, g2);
++}
+\ No newline at end of file
+diff --git c/G2.cpp w/G2.cpp
+index d850fb9..5b8d600 100644
+--- c/G2.cpp
++++ w/G2.cpp
+@@ -144,16 +144,30 @@ string G2::toString(unsigned short base) const {
+ }
+ 
+ //Base-256 methods
+-void G2::fromBin(const char* input) {
+-    FP_bin_read(g->x[0],const_cast<char*>(input),32);
+-    FP_bin_read(g->x[1],const_cast<char*>(input)+32,32);
+-    FP_bin_read(g->y[0],const_cast<char*>(input)+64,32);
+-    FP_bin_read(g->y[1],const_cast<char*>(input)+96,32);
+-    char buffer[64];
+-    for (int i = 0; i < 64; i++) buffer[i] = (i==31) ? '\x01' : '\x00';
+-    FP_bin_read(g->z[0],buffer,32);
+-    FP_bin_read(g->z[1],buffer+32,32);
++int G2::fromBin(const unsigned char *input, unsigned int len, bool compressed) {
++    if (compressed) {
++      return -1;  // not implemented
++    }
++    if (len < FP_BYTES * 4) {
++      return -2;  // too short
++    }
++    FP_bin_read(g->x[0], input, FP_BYTES);
++    FP_bin_read(g->x[1], input+FP_BYTES, FP_BYTES);
++    FP_bin_read(g->y[0], input+2*FP_BYTES, FP_BYTES);
++    FP_bin_read(g->y[1], input+3*FP_BYTES, FP_BYTES);
++    if (fp2_is_zero(g->x) && fp2_is_zero(g->y)) {
++        ep2_set_infty(g);
++    } else {
++        fp_prime_conv_dig(g->z[0], 1);
++        fp_zero(g->z[1]);
++    }
++    if (!ep2_is_valid(g)) {
++        ep2_set_infty(g); 
++        return -3;  // invalid
++    }
++    return 0;
+ }
++
+ void G2::toBin(char* output) const {
+     FP_bin_write(output,32,const_cast<dig_t*>(g->x[0]));
+     FP_bin_write(output+32,32,const_cast<dig_t*>(g->x[1]));
+@@ -162,7 +176,7 @@ void G2::toBin(char* output) const {
+ }
+ 
+ //Used to implement cout << G2 and fromString
+-void G2::fromStream(istream &in, int base) {
++int G2::fromStream(istream &in, int base) {
+     if (base < 256) {
+         vector<string> o = streamtok(in);
+         fp_read(g->x[0],o[0].c_str(),o[0].length(),base);
+@@ -171,11 +185,15 @@ void G2::fromStream(istream &in, int base) {
+         fp_read(g->y[1],o[3].c_str(),o[3].length(),base);
+         fp_read(g->z[0],o[4].c_str(),o[4].length(),base);
+         fp_read(g->z[1],o[5].c_str(),o[5].length(),base);
++        return 0;
+     }
+     else {
+-        char o[128];
+-        for (int i = 0; i < 128; i++) { o[i] = (char)in.get(); }
+-        fromBin(o);
++        unsigned char o[FP_BYTES*4];
++        in.read((char *) o, sizeof(o));
++        if (!in) {
++            return -4;
++        }
++        return fromBin(o, sizeof(o));
+     }
+ }
+ 
+diff --git c/G2.h w/G2.h
+index 54c8c75..b8b368c 100644
+--- c/G2.h
++++ w/G2.h
+@@ -68,7 +68,7 @@ public:
+     fromStream(iss,base);
+   }
+ 
+-  void fromBin(const char* input);
++  int fromBin(const unsigned char *input, unsigned int len, bool compressed = false);
+   void toBin(char* output) const;
+ 
+   friend inline ostream& operator<<(ostream &out, const G2& x) {
+@@ -81,7 +81,7 @@ public:
+     return in;
+   }
+ 
+-  void fromStream(istream &in, int base);
++  int fromStream(istream &in, int base);
+ 
+   //Helper functions
+   void getElement (g2_t out) const {
+@@ -90,6 +90,10 @@ public:
+   void setElement (g2_t in) {
+     g2_copy(g,in);
+   }
++
++  void setGenerator(void) {
++    ep2_curve_get_gen(g);    
++  }
+   G2 randomize();
+   void init();
+ protected:
+diff --git c/G2_unittest.cpp w/G2_unittest.cpp
+new file mode 100644
+index 0000000..be8344d
+--- /dev/null
++++ w/G2_unittest.cpp
+@@ -0,0 +1,66 @@
++#include <string.h>
++#include "G2.h"
++
++#include "gtest/gtest.h"
++
++class G2FromBin : public ::testing::Test {
++protected:
++	virtual void SetUp() {
++		/* FIXME: this should be done automatically! */
++		core_init();
++		pc_param_set_any();
++	}
++};
++
++TEST_F(G2FromBin, ShortLen) {
++    G2 g1;               
++    unsigned char data[128];
++    
++    EXPECT_NE(g1.fromBin(data, 0), 0);
++    EXPECT_NE(g1.fromBin(data, 1), 0);
++    EXPECT_NE(g1.fromBin(data, 127), 0);
++}
++
++TEST_F(G2FromBin, Invalid) {
++	G2 g1;
++	unsigned char data[128];
++	memset(data, 0, 128);
++	data[0] = 1;
++
++	EXPECT_NE(g1.fromBin(data, 128), 0);
++}
++
++TEST_F(G2FromBin, Infinity) {
++	G2 g1;	/* set to infinity */
++	ASSERT_TRUE(g1.isIdentity());
++
++	unsigned char data[128];
++	g1.toBin((char *) data);
++	G2 g2;
++	EXPECT_EQ(g2.fromBin(data, 128), 0);
++	EXPECT_TRUE(g2.isIdentity());
++	EXPECT_EQ(g1, g2);
++}
++
++TEST_F(G2FromBin, Generator) {
++	G2 g1;
++	g1.setGenerator();
++	
++	unsigned char data[128];
++	g1.toBin((char *) data);
++	G2 g2;
++	EXPECT_EQ(g2.fromBin(data, 128), 0);
++	EXPECT_EQ(g1, g2);
++}
++
++TEST_F(G2FromBin, Generatorx30) {
++	G2 g1;
++	g1.setGenerator();
++	g1 ^= Zr(30);
++
++	unsigned char data[128];
++	g1.toBin((char *) data);
++	G2 g2;
++	EXPECT_EQ(g2.fromBin(data, 128), 0);
++	EXPECT_EQ(g1, g2);
++}
+\ No newline at end of file
+diff --git c/GT.cpp w/GT.cpp
+index 731010e..d5185c8 100644
+--- c/GT.cpp
++++ w/GT.cpp
+@@ -132,7 +132,7 @@ void GT::toBin(char* output) const {
+ }
+ void GT::fromBin(const char* input) {
+     for (int j = 0; j < 12; j++) {
+-        FP_bin_read(g[j/6][(j%6)/2][j%2],const_cast<char*>(input+32*j),32);
++        FP_bin_read(g[j/6][(j%6)/2][j%2],(unsigned char *)(input+32*j),32);
+     }
+ }
+ 
+diff --git c/Makefile w/Makefile
+index b798172..6a35139 100644
+--- c/Makefile
++++ w/Makefile
+@@ -1,10 +1,11 @@
+ SRCS=$(wildcard *.cpp)
+-CXXFLAGS= -g -O2 -Wall -fPIC $(ARCH)
++CXXFLAGS= -g -O0 -Wall -fPIC $(ARCH) -I$(RELICDIR)/include
+ PYTHONINC = `python-config --includes`
+ PYTHONLDFLAGS = `python-config --ldflags`
+ BOOST_INC = /usr/include
+ BOOST_LIB = /usr/lib
+ TARGET = pyrelic
++RELICDIR = ../../relic
+ 
+ all: Testing Testing2 librelicwrapper.a
+ python: librelicwrapper.a $(TARGET).so
+@@ -12,10 +13,10 @@ python: librelicwrapper.a $(TARGET).so
+ COMMON_OBJS=G.o G1.o G2.o GT.o Zr.o Pairing.o
+ 
+ Testing: Testing.cpp librelicwrapper.a
+-	g++  -g -Wall -o $@ Testing.cpp -L. -lrelicwrapper -lrelic $(ARCH)
++	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ Testing.cpp -L. -lrelicwrapper -L$(RELICDIR)/lib -lrelic_s -lgmp $(ARCH)
+ 
+ Testing2: Testing2.cpp librelicwrapper.a
+-	g++  -g -Wall -o $@ Testing2.cpp -L. -lrelicwrapper -lrelic $(ARCH)
++	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ Testing2.cpp -L. -lrelicwrapper -L$(RELICDIR)/lib -lrelic_s -lgmp $(ARCH)
+ 
+ librelicwrapper.a: $(COMMON_OBJS)
+ 	ar rcs $@ $^
+@@ -29,6 +30,39 @@ $(TARGET).so: $(TARGET).o
+ $(TARGET).o: $(TARGET).cpp librelicwrapper.a
+ 	g++ $(PYTHONINC) -I$(BOOST_INC) -c $(TARGET).cpp -fPIC -L. -lrelicwrapper -lrelic $(ARCH)
+ 
++### GTEST
++
++GTEST_DIR = ../../gtest-1.7.0
++GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
++                $(GTEST_DIR)/include/gtest/internal/*.h
++GTEST_SRCS_ = $(GTEST_DIR)/src/*.cc $(GTEST_DIR)/src/*.h $(GTEST_HEADERS)
++
++gtest-all.o : $(GTEST_SRCS_)
++	$(CXX)  -I$(GTEST_DIR) -I$(GTEST_DIR)/include $(CXXFLAGS) -pthread -c \
++            $(GTEST_DIR)/src/gtest-all.cc
++
++gtest_main.o : $(GTEST_SRCS_)
++	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR) -I$(GTEST_DIR)/include $(CXXFLAGS) -pthread -c \
++            $(GTEST_DIR)/src/gtest_main.cc
++
++gtest.a : gtest-all.o
++	$(AR) $(ARFLAGS) $@ $^
++
++gtest_main.a : gtest-all.o gtest_main.o
++	$(AR) $(ARFLAGS) $@ $^
++
++G1_unittest.o: G1_unittest.cpp G1.h G.h Zr.h
++	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR)/include $(CXXFLAGS) -pthread -c G1_unittest.cpp
++
++G1_unittest: G1_unittest.o G1.o G.o Zr.o gtest_main.a
++	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICDIR)/lib -lrelic_s -lgmp -pthread -o $@
++
++G2_unittest.o: G2_unittest.cpp G2.h G.h Zr.h
++	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR)/include $(CXXFLAGS) -pthread -c G2_unittest.cpp
++
++G2_unittest: G2_unittest.o G2.o G.o Zr.o gtest_main.a
++	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDLIBS) -L$(RELICDIR)/lib -lrelic_s -lgmp -pthread -o $@
++
+ 
+ # DO NOT DELETE
+ 
+diff --git c/Pairing.cpp w/Pairing.cpp
+index 2c7724d..39d9891 100644
+--- c/Pairing.cpp
++++ w/Pairing.cpp
+@@ -1,4 +1,5 @@
+ #include <iostream>
++#include <stdexcept>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "Pairing.h"
+@@ -12,10 +13,10 @@ extern "C" {
+ 
+ using namespace std;
+ 
+-int coresInitialized = 0;
++bool pairingInitialized = false;
+ 
+ Pairing::Pairing(const Pairing &g1) {
+-    initPairing();
++    checkPairingInit();
+ }
+ 
+ Pairing& Pairing::operator=(const Pairing &rhs) {
+@@ -44,17 +45,16 @@ const GT Pairing::apply ( G1 p,  G2 q) const {
+     return (*this)(p,q);
+ }
+ 
++void Pairing::checkPairingInit() {
++    if (!pairingInitialized) {
++        throw runtime_error("Pairing must be initialized");
++    }
++}
+ void initPairing() {
+-    if (coresInitialized == 0) {
++    if (!pairingInitialized) {
+         cerr << "Initializing core\n";
+         core_init();
+         pc_param_set_any();
+-    }
+-    coresInitialized++;
+-}
+-void delPairing() {
+-    coresInitialized--;
+-    if (coresInitialized == 0) {
+-        core_clean();
++        pairingInitialized = true;
+     }
+ }
+diff --git c/Pairing.h w/Pairing.h
+index 7c45a28..2d84915 100644
+--- c/Pairing.h
++++ w/Pairing.h
+@@ -15,24 +15,28 @@ extern "C" {
+ }
+ #define __cplusplus 1
+ 
++// This will create conflicts with Percy
++#ifdef EASY
++#undef EASY
++#endif
++
+ using namespace std;
+ 
+ void initPairing();
+-void delPairing();
+ 
+ typedef enum {Type_G1, Type_G2, Type_GT, Type_Zr} PairingElementType;
+ 
+ class Pairing {
+ public:
+-    Pairing() { initPairing(); }
+-    ~Pairing() { delPairing(); }
++    Pairing() { checkPairingInit(); }
++    ~Pairing() { }
+ 
+     void init (const char * pairingparams) {}
+ 
+-    Pairing(const char * buf, size_t len) { initPairing(); }
+-    Pairing(const char * buf) { initPairing(); }
+-    Pairing(const string &buf) { initPairing(); }
+-    Pairing(const FILE * buf) { initPairing(); }
++    Pairing(const char * buf, size_t len) { checkPairingInit(); }
++    Pairing(const char * buf) { checkPairingInit(); }
++    Pairing(const string &buf) { checkPairingInit(); }
++    Pairing(const FILE * buf) { checkPairingInit(); }
+ 
+     size_t getElementSize(PairingElementType type,
+                             bool compressed = false) const { return 256; }
+@@ -40,9 +44,9 @@ public:
+     //Copy constructor
+     Pairing(const Pairing &g1);
+ 
+-    // Assignment operator: 
++    // Assignment operator:
+     Pairing& operator=(const Pairing &rhs);
+-    
++
+     bool isSymmetric() const {
+       return false;
+     }
+@@ -65,6 +69,8 @@ public:
+     G1 g1_get_gen() const { return G1(*this,"",0); }
+     G2 g2_get_gen() const { return G2(*this,"",0); }
+     GT gt_get_gen() const { return apply(g1_get_gen(),g2_get_gen()); }
++private:
++    void checkPairingInit(void);
+ };
+ 
+ #endif
+diff --git c/Zr.h w/Zr.h
+index 40a8cd6..1414e8a 100644
+--- c/Zr.h
++++ w/Zr.h
+@@ -4,11 +4,13 @@
+ #include <iostream>
+ #include "G.h"
+ #include <gmp.h>
++
++#define __cplusplussave __cplusplus
+ #undef __cplusplus
+ extern "C" {
+ #include <relic/relic.h>
+ }
+-#define __cplusplus 1
++#define __cplusplus __cplusplussave
+ 
+ using namespace std;
+ 

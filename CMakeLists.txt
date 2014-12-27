@@ -35,7 +35,8 @@ ExternalProject_Add(
     -DSEED=UDEV "-DCOMP=-O2 -funroll-loops -fomit-frame-pointer -fPIC"
     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>)
 ExternalProject_Get_Property(Relic INSTALL_DIR)
-include_directories(${INSTALL_DIR}/include)
+set(RELIC_INCLUDE ${INSTALL_DIR}/include)
+include_directories(${RELIC_INCLUDE})
 set (RELIC_LIBRARIES ${INSTALL_DIR}/lib/librelic_s.a)
 
 ExternalProject_Add(
@@ -82,9 +83,18 @@ if(${OPENSSL_VERSION} VERSION_LESS "1.0.1")
 endif(${OPENSSL_VERSION} VERSION_LESS "1.0.1")
 include_directories(${OPENSSL_INCLUDE_DIR})
 
-add_subdirectory(relicwrapper)
-
-include_directories(${DP5_SOURCE_DIR}/relicwrapper)
+ExternalProject_Add(
+    RelicWrapper
+    URL https://crysp.uwaterloo.ca/software/relicwrapper-0.9.tar.gz
+    URL_MD5 19146857d7302734c3662ef9c2ca1838
+    CMAKE_ARGS "-DCMAKE_CXX_FLAGS=-g -O2 -fPIC" "-DRELIC_INCLUDE:STRING=${RELIC_INCLUDE}"
+    PATCH_COMMAND patch -t -N < 
+    ${CMAKE_CURRENT_SOURCE_DIR}/relicwrapper.patch
+    INSTALL_COMMAND "")
+ExternalProject_Get_Property(RelicWrapper source_dir)
+include_directories(${source_dir})
+ExternalProject_Get_Property(RelicWrapper binary_dir)
+set(RELICWRAPPER_LIBRARY ${binary_dir}/librelicwrapper.a)
 
 add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
     dp5params.cpp dp5metadata.cpp dp5combregclient.cpp dp5regclient.cpp dp5regserver.cpp)
@@ -93,7 +103,7 @@ add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
 add_library(dp5clib SHARED dp5clib.cpp curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
     dp5params.cpp dp5metadata.cpp dp5combregclient.cpp dp5regclient.cpp dp5regserver.cpp)
 target_link_libraries(dp5clib ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES}
-        relicwrapper ${RELIC_LIBRARIES})
+        ${RELICWRAPPER_LIBRARY} ${RELIC_LIBRARIES})
 set_source_files_properties(dp5clib.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
 
 # Separate this library for building tests to avoid
@@ -113,7 +123,7 @@ if(PYTHON)
     endif(CMAKE_HOST_APPLE)
     add_custom_command(OUTPUT dp5.so
                            COMMAND ${PYTHONCMD}
-                           DEPENDS Percy++ dp5py.cpp dp5 ${PROJECT_BINARY_DIR}/setup.py relicwrapper)
+                           DEPENDS Percy++ dp5py.cpp dp5 ${PROJECT_BINARY_DIR}/setup.py ${RELICWRAPPER_LIBRARY})
     add_custom_target(python ALL DEPENDS dp5.so)
 endif(PYTHON)
 
@@ -125,7 +135,7 @@ macro(testdef TARGET SOURCES)
 	set_target_properties(${TARGET} PROPERTIES
         COMPILE_DEFINITIONS ${TARGET_UPPER})
 	target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES}
-        curve25519-donna relicwrapper ${RELIC_LIBRARIES} ${ARGN})
+        curve25519-donna ${RELICWRAPPER_LIBRARY} ${RELIC_LIBRARIES} ${ARGN})
 	add_test(${TARGET} ${TARGET})
 endmacro(testdef)
 
@@ -160,7 +170,7 @@ testdef(test_pirgluemt "dp5lookupserver.cpp;dp5lookupclient.cpp;dp5params.cpp;dp
 
 add_executable(test_integrate dp5integrationtest.cpp)
 target_link_libraries(test_integrate dp5 curve25519-donna ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES}
-    relicwrapper ${RELIC_LIBRARIES})
+    ${RELICWRAPPER_LIBRARY} ${RELIC_LIBRARIES})
 # Note that this doesn't exercise PIR, but at least it runs quickly
 add_test(IntegrationTest test_integrate 25)
 set_tests_properties(IntegrationTest PROPERTIES FAIL_REGULAR_EXPRESSION "False")
@@ -171,7 +181,7 @@ macro(gtest TARGET SOURCES)
     add_executable(${TARGET} ${SOURCES})
     add_dependencies(${TARGET} googletest)
     target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES}
-     ${PERCY_LIBRARIES} relicwrapper ${RELIC_LIBRARIES} curve25519-donna ${GTEST_LIBRARIES} ${ARGN} pthread)
+     ${PERCY_LIBRARIES} ${RELICWRAPPER_LIBRARY} ${RELIC_LIBRARIES} curve25519-donna ${GTEST_LIBRARIES} ${ARGN} pthread)
     add_test(${TARGET} ${TARGET})
 endmacro(gtest)
 
