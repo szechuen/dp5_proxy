@@ -1,4 +1,0 @@
-[submodule "relicwrapper"]
-	path = relicwrapper
-	url = git@git-crysp.uwaterloo.ca:relicwrapper
-	branch = nikita/dp5
