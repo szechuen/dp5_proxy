@@ -12,10 +12,10 @@ index 0000000..668174f
 +*.dSYM
 diff --git c/CMakeLists.txt w/CMakeLists.txt
 new file mode 100644
-index 0000000..3e329a8
+index 0000000..f08a714
 --- /dev/null
 +++ w/CMakeLists.txt
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,16 @@
 +cmake_minimum_required (VERSION 2.8)
 +
 +project (RelicWrapper)
@@ -28,6 +28,9 @@ index 0000000..3e329a8
 +
 +set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error")
 +
++find_path(GMP_INCLUDE_DIR NAMES gmp.h)
++
++include_directories(${GMP_INCLUDE_DIR})
 +add_library(relicwrapper G.cpp G1.cpp G2.cpp GT.cpp Pairing.cpp Zr.cpp)
 diff --git c/G.cpp w/G.cpp
 index 3ea60a7..53fd1ea 100644
