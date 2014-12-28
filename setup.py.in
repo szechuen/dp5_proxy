@@ -6,7 +6,7 @@ liblists = "${PERCY_LIBRARIES};${OPENSSL_LIBRARIES};${RELIC_LIBRARIES};${RELICWR
 libs = liblists.split(';')
 
 reallibs = ["dp5"]
-libdirs = { '${PROJECT_BINARY_DIR}', '${RelicWrapper_BINARY_DIR}' }
+libdirs = { '${PROJECT_BINARY_DIR}' }
 for lib in libs:
     m = re.match(r'(.*)/lib([^.]+)\.[^.+]', lib)
     if m:
