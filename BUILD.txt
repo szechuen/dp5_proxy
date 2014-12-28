@@ -17,7 +17,7 @@ or build it
 Building NTL:
    ( Download latest source from: http://www.shoup.net/ntl/ )
    $ cd <ntl source directory>
-   $ ./configure PREFIX=/usr/local "CXXFLAGS=-O2 -fPIC"
+   $ ./configure PREFIX=/usr/local "CXXFLAGS=-O2 -fPIC" "CFLAGS=-O2 -fPIC"
    $ make
    $ make check
    $ sudo make install
@@ -30,13 +30,9 @@ Get Python-dev
 
 To build the DP5 C++ libraries and test programs just do:
 
-   $ cd code/
-   $ git submodule init
-   $ git submodule update
-   $ cd ..
    $ mkdir build
    $ cd build
-   $ cmake ../code
+   $ cmake ..
    $ make
 
 II. Python bindings
