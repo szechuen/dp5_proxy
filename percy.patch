@@ -19,10 +19,27 @@ diff -urN percy++-1.0.0/CMakeLists.txt percy++-1.0.0-dp5/CMakeLists.txt
 +	streams.cc recursiveparams.cc recursiveserver.cc
 +	hybridparams.cc)
 diff --git a/Makefile b/Makefile
-index 10efaee..5657e77 100644
+index 10efaee..6d643c4 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -72,67 +72,67 @@ libpercyclient.a: $(CLIENT_O)
+@@ -29,7 +29,7 @@ BIT32_SUPPORT=false
+ CXXFLAGS=-Wall -g -O2 -pedantic -I/usr/local/include/NTL #-DVERBOSE -DVERBOSE_DISTRIBUTED -DVERBOSE_RECURSIVE -DVERBOSE_THREADED
+ LDLIBS=-lntl -lgmp -pthread -lsocket++ -L/usr/local/lib -lgcrypt
+ 
+-TESTS=findpolys_test rr_test time_findpolys time_findpolys_gf28 time_findpolys_w8 time_findpolys_w16 time_findpolys_w32 testdistserver hybridtest agtest
++TESTS=findpolys_test rr_test time_findpolys time_findpolys_gf28 time_findpolys_w8 time_findpolys_w16 time_findpolys_w32 testdistserver hybridtest agtest cdtest
+ 
+ TARGETS=pirserver agserver hybridserver pirclient agclient hybridclient splitdatabase
+ 
+@@ -44,6 +44,7 @@ SERVER_O=percyserver.o itserver.o percyparams.o itparams.o datastore.o \
+ 	streams.o recursiveparams.o recursiveserver.o \
+ 	hybridparams.o
+ SRCS=$(subst .o,.cc,$(CLIENT_O) $(SERVER_O) pirclient.o pirserver.o pirclient_ag.o pirserver_ag.o splitdatabase.o percyio.o)
++TESTSRCS=cdtest.cc
+ LIBS=libpercyserver.a libpercyclient.a
+ 
+ VERSION=$(shell ./updateheaders.py --version-number)
+@@ -72,67 +73,70 @@ libpercyclient.a: $(CLIENT_O)
  tests: $(TESTS)
  
  pirserver: pirserver.o libpercyserver.a
@@ -107,9 +124,57 @@ index 10efaee..5657e77 100644
  gf2etest: gf2etest.cc gf2e.o
 -	g++ $(CXXFLAGS) -o $@ $^ $(LDLIBS)
 +	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
++
++cdtest: cdtest.o libpercyclient.a libpercyserver.a
++	$(CXX) -o $@ $^ $(LDLIBS)
  
  .PHONY: docs
  
+@@ -157,7 +161,7 @@ dist:
+ 	tar -czf percy++-$(VERSION).tar.gz --transform 's,^,percy++-$(VERSION)/,' -T releaselist
+ 
+ depend:
+-	makedepend -Y -- $(CXXFLAGS) -- $(SRCS) 2>/dev/null
++	makedepend -Y -- $(CXXFLAGS) -- $(SRCS) $(TESTSRCS) 2>/dev/null
+ 
+ # DO NOT DELETE
+ 
+@@ -268,3 +272,11 @@ pirserver_ag.o: gf2e_matrix_impl.h config.h percyio.h
+ splitdatabase.o: percyio.h /usr/local/include/NTL/ZZ.h percytypes.h config.h
+ splitdatabase.o: version.h gf2e.h
+ percyio.o: percyio.h /usr/local/include/NTL/ZZ.h
++cdtest.o: percyserver.h datastore.h /usr/local/include/NTL/ZZ.h percyparams.h
++cdtest.o: version.h percytypes.h percystats.h streams.h gf2e_matrix.h gf2e.h
++cdtest.o: xor.h itserver.h /usr/local/include/NTL/vec_ZZ_p.h itparams.h
++cdtest.o: itserver_impl.h gf2e_matrix_impl.h itclient.h
++cdtest.o: /usr/local/include/NTL/vec_vec_ZZ_p.h
++cdtest.o: /usr/local/include/NTL/vec_GF2E.h percyclient.h percyresult.h
++cdtest.o: percyio.h rsdecoder.h FXY.h portfolio.h recover.h rsdecoder_impl.h
++cdtest.o: subset.h subset_iter.h itclient_impl.h
+diff --git a/README b/README
+index 5115319..8827e47 100644
+--- a/README
++++ b/README
+@@ -38,8 +38,8 @@ protocols from the papers:
+     2014), July 2014.
+ 
+     Wouter Lueks, Ian Goldberg. "Sublinear Scaling for Multi-Client
+-    Private Information Retrieval". CACR Tech Report 2014-19,
+-    September 2014.
++    Private Information Retrieval". 19th International Conference on
++    Financial Cryptography and Data Security, January 2015.
+ 
+ 
+ Briefly, private information retrieval is the task of fetching a block
+@@ -211,7 +211,7 @@ Version 1.0 (2014-10-17):
+       query.  Use --batch-query option of pirclient.
+     - Implemented Strassen's fast matrix multiplication algorithm for
+       server computation in Goldberg's IT-PIR protocol (modes GF28,
+-      GF216, ZZ_P), based on Lueks and Goldberg (2014).
++      GF216, ZZ_P), based on Lueks and Goldberg (2015).
+     - Added statistics collection to the servers and clients.  See usage
+       messages of executables for details.
+     - Replaced testclient script with runtest and runtestset scripts.
 diff --git a/agserver.cc b/agserver.cc
 index ed2b048..2b6cc99 100644
 --- a/agserver.cc
@@ -174,10 +239,129 @@ index cf98f3e..4dee428 100644
  
      const AGParams * params;
      const AG_Element p;
+diff --git a/cdtest.cc b/cdtest.cc
+new file mode 100644
+index 0000000..0b8fbcf
+--- /dev/null
++++ b/cdtest.cc
+@@ -0,0 +1,100 @@
++// Test constructors, copy constructors, assignment operators, and
++// destructors
++
++#include <vector>
++#include <sstream>
++#include "percyserver.h"
++#include "itclient.h"
++
++template <typename CLI>
++void runtest(const PercyParams *params, size_t NUMSRVS, size_t T)
++{
++    // Create NUMSRVS servers
++    sid_t* server_indices = new sid_t[NUMSRVS];
++    vector<PercyServerParams *> srvparams;
++    vector<DataStore *> datastores;
++    vector<PercyServer *> servers;
++    vector<istream *> istreams;
++    vector<ostream *> ostreams;
++
++    for (size_t i=0; i<NUMSRVS; ++i) {
++	server_indices[i] = i+1;
++	srvparams.push_back(new PercyServerParams(params,
++		server_indices[i], 0, DIST_SPLIT_RECORDS,
++		0, DIST_SPLIT_RECORDS, vector<nservers_t>(), false, false));
++	datastores.push_back(new FileDataStore("database", srvparams[i], 0));
++	servers.push_back(PercyServer::make_server(datastores[i],
++		srvparams[i], NULL));
++	ostreams.push_back(new stringstream());
++    }
++
++    // Create a client
++    PercyClientParams cliparams(params, NUMSRVS);
++    CLI *client = (CLI*) PercyClient::make_client(&cliparams, NUMSRVS,
++	T, server_indices, NULL);
++    CLI c0 = *client, c1 = c0, c2 = c1, c3 = c0, c4 = c2, c5 = c0;
++
++    vector<dbsize_t> blocks;
++    blocks.push_back(1);
++    blocks.push_back(5);
++    blocks.push_back(7);
++    c0.encode_request(blocks);
++    c1 = c0;
++    c1.send_request(1, ostreams);
++
++    for (size_t i=0; i<NUMSRVS; ++i) {
++	stringstream istream(static_cast<stringstream*>(ostreams[i])->str());
++	delete ostreams[i];
++	ostreams[i] = new stringstream();
++	servers[i]->handle_request(istream, *(ostreams[i]));
++	istreams.push_back(new stringstream(
++		static_cast<stringstream*>(ostreams[i])->str()));
++    }
++
++    c2 = c1;
++    c2.receive_replies(1, istreams);
++    c3 = c2;
++    c2.process_replies(NUMSRVS);
++    c3.process_replies(NUMSRVS);
++    c4 = c3;
++    c5 = c2;
++    vector<PercyBlockResults> resblocks4, resblocks5;
++    bool res4 = c4.get_result(1, resblocks4);
++    bool res5 = c5.get_result(1, resblocks5);
++    if (res4 != res5 || resblocks4.size() != resblocks5.size()) {
++	cout << "MISMATCH!\n";
++    }
++    cout << (res4 ? "TRUE" : "FALSE" ) << "\n";
++    size_t numresults = resblocks4.size();
++    for (size_t i = 0; i<numresults; ++i) {
++	resblocks4[i].dump(cout);
++	resblocks5[i].dump(cout);
++    }
++
++    // Clean up
++    delete client;
++
++    for (size_t i=0; i<NUMSRVS; ++i) {
++	delete istreams[i];
++	delete ostreams[i];
++	delete servers[i];
++	delete datastores[i];
++	delete srvparams[i];
++    }
++    srvparams.clear();
++    datastores.clear();
++    servers.clear();
++    istreams.clear();
++    ostreams.clear();
++    delete[] server_indices;
++}
++
++int main(int argc, char **argv)
++{
++    PercyParams *params = NULL;
++
++    params = new GF2EParams(100, 100, 8, 0);
++    runtest<PercyClient_GF2E<GF28_Element> >(params, 3, 1);
++    delete params;
++    return 0;
++}
 diff --git a/docs/main.dox b/docs/main.dox
-index bdd095b..d7559e5 100644
+index bdd095b..5ecf3d4 100644
 --- a/docs/main.dox
 +++ b/docs/main.dox
+@@ -50,9 +50,9 @@ href="https://cs.uwaterloo.ca/~iang/pubs/hybridpir-pets.pdf">The Best of Both Wo
+     2014), July 2014.</li>
+ 
+ <li>    Wouter Lueks, Ian Goldberg. <a
+-href="http://cacr.uwaterloo.ca/techreports/2014/cacr2014-19.pdf">Sublinear Scaling for Multi-Client
+-    Private Information Retrieval</a>. CACR Tech Report 2014-19,
+-    September 2014.</li>
++href="https://cs.uwaterloo.ca/~iang/pubs/slspir-fc15.pdf">Sublinear Scaling for Multi-Client
++    Private Information Retrieval</a>.  19th International Conference on
++    Financial Cryptography and Data Security, January 2015.</li>
+ </ul>
+ 
+ <p>Briefly, private information retrieval is the task of fetching a block
 @@ -63,7 +63,7 @@ interested in.</p>
  <p>These protocols provide <b>t-private v-Byzantine-robust &tau;-independent
  k-out-of-l private information retrieval</b>.  This means:</p>
@@ -213,11 +397,138 @@ index d104d5b..597b946 100644
  };
  
  template <typename GF2E_Element>
+diff --git a/itclient.h b/itclient.h
+index bf44be8..b8654c8 100644
+--- a/itclient.h
++++ b/itclient.h
+@@ -158,9 +158,39 @@ public:
+     PercyClient_GF2E (const PercyClientParams * params, nservers_t num_servers,
+ 	    nservers_t t, sid_t * sids, PercyStats * stats = NULL);
+ 
++    /// Copy constructor.
++    /// @param other        The instance to copy
++    PercyClient_GF2E (const PercyClient_GF2E &other);
++
++    /// Assignment operator.
++    /// @param rhs          The instance to copy
++    PercyClient_GF2E& operator= (PercyClient_GF2E rhs);
++
+     /// Destructor.
+     virtual ~PercyClient_GF2E ();
+ 
++    /// Swapper.
++    /// @param a            The instance to swap
++    /// @param b            The instance to swap it with
++    friend void swap(PercyClient_GF2E &a, PercyClient_GF2E &b) {
++	using std::swap;
++
++	swap((PercyClient&)a, (PercyClient&)b);
++	swap(a.params, b.params);
++	swap(a.indices, b.indices);
++	swap(a.interp_indices, b.interp_indices);
++	swap(a.vec_interp_indices, b.vec_interp_indices);
++	swap(a.vecs_interp_indices, b.vecs_interp_indices);
++	swap(a.indices_ntl, b.indices_ntl);
++	swap(a.randmults, b.randmults);
++	swap(a.stored_shares, b.stored_shares);
++	swap(a.answers, b.answers);
++	swap(a.answers_ntl, b.answers_ntl);
++	swap(a.undecoded_indices, b.undecoded_indices);
++	swap(a.unfinished_results, b.unfinished_results);
++	swap(a.decoded, b.decoded);
++    }
++
+ private:
+     // Virtual members as described in PercyClient class
+     virtual void encode_request_impl (nqueries_t request_identifier);
 diff --git a/itclient_impl.h b/itclient_impl.h
-index ff525f1..5e08ee8 100644
+index ff525f1..a8bfcb2 100644
 --- a/itclient_impl.h
 +++ b/itclient_impl.h
-@@ -357,7 +357,8 @@ dbsize_t PercyClient_GF2E<GF2E_Element>::send_request_impl (
+@@ -53,7 +53,7 @@ inline void setCoeffs<GF216_Element>(GF2X &GF2X_P) {
+     SetCoeff(GF2X_P, 0, 1);
+ }
+ 
+-// Constructor and destructor
++// Constructor
+ template <typename GF2E_Element>
+ PercyClient_GF2E<GF2E_Element>::PercyClient_GF2E (const PercyClientParams * params,
+ 	nservers_t num_servers, nservers_t t, sid_t * sids, PercyStats * stats) :
+@@ -80,6 +80,65 @@ PercyClient_GF2E<GF2E_Element>::PercyClient_GF2E (const PercyClientParams * para
+     choose_interp_indices(max_qbs);
+ }
+ 
++// Copy constructor
++template <typename GF2E_Element>
++PercyClient_GF2E<GF2E_Element>::PercyClient_GF2E (
++	const PercyClient_GF2E &other) :
++    PercyClient(other),
++    params(other.params),
++    vec_interp_indices(other.vec_interp_indices),
++    vecs_interp_indices(other.vecs_interp_indices),
++    indices_ntl(other.indices_ntl),
++    randmults(other.randmults),
++    answers_ntl(other.answers_ntl),
++    undecoded_indices(other.undecoded_indices),
++    unfinished_results(other.unfinished_results),
++    decoded(other.decoded)
++{
++    // Deal with indices, interp_indices, stored_shares, answers
++    indices = new GF2E_Element[num_servers];
++    memmove(indices, other.indices, num_servers*sizeof(GF2E_Element));
++
++    nqueries_t qbs = vec_interp_indices.length();
++    interp_indices = new GF2E_Element[qbs];
++    memmove(interp_indices, other.interp_indices, qbs*sizeof(GF2E_Element));
++
++    typename map<nqueries_t, GF2E_Element *>::const_iterator siter;
++    dbsize_t num_virtual_blocks = params->num_virtual_blocks();
++    for (siter = other.stored_shares.begin(); siter != other.stored_shares.end(); ++siter) {
++	nqueries_t qbs = get_qbs(siter->first);
++	const vector<dbsize_t>& block_numbers =
++		get_block_numbers(siter->first);
++	nqueries_t num_block_requests = block_numbers.size();
++	nqueries_t num_queries = (num_block_requests+qbs-1)/qbs;
++	GF2E_Element *shares = new GF2E_Element[num_queries * num_virtual_blocks * num_servers];
++	memmove(shares, siter->second,
++		num_queries * num_virtual_blocks * num_servers *
++		sizeof(GF2E_Element));
++	stored_shares[siter->first] = shares;
++    }
++
++    answers = other.answers;
++    nqueries_t numanswers = answers.size();
++    dbsize_t words_per_block = params->words_per_block();
++    for (nqueries_t i = 0; i < numanswers; ++i) {
++	GF2E_Element *answer = new GF2E_Element[words_per_block * num_servers];
++	memmove(answer, answers[i],
++		words_per_block * num_servers * sizeof(GF2E_Element));
++	answers[i] = answer;
++    }
++}
++
++// Assignment operator
++template <typename GF2E_Element>
++PercyClient_GF2E<GF2E_Element>& PercyClient_GF2E<GF2E_Element>::operator= (
++	PercyClient_GF2E rhs)
++{
++    swap(*this, rhs);
++    return *this;
++}
++
++// Destructor
+ template <typename GF2E_Element>
+ PercyClient_GF2E<GF2E_Element>::~PercyClient_GF2E ()
+ {
+@@ -102,7 +161,6 @@ PercyClient_GF2E<GF2E_Element>::~PercyClient_GF2E ()
+     stored_shares.clear();
+ }
+ 
+-
+ // Generate t-private (t+1)-of-l shares of a given secret value.
+ template <typename GF2E_Element>
+ static void genshares_GF2E(nservers_t t, nservers_t l,
+@@ -357,7 +415,8 @@ dbsize_t PercyClient_GF2E<GF2E_Element>::send_request_impl (
      delete[] shares;
      stored_shares.erase(request_identifier);
  
@@ -352,6 +663,38 @@ index f1a798d..5ce3a45 100644
  {
      dbsize_t block_size = params->block_size() * params->virtual_block_size();
      for (nservers_t i = 0; i < worker_results.size(); ++i) {
+diff --git a/percyclient.h b/percyclient.h
+index 8de97e9..f80ccfa 100644
+--- a/percyclient.h
++++ b/percyclient.h
+@@ -116,6 +116,27 @@ public:
+ 	    vector<istream*> &isvec, vector<PercyBlockResults> &results, 
+ 	    nqueries_t querybsize = 1);
+ 
++    /// Swapper.
++    /// @param a            The instance to swap
++    /// @param b            The instance to swap it with
++    friend void swap(PercyClient &a, PercyClient &b) {
++	using std::swap;
++
++	swap(a.clientparams, b.clientparams);
++	swap(a.num_servers, b.num_servers);
++	swap(a.t, b.t);
++	swap(a.goodservers, b.goodservers);
++	swap(a.next_request_identifier, b.next_request_identifier);
++	swap(a.requested_blocks, b.requested_blocks);
++	swap(a.blocks_per_query, b.blocks_per_query);
++	swap(a.statuses, b.statuses);
++	swap(a.undecoded_blocks, b.undecoded_blocks);
++	swap(a.decoded_blocks, b.decoded_blocks);
++	swap(a.stats, b.stats);
++	swap(a.request_id_to_stats_batch_number,
++		b.request_id_to_stats_batch_number);
++    }
++
+ protected:
+     friend class RecursiveClient;
+ 
 diff --git a/percyserver.cc b/percyserver.cc
 index 1e9e04a..468a4ab 100644
 --- a/percyserver.cc
