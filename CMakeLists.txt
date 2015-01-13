@@ -85,6 +85,7 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 
 ExternalProject_Add(
     RelicWrapper
+    DEPENDS Relic
     URL https://crysp.uwaterloo.ca/software/relicwrapper-0.9.tar.gz
     URL_MD5 19146857d7302734c3662ef9c2ca1838
     CMAKE_ARGS "-DCMAKE_CXX_FLAGS=-g -O2 -fPIC" "-DRELIC_INCLUDE:STRING=${RELIC_INCLUDE}"
@@ -99,9 +100,12 @@ set(RELICWRAPPER_LIBRARY ${binary_dir}/librelicwrapper.a)
 add_library (dp5 curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
     dp5params.cpp dp5metadata.cpp dp5combregclient.cpp dp5regclient.cpp dp5regserver.cpp)
 
+add_dependencies(dp5 RelicWrapper)
+
 # Build a pure C shared-library to call with Python CFFI wrapper
 add_library(dp5clib SHARED dp5clib.cpp curve25519-donna.c dp5lookupclient.cpp dp5lookupserver.cpp
     dp5params.cpp dp5metadata.cpp dp5combregclient.cpp dp5regclient.cpp dp5regserver.cpp)
+add_dependencies(dp5clib RelicWrapper)
 target_link_libraries(dp5clib ${OPENSSL_LIBRARIES} ${PERCY_LIBRARIES}
         ${RELICWRAPPER_LIBRARY} ${RELIC_LIBRARIES})
 set_source_files_properties(dp5clib.cpp PROPERTIES COMPILE_FLAGS "-Wno-error")
@@ -132,6 +136,7 @@ endif(PYTHON)
 macro(testdef TARGET SOURCES)
 	string(TOUPPER ${TARGET} TARGET_UPPER)
 	add_executable(${TARGET} ${SOURCES})
+	add_dependencies(${TARGET} RelicWrapper)
 	set_target_properties(${TARGET} PROPERTIES
         COMPILE_DEFINITIONS ${TARGET_UPPER})
 	target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES}
@@ -179,7 +184,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 
 macro(gtest TARGET SOURCES)
     add_executable(${TARGET} ${SOURCES})
-    add_dependencies(${TARGET} googletest)
+    add_dependencies(${TARGET} googletest RelicWrapper)
     target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES}
      ${PERCY_LIBRARIES} ${RELICWRAPPER_LIBRARY} ${RELIC_LIBRARIES} curve25519-donna ${GTEST_LIBRARIES} ${ARGN} pthread)
     add_test(${TARGET} ${TARGET})
