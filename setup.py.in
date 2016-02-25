@@ -2,7 +2,7 @@
 from distutils.core import setup, Extension
 import re
 
-liblists = "${PERCY_LIBRARIES};${OPENSSL_LIBRARIES};${RELIC_LIBRARIES};${RELICWRAPPER_LIBRARY}"
+liblists = "${PERCY_LIBRARIES};${OPENSSL_LIBRARIES};${RELICWRAPPER_LIBRARY};${RELIC_LIBRARIES}"
 libs = liblists.split(';')
 
 reallibs = ["dp5"]
