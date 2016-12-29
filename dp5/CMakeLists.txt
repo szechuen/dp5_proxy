@@ -27,8 +27,8 @@ include(ExternalProject)
 ExternalProject_Add(
     Relic
     LIST_SEPARATOR @@
-    URL http://relic-toolkit.googlecode.com/files/relic-0.3.5.tar.gz
-    URL_MD5 f3dd5d7ad1683e5f4d5503b18ff18d5c
+    URL https://github.com/relic-toolkit/relic/archive/relic-toolkit-0.3.5.tar.gz
+    URL_MD5 25e19bf4323e52d5485e88c14ef2c443
     CMAKE_ARGS -DWITH=ALL -DCHECK=off ${RELIC_ARITH} ${RELIC_ARCH} -DFP_PRIME=254 -DFP_QNRES=on
     -DFP_METHD=BASIC@@COMBA@@COMBA@@MONTY@@LOWER@@SLIDE DFP_QNRES=on
     -DPC_METHD=PRIME -DPP_METHD=INTEG@@INTEG@@LAZYR@@OATEP
@@ -41,8 +41,8 @@ set (RELIC_LIBRARIES ${INSTALL_DIR}/lib/librelic_s.a)
 
 ExternalProject_Add(
     googletest
-    URL http://googletest.googlecode.com/files/gtest-1.7.0.zip
-    URL_MD5 2d6ec8ccdf5c46b05ba54a9fd1d130d7
+    URL https://github.com/google/googletest/archive/release-1.7.0.zip
+    URL_MD5 ef5e700c8a0f3ee123e2e0209b8b4961
     INSTALL_COMMAND "")
 ExternalProject_Get_Property(googletest source_dir)
 set(GTEST_INCLUDE_DIRS ${source_dir}/include)
@@ -89,7 +89,7 @@ ExternalProject_Add(
     URL https://crysp.uwaterloo.ca/software/relicwrapper-0.9.tar.gz
     URL_MD5 19146857d7302734c3662ef9c2ca1838
     CMAKE_ARGS "-DCMAKE_CXX_FLAGS=-g -O2 -fPIC" "-DRELIC_INCLUDE:STRING=${RELIC_INCLUDE}"
-    PATCH_COMMAND patch -t -N < 
+    PATCH_COMMAND patch -t -N <
     ${CMAKE_CURRENT_SOURCE_DIR}/relicwrapper.patch
     INSTALL_COMMAND "")
 ExternalProject_Get_Property(RelicWrapper source_dir)
@@ -184,7 +184,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 
 macro(gtest TARGET SOURCES)
     add_executable(${TARGET} ${SOURCES})
-    add_dependencies(${TARGET} googletest RelicWrapper)
+    add_dependencies(${TARGET} googletest RelicWrapper Percy++)
     target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES}
      ${PERCY_LIBRARIES} ${RELICWRAPPER_LIBRARY} ${RELIC_LIBRARIES} curve25519-donna ${GTEST_LIBRARIES} ${ARGN} pthread)
     add_test(${TARGET} ${TARGET})
