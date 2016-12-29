@@ -3,7 +3,6 @@ test_*
 dp5.so
 libdp5.a
 build
-*.cfg
 regdir
 datadir
 *_unittest
