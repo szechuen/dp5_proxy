@@ -16,14 +16,16 @@ if [ -n "$DP5_HOSTNAME" ] && [ -n "$DP5_EMAIL" ] && [ -n "$DP5_REGSVR" ]; then
     if [ -d /etc/letsencrypt/live/"$DP5_HOSTNAME" ]; then
         echo "INFO: Starting server..."
 
-        cp /etc/letsencrypt/live/"$DP5_HOSTNAME"/fullchain.pem /server.crt
-        cp /etc/letsencrypt/live/"$DP5_HOSTNAME"/privkey.pem /server.key
+        if ! [ -f /server.crt ]; then
+            cp /etc/letsencrypt/live/"$DP5_HOSTNAME"/fullchain.pem /server.crt
+            cp /etc/letsencrypt/live/"$DP5_HOSTNAME"/privkey.pem /server.key
 
-        mkdir /regdir
-        mkdir /datadir
-        mkdir /logs
+            mkdir /regdir
+            mkdir /datadir
+            mkdir /logs
 
-        envsubst < /server.cfg > /server.cfg
+            envsubst < /server.cfg > /server.cfg
+        fi
 
         python /dp5/dp5twistedserver.py server.cfg
     else
