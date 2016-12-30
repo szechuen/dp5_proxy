@@ -4,7 +4,11 @@ if [ -n "$DP5_HOSTNAME" ] && [ -n "$DP5_EMAIL" ] && [ -n "$DP5_REGSVR" ]; then
     echo "INFO: Generating certificate..."
 
     if ! [ -d /etc/letsencrypt/live/"$DP5_HOSTNAME" ]; then
-        letsencrypt certonly -n --standalone -d "$DP5_HOSTNAME" --agree-tos --email "$DP5_EMAIL"
+        if ! [ -n "$DP5_STAGING" ]; then
+            letsencrypt certonly -n --standalone -d "$DP5_HOSTNAME" --agree-tos --email "$DP5_EMAIL"
+        else
+            letsencrypt certonly -n --standalone -d "$DP5_HOSTNAME" --agree-tos --email "$DP5_EMAIL" --staging
+        fi
     else
         echo "INFO: Certificate already exists"
     fi
