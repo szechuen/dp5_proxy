@@ -7,7 +7,6 @@ import (
     "C"
 
     "bytes"
-    "crypto/tls"
     "encoding/json"
     "fmt"
     "io/ioutil"
@@ -108,9 +107,7 @@ func dp5_init() {
         }
     }
 
-    // TODO: Remove insecure config
     tr := &http.Transport{
-        TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
         Dial: tor_dialer.Dial,
     }
     client = &http.Client{Transport: tr}
