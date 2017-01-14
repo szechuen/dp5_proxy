@@ -4,6 +4,7 @@ import (
     "bufio"
     "crypto/rand"
     "crypto/rsa"
+    "crypto/sha1"
     "crypto/tls"
     "crypto/x509"
     "crypto/x509/pkix"
@@ -433,6 +434,13 @@ func SelfCertificate(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error)
         Certificate: [][]byte{derBytes},
         PrivateKey: priv,
     }
+
+    cert_x509, err := x509.ParseCertificate(derBytes)
+    if err != nil {
+        return nil, err
+    }
+
+    log.Printf("Certificate Fingerprint: %X", sha1.Sum(cert_x509.Raw))
 
     return &cert, nil
 }
