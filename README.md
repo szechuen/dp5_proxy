@@ -20,6 +20,7 @@ OPENSSL_ROOT_DIR=/usr/local/opt/openssl cmake ..
 OPENSSL_ROOT_DIR=/usr/local/opt/openssl make
 cd ../..
 
+GOPATH=~/go go get golang.org/x/net/proxy
 GOPATH=~/go go build
 tor &
 ./dp5_proxy
