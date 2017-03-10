@@ -9,3 +9,4 @@ datadir
 pairing_integrationtest
 *.a
 *.pyc
+dp5_proxy
