@@ -2,6 +2,7 @@ package main
 
 import (
     "bufio"
+    "bytes"
     "crypto/rand"
     "crypto/rsa"
     "crypto/sha1"
@@ -11,10 +12,13 @@ import (
     "encoding/base64"
     "flag"
     "fmt"
+    "encoding/gob"
     "golang.org/x/net/proxy"
     "log"
     "math/big"
     "net"
+    "os"
+    "path/filepath"
     "regexp"
     "strings"
     "time"
@@ -50,6 +54,8 @@ var c_alias string
 var tor_dialer proxy.Dialer
 
 var user_server string
+
+var crt tls.Certificate
 
 func main() {
     flag.BoolVar(&no_color, "nc", false, "Disable colored logging")
@@ -103,6 +109,35 @@ func main() {
 
     dp5_init()
     go dp5_loop()
+
+    crt_ptr, err := SelfCertificateInit()
+    if err != nil { log.Fatal(err) }
+
+    crt = *crt_ptr
+    gob.Register(crt)
+    gob.Register(crt.PrivateKey)
+
+    crt_path := filepath.Join(conf_dir, "proxy.crt")
+
+    if !stat(crt_path, false, false) {
+        f, err := os.Create(crt_path)
+        if err != nil { log.Fatal(err) }
+
+        enc := gob.NewEncoder(f)
+        err = enc.Encode(&crt)
+        if err != nil { log.Fatal(err) }
+
+        f.Close()
+    } else {
+        f, err := os.Open(crt_path)
+        if err != nil { log.Fatal(err) }
+
+        dec := gob.NewDecoder(f)
+        err = dec.Decode(&crt)
+        if err != nil { log.Fatal(err) }
+
+        f.Close()
+    }
 
     l, err := net.Listen("tcp", ":" + proxy_port)
     if err != nil { log.Fatal(err) }
@@ -344,8 +379,13 @@ func handle_conn(client net.Conn) {
 
                     if(verbose) { log.Print("Starting TLS with client...") }
 
+                    crt_x509, err := x509.ParseCertificate(bytes.Join(crt.Certificate, []byte("")))
+                    if err != nil { log.Fatal(err) }
+
+                    log.Printf("Certificate Fingerprint: %X", sha1.Sum(crt_x509.Raw))
+
                     client_tls = tls.Server(client, &tls.Config{
-                        GetCertificate: SelfCertificate,
+                        Certificates: []tls.Certificate{crt},
                     })
 
                     client_tls_r = bufio.NewReader(client_tls)
@@ -456,6 +496,60 @@ func SelfCertificate(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error)
     }
 
     log.Printf("Certificate Fingerprint: %X", sha1.Sum(cert_x509.Raw))
+
+    return &cert, nil
+}
+
+
+
+// Adapted from src/crypto/tls/generate_cert.go
+func SelfCertificateInit() (*tls.Certificate, error) {
+    priv, err := rsa.GenerateKey(rand.Reader, 2048)
+    if err != nil {
+        return nil, err
+    }
+
+    notBefore := time.Now()
+    notAfter := notBefore.Add(365*24*time.Hour)
+
+    serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+    serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+    if err != nil {
+        return nil, err
+    }
+
+    template := x509.Certificate{
+        SerialNumber: serialNumber,
+        Subject: pkix.Name{
+            Organization: []string{"DP5 Proxy"},
+        },
+        NotBefore: notBefore,
+        NotAfter:  notAfter,
+
+        KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+        ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+        BasicConstraintsValid: true,
+    }
+
+    h := "localhost"
+    if ip := net.ParseIP(h); ip != nil {
+        template.IPAddresses = append(template.IPAddresses, ip)
+    } else {
+        template.DNSNames = append(template.DNSNames, h)
+    }
+
+    // template.IsCA = true
+    // template.KeyUsage |= x509.KeyUsageCertSign
+
+    derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+    if err != nil {
+        return nil, err
+    }
+
+    cert := tls.Certificate{
+        Certificate: [][]byte{derBytes},
+        PrivateKey: priv,
+    }
 
     return &cert, nil
 }
