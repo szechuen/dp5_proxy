@@ -111,7 +111,10 @@ func main() {
 
     for {
         conn, err := l.Accept()
-        if err != nil { log.Fatal(err) }
+        if err != nil {
+            log.Println(err)
+            continue
+        }
 
         if verbose { log.Println("Accepted TCP connection") }
 
@@ -193,9 +196,12 @@ func handle_conn(client net.Conn) {
             if client_en {
                 req, err = client_r.ReadString('>')
                 if err != nil {
-                    if verbose { log.Println(err) }
+                    log.Println(err)
 
                     user_server = ""
+                    client.Close()
+                    server.Close()
+
                     return
                 }
 
@@ -205,9 +211,12 @@ func handle_conn(client net.Conn) {
 
                 req, err = client_tls_r.ReadString('>')
                 if err != nil {
-                    if verbose { log.Println(err) }
+                    log.Println(err)
 
                     user_server = ""
+                    client_tls.Close()
+                    server_tls.Close()
+
                     return
                 }
 
@@ -288,9 +297,12 @@ func handle_conn(client net.Conn) {
             if server_en {
                 res, err = server_r.ReadString('>')
                 if err != nil {
-                    if verbose { log.Println(err) }
+                    log.Println(err)
 
                     user_server = ""
+                    server.Close()
+                    client.Close()
+
                     return
                 }
 
@@ -300,9 +312,12 @@ func handle_conn(client net.Conn) {
 
                 res, err = server_tls_r.ReadString('>')
                 if err != nil {
-                    if verbose { log.Println(err) }
+                    log.Println(err)
 
                     user_server = ""
+                    server_tls.Close()
+                    client_tls.Close()
+
                     return
                 }
 

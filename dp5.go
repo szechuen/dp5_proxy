@@ -129,7 +129,10 @@ func dp5_sendreg_req(server string, epoch int, msg []byte) []byte {
     url := "https://" + server + "/register?epoch=" + strconv.Itoa(epoch)
 
     resp, err := client.Post(url, "text/html", bytes.NewReader(msg))
-    if err != nil { log.Fatal(err) }
+    if err != nil {
+        log.Println(err)
+        return []byte("")
+    }
 
     body, _ := ioutil.ReadAll(resp.Body)
 
@@ -174,7 +177,10 @@ func dp5_sendlookup_req(server string, epoch int, msg []byte) []byte {
     url := "https://" + server + "/lookup?epoch=" + strconv.Itoa(epoch)
 
     resp, err := client.Post(url, "text/html", bytes.NewReader(msg))
-    if err != nil { log.Fatal(err) }
+    if err != nil {
+        log.Println(err)
+        return []byte("")
+    }
 
     body, _ := ioutil.ReadAll(resp.Body)
 
@@ -265,23 +271,35 @@ func dp5_checkepoch(server string) int {
 
     var body_map map[string]interface{}
     err = json.Unmarshal(body, &body_map)
-    if err != nil { log.Fatal(err) }
+    if err != nil {
+        log.Println(err)
+        return -1
+    }
 
     return int(body_map["epoch"].(float64))
 }
 
 func dp5_refreshepoch() {
     last_epoch := dp5_checkepoch(reg_server)
-    for last_epoch == -1 { last_epoch = dp5_checkepoch(reg_server) }
+    for last_epoch == -1 {
+        time.Sleep(time.Duration(5) * time.Second)
+        last_epoch = dp5_checkepoch(reg_server)
+    }
     current_epoch := dp5_checkepoch(reg_server)
-    for current_epoch == -1 { current_epoch = dp5_checkepoch(reg_server) }
+    for current_epoch == -1 {
+        time.Sleep(time.Duration(5) * time.Second)
+        current_epoch = dp5_checkepoch(reg_server)
+    }
 
     if current_epoch > last_epoch { log.Println("Refreshing epoch...") }
 
     for current_epoch > last_epoch {
         last_epoch = current_epoch
         current_epoch = dp5_checkepoch(reg_server)
-        for current_epoch == -1 { current_epoch = dp5_checkepoch(reg_server) }
+        for current_epoch == -1 {
+            time.Sleep(time.Duration(5) * time.Second)
+            current_epoch = dp5_checkepoch(reg_server)
+        }
     }
 }
 
