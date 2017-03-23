@@ -10,6 +10,7 @@ import (
     "crypto/x509"
     "crypto/x509/pkix"
     "encoding/base64"
+    "encoding/pem"
     "flag"
     "fmt"
     "encoding/gob"
@@ -135,6 +136,17 @@ func main() {
         dec := gob.NewDecoder(f)
         err = dec.Decode(&crt)
         if err != nil { log.Fatal(err) }
+
+        f.Close()
+    }
+
+    pem_path := filepath.Join(conf_dir, "proxy.pem")
+
+    if !stat(pem_path, false, false) {
+        f, err := os.Create(pem_path)
+        if err != nil { log.Fatal(err) }
+
+        pem.Encode(f, &pem.Block{Type: "CERTIFICATE", Bytes: crt.Certificate[0]})
 
         f.Close()
     }
