@@ -1,8 +1,8 @@
 package main
 
 import (
-    // #cgo CXXFLAGS: -I /usr/local/opt/openssl/include -I /usr/local/include -I /usr/local/include/NTL -I dp5/build/Relic-prefix/include  -I dp5/build/RelicWrapper-prefix/src/RelicWrapper -I dp5/build/Percy++-prefix/src/Percy++ -I dp5
-    // #cgo LDFLAGS: -L /usr/local/opt/openssl/lib -l ssl -L /usr/local/opt/openssl/lib -l crypto -L /usr/lib/ -l pthread -L /usr/local/lib/ -l gmp -L /usr/local/lib/ -l ntl -L dp5/build/Relic-prefix/lib/ -l relic_s -L dp5/build/RelicWrapper-prefix/src/RelicWrapper-build/ -l relicwrapper -L dp5/build/Percy++-prefix/src/Percy++-build/ -l percyserver -L dp5/build/Percy++-prefix/src/Percy++-build/ -l percyclient -L dp5/build -l dp5
+    // #cgo CXXFLAGS: -I /usr/local/opt/openssl/include -I dp5 -I dp5/build/Percy++-prefix/src/Percy++ -I dp5/build/RelicWrapper-prefix/src/RelicWrapper -I dp5/build/Relic-prefix/include -I /usr/local/include/NTL -I /usr/include/NTL
+    // #cgo LDFLAGS: -L /usr/local/opt/openssl/lib -l ssl -l crypto -L dp5/build -l dp5 -L dp5/build/Percy++-prefix/src/Percy++-build -l percyclient -l percyserver -L dp5/build/RelicWrapper-prefix/src/RelicWrapper-build -l relicwrapper -L dp5/build/Relic-prefix/lib -l relic_s -l ntl -l gmp -l pthread
     // #include "dp5_bind.h"
     "C"
 
