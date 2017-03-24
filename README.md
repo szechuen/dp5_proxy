@@ -6,7 +6,7 @@ Install
 -------
 ### Server
 ```bash
-docker run -e DP5_HOSTNAME="dp5.szechuen.com" -e DP5_EMAIL="tan@szechuen.com" -e DP5_STAGING="false" -e DP5_REGSVR="dp5.szechuen.com:8443" -e DP5_ISREG="false" -e DP5_ISLOOKUP="true" -p 443:443 -p 8443:8443 szechuen/dp5_proxy
+docker run -e DP5_HOSTNAME="dp5.szechuen.com" -e DP5_EMAIL="tan@szechuen.com" -e DP5_STAGING="false" -e DP5_REGSVR="dp5.szechuen.com:8443" -e DP5_ISREG="false" -e DP5_ISLOOKUP="true" -p 443:443 -p 8443:8443 szechuen/dp5_proxy:server
 ```
 
 ### Client

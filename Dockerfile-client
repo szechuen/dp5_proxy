@@ -1,0 +1,19 @@
+FROM ubuntu:xenial
+
+RUN apt-get update
+
+RUN apt-get install -y libgmp3-dev libntl-dev libssl-dev python-dev build-essential cmake
+RUN apt-get install -y tor git wget
+
+RUN wget https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.8.linux-amd64.tar.gz
+
+ADD . /dp5_proxy
+
+RUN cd /dp5_proxy/dp5 && mkdir build && cd build && cmake .. && make
+RUN cd /dp5_proxy && GOPATH=/go /usr/local/go/bin/go get golang.org/x/net/proxy && GOPATH=/go /usr/local/go/bin/go build
+
+ADD run_client.sh /run_client.sh
+
+EXPOSE 8080
+
+CMD bash /run_client.sh
