@@ -1,8 +1,8 @@
 package main
 
 import (
-    // #cgo CXXFLAGS: -I /usr/local/opt/openssl/include -I dp5 -I dp5/build/Percy++-prefix/src/Percy++ -I dp5/build/RelicWrapper-prefix/src/RelicWrapper -I dp5/build/Relic-prefix/include -I /usr/local/include/NTL -I /usr/include/NTL
-    // #cgo LDFLAGS: -L /usr/local/opt/openssl/lib -l ssl -l crypto -L dp5/build -l dp5 -L dp5/build/Percy++-prefix/src/Percy++-build -l percyclient -l percyserver -L dp5/build/RelicWrapper-prefix/src/RelicWrapper-build -l relicwrapper -L dp5/build/Relic-prefix/lib -l relic_s -l ntl -l gmp -l pthread
+    // #cgo CXXFLAGS: -I dp5 -I dp5/build/Percy++-prefix/src/Percy++ -I dp5/build/RelicWrapper-prefix/src/RelicWrapper -I dp5/build/Relic-prefix/include -I /usr/local/include/NTL -I /usr/include/NTL -I /usr/local/opt/openssl/include
+    // #cgo LDFLAGS: -L dp5/build -l dp5 -L dp5/build/Percy++-prefix/src/Percy++-build -l percyclient -l percyserver -L dp5/build/RelicWrapper-prefix/src/RelicWrapper-build -l relicwrapper -L dp5/build/Relic-prefix/lib -l relic_s -l ntl -l gmp -l pthread -L /usr/local/opt/openssl/lib -l ssl -l crypto
     // #include "dp5_bind.h"
     "C"
 
