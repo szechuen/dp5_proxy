@@ -18,6 +18,6 @@ EXPOSE 443 8443
 ENV DP5_ISREG="false" DP5_ISLOOKUP="true"
 
 RUN apt-get install -y curl
-HEALTHCHECK CMD curl --fail https://localhost:8443/ || exit 1
+HEALTHCHECK CMD curl --fail -k https://localhost:8443/ || exit 1
 
 CMD bash /run_server.sh
