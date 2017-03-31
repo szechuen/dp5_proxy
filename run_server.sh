@@ -11,15 +11,17 @@ if [ -n "$DP5_HOSTNAME" ] && [ -n "$DP5_EMAIL" ] && [ -n "$DP5_REGSVR" ]; then
         fi
     else
         echo "INFO: Certificate already exists"
+
+        letsencrypt renew -n
     fi
 
     if [ -d /etc/letsencrypt/live/"$DP5_HOSTNAME" ]; then
         echo "INFO: Starting server..."
 
-        if ! [ -f /server.crt ]; then
-            cp /etc/letsencrypt/live/"$DP5_HOSTNAME"/fullchain.pem /server.crt
-            cp /etc/letsencrypt/live/"$DP5_HOSTNAME"/privkey.pem /server.key
+        cp -f /etc/letsencrypt/live/"$DP5_HOSTNAME"/fullchain.pem /server.crt
+        cp -f /etc/letsencrypt/live/"$DP5_HOSTNAME"/privkey.pem /server.key
 
+        if ! [ -d /logs ]; then
             mkdir /regdir
             mkdir /datadir
             mkdir /logs
